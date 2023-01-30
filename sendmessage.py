@@ -33,16 +33,16 @@ wb = xl.load_workbook("test.xlsx", data_only=True)
 ws = wb.active
 
 for i in range(2, ws.max_row+1):
-    name = str(ws.cell(row = i, column = 3).value)
-    score = ws.cell(row = i, column = 6).value
-    if ws.cell(row = i, column = 2).value is not None:
-        className = str(ws.cell(row = i, column = 2).value)
-        teacher = str(ws.cell(row = i, column = 4).value)
-        testName = str(ws.cell(row = i, column = 5).value)
-        average = ws.cell(row = i, column = 7).value
+    name = str(ws.cell(i, 3).value)
+    score = ws.cell(i, 6).value
+    if ws.cell(i, 2).value is not None:
+        className = str(ws.cell(i, 2).value)
+        teacher = str(ws.cell(i, 4).value)
+        testName = str(ws.cell(i, 5).value)
+        average = ws.cell(i, 7).value
 
     # 시험 미응시시 건너뛰기
-    if ws.cell(row = i, column = 6).value is None: continue
+    if ws.cell(i, 6).value is None: continue
 
     tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
     for i in range(len(tableNames)):

@@ -16,7 +16,7 @@ config = json.load(open('config.json', encoding='UTF8'))
 
 if True:
 # if not os.path.isfile('./data/'+config['dailyTestFileName']):
-    print('Processing...')
+    print('Making Data File...')
 
     iniWb = xl.Workbook()
     iniWs = iniWb.active
@@ -29,6 +29,9 @@ if True:
     iniWs['F1'] = '학생 평균'
     iniWs.freeze_panes = 'G2'
     iniWs.auto_filter.ref = 'A:E'
+
+    classWb = xl.load_workbook("class.xlsx")
+    classWs = classWb.active
 
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
@@ -44,18 +47,30 @@ if True:
         writeLocation = iniWs.max_row + 1
 
         className = tableNames[i].text.split('(')[0].rstrip()
+        for j in range(2, classWs.max_row + 1):
+            if classWs.cell(j, 1).value == className:
+                teacher = classWs.cell(j, 2).value
+                date = classWs.cell(j, 3).value
+                time = classWs.cell(j, 4).value
+        
+        iniWs.cell(row = writeLocation, column = 2, value = date)
         iniWs.cell(row = writeLocation, column = 3, value = className)
+        iniWs.cell(row = writeLocation, column = 4, value = teacher)
         iniWs.cell(row = writeLocation, column = 5, value = '시험명')
 
         #학생 루프
         for tr in trs:
             writeLocation = iniWs.max_row + 1
+            iniWs.cell(row = writeLocation, column = 2, value = date)
             iniWs.cell(row = writeLocation, column = 3, value = className)
+            iniWs.cell(row = writeLocation, column = 4, value = teacher)
             iniWs.cell(row = writeLocation, column = 5, value = tr.find_element(By.CLASS_NAME, 'style9').text)
             iniWs.cell(row = writeLocation, column = 6, value = '=ROUND(AVERAGE(G' + str(writeLocation) + ':XFD' + str(writeLocation) + '), 0)')
         
         writeLocation = iniWs.max_row + 1
+        iniWs.cell(row = writeLocation, column = 2, value = date)
         iniWs.cell(row = writeLocation, column = 3, value = className)
+        iniWs.cell(row = writeLocation, column = 4, value = teacher)
         iniWs.cell(row = writeLocation, column = 5, value = '시험 평균')
         iniWs.cell(row = writeLocation, column = 6, value = '=ROUND(AVERAGE(G' + str(writeLocation) + ':XFD' + str(writeLocation) + '), 0)')
 
@@ -71,7 +86,7 @@ if True:
     copyWs.auto_filter.ref = 'A:E'
 
     iniWb.save('./data/'+config['dailyTestFileName'])
-    print('done')
+    print('Done')
 
 else:
     print('이미 파일이 존재합니다')

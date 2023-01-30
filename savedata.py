@@ -1,6 +1,6 @@
 import json
 import openpyxl as xl
-import win32com.client # only works in Windows
+# import win32com.client # only works in Windows
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter
@@ -8,13 +8,13 @@ from openpyxl.styles import Border, Color, PatternFill, Side
 
 config = json.load(open('config.json', encoding='UTF8'))
 
-print('Processing...')
+print('Saving Data...')
 
 # 파일 위치 및 파일명 지정
 dailyTestFile = config['dailyTestFilePath'] + config['dailyTestFileName']
 
 # 입력 양식 엑셀
-formWb = xl.load_workbook("test.xlsx", data_only=True)
+formWb = xl.load_workbook("dailyTestForm.xlsx", data_only=True)
 formWs = formWb.active
 # 데이터 저장 엑셀
 dataFileWb = xl.load_workbook(dailyTestFile)
@@ -35,13 +35,15 @@ dataFileWs.cell(1, writeColumn).value = datetime.today().strftime('%Y.%m.%d')
 
 for i in range(2, formWs.max_row+1):
     # 양식 파일 끝 검사
-    if formWs.cell(i, 3).value is None:
+    if formWs.cell(i, 4).value is None:
         break
     
     # 반 필터링
-    if formWs.cell(i, 2).value is not None: # form className is not None
-        className = str(formWs.cell(i, 2).value)
-        testName = str(formWs.cell(i, 5).value)
+    if formWs.cell(i, 3).value is not None: # form className is not None
+        className = str(formWs.cell(i, 3).value)
+        testName = str(formWs.cell(i, 6).value)
+        if formWs.cell(i, 6).value is None:
+            continue
 
         for j in range(2, dataFileWs.max_row+1):
             if str(dataFileWs.cell(j, 3).value) == className: # data className == form className
@@ -56,24 +58,24 @@ for i in range(2, formWs.max_row+1):
                 break
 
     #미응시자(점수 None) 필터링
-    if formWs.cell(i, 6).value is None: # form score is None
+    if formWs.cell(i, 7).value is None: # form score is None
         continue
 
     for j in range(start, end):
-        if dataFileWs.cell(j, 5).value == formWs.cell(i, 3).value: # data name == form name
-            dataFileWs.cell(j, writeColumn).value = formWs.cell(i, 6).value
+        if dataFileWs.cell(j, 5).value == formWs.cell(i, 4).value: # data name == form name
+            dataFileWs.cell(j, writeColumn).value = formWs.cell(i, 7).value
             break
 
 
 dataFileWb.save(dailyTestFile)
 
 # 조건부서식
-excel = win32com.client.Dispatch('Excel.Application')
-excel.Visible = False
-wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
-wb.Save()
-wb.Close()
-excel.Quit()
+# excel = win32com.client.Dispatch('Excel.Application')
+# excel.Visible = False
+# wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
+# wb.Save()
+# wb.Close()
+# excel.Quit()
 
 dataFileWb = xl.load_workbook(dailyTestFile)
 dataFileWs = dataFileWb.active
@@ -108,4 +110,4 @@ for i in range(2, dataFileColorWs.max_row+1):
 dataFileWb.save(dailyTestFile)
 
 print('Done')
-wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
+# wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
