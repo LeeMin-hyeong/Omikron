@@ -12,7 +12,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 index = 0
 
-config = json.load(open('config.json'))
+config = json.load(open('config.json', encoding='UTF8'))
 
 if True:
 # if not os.path.isfile('./data/'+config['dailyTestFileName']):
