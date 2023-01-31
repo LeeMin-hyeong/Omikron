@@ -1,6 +1,6 @@
 import json
 import openpyxl as xl
-# import win32com.client # only works in Windows
+import win32com.client # only works in Windows
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter
@@ -66,16 +66,25 @@ for i in range(2, formWs.max_row+1):
             dataFileWs.cell(j, writeColumn).value = formWs.cell(i, 7).value
             break
 
+print('Clear Data From...')
+formWb = xl.load_workbook("dailyTestForm.xlsx")
+formWs = formWb.active
+for i in range(2, formWs.max_row + 1):
+    formWs.cell(i, 6).value = ''
+    formWs.cell(i, 7).value = ''
+    formWs.cell(i, 8).value = ''
+    formWs.cell(i, 9).value = ''
+formWb.save('./dailyTestForm.xlsx')
 
 dataFileWb.save(dailyTestFile)
 
 # 조건부서식
-# excel = win32com.client.Dispatch('Excel.Application')
-# excel.Visible = False
-# wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
-# wb.Save()
-# wb.Close()
-# excel.Quit()
+excel = win32com.client.Dispatch('Excel.Application')
+excel.Visible = False
+wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
+wb.Save()
+wb.Close()
+excel.Quit()
 
 dataFileWb = xl.load_workbook(dailyTestFile)
 dataFileWs = dataFileWb.active
@@ -110,4 +119,4 @@ for i in range(2, dataFileColorWs.max_row+1):
 dataFileWb.save(dailyTestFile)
 
 print('Done')
-# wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
+wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')

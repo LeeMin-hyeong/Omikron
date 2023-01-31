@@ -2,7 +2,7 @@ import json
 import os.path
 import openpyxl as xl
 
-from openpyxl.styles import Border, Side
+from openpyxl.styles import Alignment, Border, Side
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -27,11 +27,15 @@ if True:
     iniWs['F1'] = '시험명'
     iniWs['G1'] = '점수'
     iniWs['H1'] = '평균'
-    iniWs['I1'] = '기타 시험명'
-    iniWs['J1'] = '기타 시험 점수'
-    iniWs['K1'] = '기타 시험 평균'
+    iniWs['I1'] = '시험대비 모의고사명'
+    iniWs['J1'] = '모의고사 점수'
+    iniWs['K1'] = '모의고사 평균'
     iniWs.auto_filter.ref = 'A:B'
 
+    if not os.path.isfile('./class.xlsx'):
+        print('error : class.xlsx file does not exist')
+        exit()
+    
     classWb = xl.load_workbook("class.xlsx")
     classWs = classWb.active
 
@@ -57,6 +61,7 @@ if True:
                 date = classWs.cell(j, 3).value
                 time = classWs.cell(j, 4).value
         iniWs.cell(writeLocation, 5).value = teacher
+
         #학생 루프
         for tr in trs:
             iniWs.cell(writeLocation, 1).value = date
@@ -68,13 +73,21 @@ if True:
 
         # 시험 평균
         iniWs.cell(start, 8).value = '=ROUND(AVERAGE(G' + str(start) + ':G' + str(end) + '), 0)'
-        # 기타 시험 평균
+        # 모의고사 평균
         iniWs.cell(start, 11).value = '=ROUND(AVERAGE(J' + str(start) + ':J' + str(end) + '), 0)'
         
+        # 정렬 및 테두리
+        for j in range(1, iniWs.max_row + 1):
+            for k in range(1, iniWs.max_column + 1):
+                iniWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
+                iniWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        
+        # 셀 병합
         iniWs.merge_cells('C' + str(start) + ':C' + str(end))
         iniWs.merge_cells('E' + str(start) + ':E' + str(end))
         iniWs.merge_cells('F' + str(start) + ':F' + str(end))
         iniWs.merge_cells('H' + str(start) + ':H' + str(end))
+        iniWs.merge_cells('I' + str(start) + ':I' + str(end))
         iniWs.merge_cells('K' + str(start) + ':K' + str(end))
         
 

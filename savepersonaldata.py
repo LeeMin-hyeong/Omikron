@@ -9,11 +9,6 @@ config = json.load(open('config.json'))
 formWb = xl.load_workbook("test.xlsx", data_only=True)
 formWs = formWb.active
 
-className = ''
-teacher = ''
-testName = ''
-average = 0
-
 for i in range(2, formWs.max_row+1):
     if formWs.cell(i, 2).value is not None:
         className = str(formWs.cell(i, 2).value)
@@ -43,7 +38,7 @@ for i in range(2, formWs.max_row+1):
     #중복방지
     if str(studentWs.cell(writeLocation-1, 4).value) == testName: continue
 
-    studentWs.cell(writeLocation, 1).value = datetime.today().strftime('%Y-%m-%d')
+    studentWs.cell(writeLocation, 1).value = datetime.today().strftime('%Y.%m.%d')
     studentWs.cell(writeLocation, 2).value = className
     studentWs.cell(writeLocation, 3).value = teacher
     studentWs.cell(writeLocation, 4).value = testName
