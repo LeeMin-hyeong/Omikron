@@ -29,6 +29,9 @@ if True:
     iniWs.auto_filter.ref = 'A:E'
 
     # 반 정보 확인
+    if not os.path.isfile('./class.xlsx'):
+        print('error : class.xlsx file does not exist')
+        exit()
     classWb = xl.load_workbook("class.xlsx")
     classWs = classWb.active
 
@@ -79,9 +82,9 @@ if True:
             iniWs.cell(writeLocation, j).border = Border(bottom = Side(border_style='medium', color='000000'))
 
     # 정렬
-    for j in range(1, iniWs.max_row + 1):
-            for k in range(1, iniWs.max_column + 1):
-                iniWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
+    for i in range(1, iniWs.max_row + 1):
+            for j in range(1, iniWs.max_column + 1):
+                iniWs.cell(i, j).alignment = Alignment(horizontal='center', vertical='center')
     
     # 모의고사 sheet 생성
     copyWs = iniWb.copy_worksheet(iniWb['DailyTest'])

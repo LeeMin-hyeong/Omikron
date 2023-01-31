@@ -18,7 +18,7 @@ formWb = xl.load_workbook("dailyTestForm.xlsx", data_only=True)
 formWs = formWb.active
 # 데이터 저장 엑셀
 dataFileWb = xl.load_workbook(dailyTestFile)
-dataFileWs = dataFileWb.active
+dataFileWs = dataFileWb['DailyTest']
 
 # 데이터 날짜 내림차순
 writeColumn = 7
@@ -34,46 +34,64 @@ if str(dataFileWs.cell(1, writeColumn).value) != datetime.today().strftime('%Y.%
 dataFileWs.cell(1, writeColumn).value = datetime.today().strftime('%Y.%m.%d')
 
 for i in range(2, formWs.max_row+1):
-    # 양식 파일 끝 검사
+    dailyTestScore = formWs.cell(i, 7).value
+    mockTestScore = formWs.cell(i, 10).value
+    # 파일 끝 검사
     if formWs.cell(i, 4).value is None:
         break
     
     # 반 필터링
     if formWs.cell(i, 3).value is not None: # form className is not None
-        className = str(formWs.cell(i, 3).value)
-        testName = str(formWs.cell(i, 6).value)
-        if formWs.cell(i, 6).value is None:
+        className = formWs.cell(i, 3).value
+        dailyTestName = formWs.cell(i, 6).value
+        mockTestName = formWs.cell(i, 9).value
+        if dailyTestName is None and mockTestName is None:
             continue
-
+    
         for j in range(2, dataFileWs.max_row+1):
-            if str(dataFileWs.cell(j, 3).value) == className: # data className == form className
-                dataFileWs.cell(j, writeColumn).value = testName
-                start = j+1
+            if dataFileWs.cell(j, 3).value == className: # data className == form className
+                start = j + 1
                 break
         
-        for k in range(start, dataFileWs.max_row+1):
-            if str(dataFileWs.cell(k, 5).value) == '시험 평균': # data name is 시험 평균
-                dataFileWs.cell(k, writeColumn).value = '=ROUND(AVERAGE(' + get_column_letter(writeColumn) + str(start) + ':' + get_column_letter(writeColumn) + str(k-1) + '), 0)'
-                end = k
+        for j in range(start, dataFileWs.max_row+1):
+            if dataFileWs.cell(j, 5).value == '시험 평균': # data name is 시험 평균
+                end = j - 1
                 break
+        average = '=ROUND(AVERAGE(' + get_column_letter(writeColumn) + str(start) + ':' + get_column_letter(writeColumn) + str(end) + '), 0)'
+        
+        if dailyTestName is not None:
+            dataFileWs.cell(start - 1, writeColumn).value = dailyTestName
+            dataFileWs.cell(end + 1, writeColumn).value = average
+        if mockTestName is not None:
+            dataFileWs = dataFileWb['모의고사']
+            dataFileWs.cell(start - 1, writeColumn).value = mockTestName
+            dataFileWs.cell(end + 1, writeColumn).value = average
+            dataFileWs = dataFileWb['DailyTest']
 
-    #미응시자(점수 None) 필터링
-    if formWs.cell(i, 7).value is None: # form score is None
+    if mockTestScore is not None:
+        dataFileWs = dataFileWb['모의고사']
+        score = mockTestScore
+    elif formWs.cell(i, 7).value is not None:
+        score = dailyTestScore
+    else:
         continue
 
     for j in range(start, end):
         if dataFileWs.cell(j, 5).value == formWs.cell(i, 4).value: # data name == form name
-            dataFileWs.cell(j, writeColumn).value = formWs.cell(i, 7).value
+            dataFileWs.cell(j, writeColumn).value = score
             break
+    
+    dataFileWs = dataFileWb['DailyTest']
 
 print('Clear Data From...')
-formWb = xl.load_workbook("dailyTestForm.xlsx")
+formWb = xl.load_workbook('dailyTestForm.xlsx')
 formWs = formWb.active
-for i in range(2, formWs.max_row + 1):
-    formWs.cell(i, 6).value = ''
-    formWs.cell(i, 7).value = ''
-    formWs.cell(i, 8).value = ''
-    formWs.cell(i, 9).value = ''
+formWb.save('./data/backup/dailyTestForm(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
+# for i in range(2, formWs.max_row + 1):
+#     formWs.cell(i, 6).value = ''
+#     formWs.cell(i, 7).value = ''
+#     formWs.cell(i, 8).value = ''
+#     formWs.cell(i, 9).value = ''
 formWb.save('./dailyTestForm.xlsx')
 
 dataFileWb.save(dailyTestFile)
@@ -88,7 +106,7 @@ excel.Quit()
 
 dataFileWb = xl.load_workbook(dailyTestFile)
 dataFileWs = dataFileWb.active
-dataFileColorWb = xl.load_workbook(filename=dailyTestFile, data_only=True)
+dataFileColorWb = xl.load_workbook(dailyTestFile, data_only=True)
 dataFileColorWs = dataFileColorWb.active
 
 for i in range(2, dataFileColorWs.max_row+1):
