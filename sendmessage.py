@@ -7,15 +7,6 @@ from selenium.webdriver.chrome.service import Service
 
 from webdriver_manager.chrome import ChromeDriverManager
 
-#변수
-className = ''
-name = ''
-teacher = ''
-testName = ''
-score = 0
-average = 0
-index = 0
-
 # 아이소식 key url
 config = json.load(open('config.json'))
 
@@ -29,20 +20,32 @@ driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config['dailyTest']
 
 # 점수기록표 xlsx 입력
 # GUI를 통해 엑셀 파일 받도록 변경 예정
-wb = xl.load_workbook("test.xlsx", data_only=True)
-ws = wb.active
+formWb = xl.load_workbook("dailyTestForm.xlsx", data_only=True)
+formWs = formWb.active
 
-for i in range(2, ws.max_row+1):
-    name = str(ws.cell(i, 3).value)
-    score = ws.cell(i, 6).value
-    if ws.cell(i, 2).value is not None:
-        className = str(ws.cell(i, 2).value)
-        teacher = str(ws.cell(i, 4).value)
-        testName = str(ws.cell(i, 5).value)
-        average = ws.cell(i, 7).value
+for i in range(2, formWs.max_row+1):
+    name = formWs.cell(i, 4).value
+    dailyTestScore = formWs.cell(i, 7).value
+    mockTestScore = formWs.cell(i, 10).value
+    if formWs.cell(i, 3).value is not None:
+        className = formWs.cell(i, 3).value
+        teacher = formWs.cell(i, 5).value
+        dailyTestName = formWs.cell(i, 6).value
+        mockTestName = formWs.cell(i, 9).value
+        dailyTestAverage = formWs.cell(i, 8).value
+        mockTestAverage = formWs.cell(i, 11).value
 
     # 시험 미응시시 건너뛰기
-    if ws.cell(i, 6).value is None: continue
+    if dailyTestScore is not None:
+        testName = dailyTestName
+        score = dailyTestScore
+        average = dailyTestAverage
+    elif mockTestScore is not None:
+        testName = mockTestName
+        score = mockTestScore
+        average = mockTestAverage
+    else:
+        continue
 
     tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
     for i in range(len(tableNames)):

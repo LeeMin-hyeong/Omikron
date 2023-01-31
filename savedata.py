@@ -1,6 +1,6 @@
 import json
 import openpyxl as xl
-import win32com.client # only works in Windows
+# import win32com.client # only works in Windows
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter
@@ -87,54 +87,54 @@ print('Clear Data From...')
 formWb = xl.load_workbook('dailyTestForm.xlsx')
 formWs = formWb.active
 formWb.save('./data/backup/dailyTestForm(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
-# for i in range(2, formWs.max_row + 1):
+for i in range(2, formWs.max_row + 1):
 #     formWs.cell(i, 6).value = ''
-#     formWs.cell(i, 7).value = ''
-#     formWs.cell(i, 8).value = ''
+    formWs.cell(i, 7).value = ''
 #     formWs.cell(i, 9).value = ''
+    formWs.cell(i, 10).value = ''
 formWb.save('./dailyTestForm.xlsx')
 
 dataFileWb.save(dailyTestFile)
 
 # 조건부서식
-excel = win32com.client.Dispatch('Excel.Application')
-excel.Visible = False
-wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
-wb.Save()
-wb.Close()
-excel.Quit()
+# excel = win32com.client.Dispatch('Excel.Application')
+# excel.Visible = False
+# wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
+# wb.Save()
+# wb.Close()
+# excel.Quit()
 
 dataFileWb = xl.load_workbook(dailyTestFile)
-dataFileWs = dataFileWb.active
 dataFileColorWb = xl.load_workbook(dailyTestFile, data_only=True)
 dataFileColorWs = dataFileColorWb.active
+for sheetName in dataFileWb.sheetnames:
+    dataFileWs = dataFileWb[sheetName]
+    for i in range(2, dataFileColorWs.max_row+1):
+        # 입력 데이터 조건부 서식
+        if type(dataFileColorWs.cell(i, writeColumn).value) == int:
+            if dataFileColorWs.cell(i, writeColumn).value < 60:
+                dataFileWs.cell(i, writeColumn).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
+            elif dataFileColorWs.cell(i, writeColumn).value < 70:
+                dataFileWs.cell(i, writeColumn).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
+            elif dataFileColorWs.cell(i, writeColumn).value < 80:
+                dataFileWs.cell(i, writeColumn).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
+            elif dataFileColorWs.cell(i, 5).value == '시험 평균':
+                dataFileWs.cell(i, 7).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
 
-for i in range(2, dataFileColorWs.max_row+1):
-    # 입력 데이터 조건부 서식
-    if type(dataFileColorWs.cell(i, writeColumn).value) == int:
-        if dataFileColorWs.cell(i, writeColumn).value < 60:
-            dataFileWs.cell(i, writeColumn).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
-        elif dataFileColorWs.cell(i, writeColumn).value < 70:
-            dataFileWs.cell(i, writeColumn).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
-        elif dataFileColorWs.cell(i, writeColumn).value < 80:
-            dataFileWs.cell(i, writeColumn).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
-        elif dataFileColorWs.cell(i, 5).value == '시험 평균':
-            dataFileWs.cell(i, 7).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
-
-    # 학생별 평균 조건부 서식
-    if type(dataFileColorWs.cell(i, 6).value) == int:
-        if dataFileColorWs.cell(i, 6).value < 60:
-            dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
-        elif dataFileColorWs.cell(i, 6).value < 70:
-            dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
-        elif dataFileColorWs.cell(i, 6).value < 80:
-            dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
-        elif dataFileColorWs.cell(i, 5).value == '시험 평균':
-            dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
-        else:
-            dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('E2EFDA'))
+        # 학생별 평균 조건부 서식
+        if type(dataFileColorWs.cell(i, 6).value) == int:
+            if dataFileColorWs.cell(i, 6).value < 60:
+                dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
+            elif dataFileColorWs.cell(i, 6).value < 70:
+                dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
+            elif dataFileColorWs.cell(i, 6).value < 80:
+                dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
+            elif dataFileColorWs.cell(i, 5).value == '시험 평균':
+                dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
+            else:
+                dataFileWs.cell(i, 6).fill = PatternFill(fill_type='solid', fgColor=Color('E2EFDA'))
 
 dataFileWb.save(dailyTestFile)
 
 print('Done')
-wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
+# wb = excel.Workbooks.Open('C:/Users/lmhst/git/Omikron/data/dailyData(23_1).xlsx')
