@@ -131,3 +131,4 @@ dmypy.json
 *.xlsx
 config.json
 .DS_Store
+.vscode

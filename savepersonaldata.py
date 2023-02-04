@@ -4,13 +4,15 @@ import openpyxl as xl
 
 from datetime import datetime
 
-config = json.load(open('config.json'))
+config = json.load(open('config.json', encoding='UTF8'))
 
-formWb = xl.load_workbook("test.xlsx", data_only=True)
+formWb = xl.load_workbook("./dailyTestForm.xlsx", data_only=True)
 formWs = formWb.active
 
 for i in range(2, formWs.max_row+1):
     name = formWs.cell(i, 4).value
+    if name is None:
+        break
     dailyTestScore = formWs.cell(i, 7).value
     mockTestScore = formWs.cell(i, 10).value
     if formWs.cell(i, 3).value is not None:
@@ -34,7 +36,7 @@ for i in range(2, formWs.max_row+1):
         continue
     
     # 해당 학생 엑셀 파일이 존재하지 않으면 생성
-    if not os.path.isfile(config['dailyTestPersonalFilePath'] + str(formWs.cell(i, 4).value) + '.xlsx'):
+    if not os.path.isfile('./data/personal/' + name + '.xlsx'):
         iniWb = xl.Workbook()
         iniWs = iniWb.active
         iniWs['A1'] = '응시일'
@@ -43,10 +45,10 @@ for i in range(2, formWs.max_row+1):
         iniWs['D1'] = '시험명'
         iniWs['E1'] = '점수'
         iniWs['F1'] = '반평균'
-        iniWb.save(config['dailyTestPersonalFilePath'] + str(formWs.cell(i, 4).value) + '.xlsx')
+        iniWb.save('./data/personal/' + name + '.xlsx')
 
     # 해당 학생 파일에 응시 결과 입력
-    studentWb = xl.load_workbook(config['dailyTestPersonalFilePath'] + str(formWs.cell(i, 4).value) + '.xlsx', data_only=True)
+    studentWb = xl.load_workbook('./data/personal/' + name + '.xlsx', data_only=True)
     studentWs = studentWb.active
     writeLocation = studentWs.max_row + 1
 
@@ -59,4 +61,4 @@ for i in range(2, formWs.max_row+1):
     studentWs.cell(writeLocation, 4).value = testName
     studentWs.cell(writeLocation, 5).value = score
     studentWs.cell(writeLocation, 6).value = average
-    studentWb.save(config['dailyTestPersonalFilePath'] + str(formWs.cell(i, 3).value) + '.xlsx')
+    studentWb.save('./data/personal/' + name + '.xlsx')
