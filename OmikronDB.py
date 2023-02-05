@@ -12,9 +12,12 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 
+from win32process import CREATE_NO_WINDOW
 from webdriver_manager.chrome import ChromeDriverManager
 
 config = json.load(open('config.json', encoding='UTF8'))
+service = Service(ChromeDriverManager().install())
+service.creation_flags = CREATE_NO_WINDOW
 
 def makeDataFile(gui):
     if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
@@ -41,7 +44,7 @@ def makeDataFile(gui):
 
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
-        driver = webdriver.Chrome(service = Service(ChromeDriverManager().install()), options = options)
+        driver = webdriver.Chrome(service = service, options = options)
 
         # 아이소식 접속
         driver.get(config['url'])
@@ -130,12 +133,11 @@ def makeDataForm(gui):
 
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
-    driver = webdriver.Chrome(service = Service(ChromeDriverManager().install()), options = options)
+    driver = webdriver.Chrome(service = service, options = options)
 
     # 아이소식 접속
     driver.get(config['url'])
     tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
-
     #반 루프
     for i in range(3, len(tableNames)):
         trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
@@ -180,8 +182,8 @@ def makeDataForm(gui):
         iniWs.merge_cells('K' + str(start) + ':K' + str(end))
         
     if os.path.isfile('./dailyTestForm.xlsx'):
+        i = 1
         while True:
-            i = 1
             if not os.path.isfile('./dailyTestForm(' + str(i) +').xlsx'):
                 iniWb.save('./dailyTestForm(' + str(i) +').xlsx')
                 break;
@@ -205,26 +207,45 @@ def saveData(gui):
     # 데이터 저장 엑셀
     dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
     dataFileWs = dataFileWb['DailyTest']
+    # 재시험 엑셀
+    if not os.path.isfile('./data/재시험명단.xlsx'):
+        gui.appendLog('재시험 명단 파일 생성 중...')
 
-            
+        iniWb = xl.Workbook()
+        iniWs = iniWb.active
+        iniWs.title = 'Make-upTest'
+        iniWs['A1'] = '응시일'
+        iniWs['B1'] = '반'
+        iniWs['C1'] = '담당T'
+        iniWs['D1'] = '이름'
+        iniWs['E1'] = '시험명'
+        iniWs['F1'] = '시험 점수'
+        iniWs['G1'] = '재시 응시 여부'
+        iniWs.auto_filter.ref = 'A:G'
+        iniWb.save('./data/재시험명단.xlsx')
+    
+    makeupListWb = xl.load_workbook('./data/재시험명단.xlsx')
+    makeupListWs = makeupListWb.active
+
+    today = datetime.today().strftime('%Y.%m.%d')
     # 데이터 날짜 내림차순
     writeColumn = 7
-    if str(dataFileWs.cell(1, writeColumn).value) != datetime.today().strftime('%Y.%m.%d'):
+    if str(dataFileWs.cell(1, writeColumn).value) != today:
         dataFileWs.insert_cols(writeColumn)
         for i in range(2, dataFileWs.max_row+1):
             if dataFileWs.cell(i, 5).value == '시험 평균':
                 dataFileWs.cell(i, 7).border = Border(bottom=Side(border_style='medium', color='000000'))
-    dataFileWs.cell(1, writeColumn).value = datetime.today().strftime('%Y.%m.%d')
+    dataFileWs.cell(1, writeColumn).value = today
 
     for i in range(2, formWs.max_row+1):
         if formWs.cell(i, 9).value is not None:
             dataFileWs = dataFileWb['모의고사']
-            if str(dataFileWs.cell(1, writeColumn).value) != datetime.today().strftime('%Y.%m.%d'):
+            if str(dataFileWs.cell(1, writeColumn).value) != today:
                 dataFileWs.insert_cols(writeColumn)
                 for i in range(2, dataFileWs.max_row+1):
                     if dataFileWs.cell(i, 5).value == '시험 평균':
                         dataFileWs.cell(i, 7).border = Border(bottom=Side(border_style='medium', color='000000'))
-            dataFileWs.cell(1, writeColumn).value = datetime.today().strftime('%Y.%m.%d')
+            dataFileWs.cell(1, writeColumn).value = today
             dataFileWs = dataFileWb['DailyTest']
             break
 
@@ -239,6 +260,7 @@ def saveData(gui):
         if formWs.cell(i, 3).value is not None: # form className is not None
             className = formWs.cell(i, 3).value
             dailyTestName = formWs.cell(i, 6).value
+            teacher = formWs.cell(i, 5).value
             mockTestName = formWs.cell(i, 9).value
             if dailyTestName is None and mockTestName is None:
                 continue
@@ -265,18 +287,36 @@ def saveData(gui):
 
         if mockTestScore is not None:
             dataFileWs = dataFileWb['모의고사']
+            testName = mockTestName
             score = mockTestScore
-        elif formWs.cell(i, 7).value is not None:
+        elif dailyTestScore is not None:
+            testName = dailyTestName
             score = dailyTestScore
         else:
             continue
-
+        
         for j in range(start, end):
             if dataFileWs.cell(j, 5).value == formWs.cell(i, 4).value: # data name == form name
                 dataFileWs.cell(j, writeColumn).value = score
                 break
         
         dataFileWs = dataFileWb['DailyTest']
+
+        if score < 80:
+            writeRow = makeupListWs.max_row + 1
+            makeupListWs.cell(writeRow, 1).value = today
+            makeupListWs.cell(writeRow, 2).value = className
+            makeupListWs.cell(writeRow, 3).value = teacher
+            makeupListWs.cell(writeRow, 4).value = formWs.cell(i, 4).value
+            makeupListWs.cell(writeRow, 5).value = testName
+            makeupListWs.cell(writeRow, 6).value = score
+
+    gui.appendLog('재시험 명단 작성 중...')
+    for j in range(1, makeupListWs.max_row + 1):
+            for k in range(1, makeupListWs.max_column + 1):
+                makeupListWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
+                makeupListWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    makeupListWb.save('./data/재시험명단.xlsx')
 
     gui.appendLog('백업 파일 생성중...')
     formWb = xl.load_workbook(filepath)
@@ -349,7 +389,7 @@ def classInfo(gui):
 
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
-        driver = webdriver.Chrome(service = Service(ChromeDriverManager().install()), options = options)
+        driver = webdriver.Chrome(service = service, options = options)
 
         # 아이소식 접속
         driver.get(config['url'])
@@ -379,7 +419,7 @@ def sendMessage(gui):
     
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = webdriver.Chrome(service=service, options=options)
 
     # 아이소식 접속
     driver.get(config['url'])
@@ -395,7 +435,6 @@ def sendMessage(gui):
         mockTestScore = formWs.cell(i, 10).value
         if formWs.cell(i, 3).value is not None:
             className = formWs.cell(i, 3).value
-            teacher = formWs.cell(i, 5).value
             dailyTestName = formWs.cell(i, 6).value
             mockTestName = formWs.cell(i, 9).value
             dailyTestAverage = formWs.cell(i, 8).value

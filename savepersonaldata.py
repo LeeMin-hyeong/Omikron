@@ -3,6 +3,7 @@ import os.path
 import openpyxl as xl
 
 from datetime import datetime
+from openpyxl.styles import Alignment, Border, Side
 
 config = json.load(open('config.json', encoding='UTF8'))
 
@@ -61,4 +62,11 @@ for i in range(2, formWs.max_row+1):
     studentWs.cell(writeLocation, 4).value = testName
     studentWs.cell(writeLocation, 5).value = score
     studentWs.cell(writeLocation, 6).value = average
+    
+    # 정렬 및 테두리
+    for j in range(1, iniWs.max_row + 1):
+        for k in range(1, iniWs.max_column + 1):
+            studentWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
+            studentWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
     studentWb.save('./data/personal/' + name + '.xlsx')
