@@ -16,6 +16,7 @@ from win32process import CREATE_NO_WINDOW
 from webdriver_manager.chrome import ChromeDriverManager
 
 config = json.load(open('config.json', encoding='UTF8'))
+os.environ['WDM_PROGRESS_BAR'] = '0'
 service = Service(ChromeDriverManager().install())
 service.creation_flags = CREATE_NO_WINDOW
 
