@@ -64,6 +64,7 @@ def makeDataFile(gui):
                     time = classWs.cell(j, 4).value
             
             # 시험명
+            iniWs.cell(writeLocation, 1).value = time
             iniWs.cell(writeLocation, 2).value = date
             iniWs.cell(writeLocation, 3).value = className
             iniWs.cell(writeLocation, 4).value = teacher
@@ -72,6 +73,7 @@ def makeDataFile(gui):
             # 학생 루프
             for tr in trs:
                 writeLocation = iniWs.max_row + 1
+                iniWs.cell(writeLocation, 1).value = time
                 iniWs.cell(writeLocation, 2).value = date
                 iniWs.cell(writeLocation, 3).value = className
                 iniWs.cell(writeLocation, 4).value = teacher
@@ -80,6 +82,7 @@ def makeDataFile(gui):
             
             # 시험별 평균
             writeLocation = iniWs.max_row + 1
+            iniWs.cell(writeLocation, 1).value = time
             iniWs.cell(writeLocation, 2).value = date
             iniWs.cell(writeLocation, 3).value = className
             iniWs.cell(writeLocation, 4).value = teacher
