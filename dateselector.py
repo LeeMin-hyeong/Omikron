@@ -19,12 +19,37 @@ if today == today + relativedelta(weekday=calendar.MONDAY):
     makeupDate['월'] = today + timedelta(days=7)
 else:
     makeupDate['월'] = today + relativedelta(weekday=calendar.MONDAY)
-makeupDate['화'] = today + relativedelta(weekday=calendar.TUESDAY)
-makeupDate['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
-makeupDate['목'] = today + relativedelta(weekday=calendar.THURSDAY)
-makeupDate['금'] = today + relativedelta(weekday=calendar.FRIDAY)
-makeupDate['토'] = today + relativedelta(weekday=calendar.SATURDAY)
-makeupDate['일'] = today + relativedelta(weekday=calendar.SUNDAY)
+
+if today == today + relativedelta(weekday=calendar.TUESDAY):
+    makeupDate['화'] = today + timedelta(days=7)
+else:
+    makeupDate['화'] = today + relativedelta(weekday=calendar.TUESDAY)
+
+if today == today + relativedelta(weekday=calendar.WEDNESDAY):
+    makeupDate['수'] = today + timedelta(days=7)
+else:
+    makeupDate['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
+
+if today == today + relativedelta(weekday=calendar.THURSDAY):
+    makeupDate['목'] = today + timedelta(days=7)
+else:
+    makeupDate['목'] = today + relativedelta(weekday=calendar.THURSDAY)
+
+if today == today + relativedelta(weekday=calendar.FRIDAY):
+    makeupDate['금'] = today + timedelta(days=7)
+else:
+    makeupDate['금'] = today + relativedelta(weekday=calendar.FRIDAY)
+
+if today == today + relativedelta(weekday=calendar.SATURDAY):
+    makeupDate['토'] = today + timedelta(days=7)
+else:
+    makeupDate['토'] = today + relativedelta(weekday=calendar.SATURDAY)
+
+if today == today + relativedelta(weekday=calendar.SUNDAY):
+    makeupDate['일'] = today + timedelta(days=7)
+else:
+    makeupDate['일'] = today + relativedelta(weekday=calendar.SUNDAY)
+
 
 temp = sorted(makeupDate.items(), key=lambda x:x[1])
 
