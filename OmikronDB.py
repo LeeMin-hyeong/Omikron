@@ -1,11 +1,13 @@
 import json
 import os.path
+import calendar
 import openpyxl as xl
 import win32com.client # only works in Windows
 
-from datetime import datetime
 from tkinter import filedialog
+from datetime import datetime, timedelta
 from openpyxl.utils.cell import get_column_letter
+from dateutil.relativedelta import relativedelta
 from openpyxl.styles import Alignment, Border, Color, PatternFill, Side
 
 from selenium import webdriver
@@ -37,10 +39,10 @@ def makeDataFile(gui):
         iniWs.auto_filter.ref = 'A:E'
 
         # 반 정보 확인
-        if not os.path.isfile('./class.xlsx'):
-            gui.appendLog('[오류]class.xlsx 파일이 존재하지 않습니다.')
+        if not os.path.isfile('./반 정보.xlsx'):
+            gui.appendLog('[오류]반 정보.xlsx 파일이 존재하지 않습니다.')
             return
-        classWb = xl.load_workbook("./class.xlsx")
+        classWb = xl.load_workbook("./반 정보.xlsx")
         classWs = classWb.active
 
         options = webdriver.ChromeOptions()
@@ -114,7 +116,7 @@ def makeDataForm(gui):
 
     iniWb = xl.Workbook()
     iniWs = iniWb.active
-    iniWs.title = 'DailyTestForm'
+    iniWs.title = '데일리테스트 기록 양식'
     iniWs['A1'] = '요일'
     iniWs['B1'] = '시간'
     iniWs['C1'] = '반'
@@ -128,11 +130,11 @@ def makeDataForm(gui):
     iniWs['K1'] = '모의고사 평균'
     iniWs.auto_filter.ref = 'A:B'
 
-    if not os.path.isfile('./class.xlsx'):
-        gui.appendLog('[오류]class.xlsx 파일이 존재하지 않습니다.')
+    if not os.path.isfile('./반 정보.xlsx'):
+        gui.appendLog('[오류]반 정보.xlsx 파일이 존재하지 않습니다.')
         return
     
-    classWb = xl.load_workbook("class.xlsx")
+    classWb = xl.load_workbook("반 정보.xlsx")
     classWs = classWb.active
 
     options = webdriver.ChromeOptions()
@@ -185,19 +187,21 @@ def makeDataForm(gui):
         iniWs.merge_cells('I' + str(start) + ':I' + str(end))
         iniWs.merge_cells('K' + str(start) + ':K' + str(end))
         
-    if os.path.isfile('./dailyTestForm.xlsx'):
+    if os.path.isfile('./데일리테스트 기록 양식.xlsx'):
         i = 1
         while True:
-            if not os.path.isfile('./dailyTestForm(' + str(i) +').xlsx'):
-                iniWb.save('./dailyTestForm(' + str(i) +').xlsx')
+            if not os.path.isfile('./데일리테스트 기록 양식(' + str(i) +').xlsx'):
+                iniWb.save('./데일리테스트 기록 양식(' + str(i) +').xlsx')
                 break;
             i += 1
     else:
-        iniWb.save('./dailyTestForm.xlsx')
+        iniWb.save('./데일리테스트 기록 양식.xlsx')
     gui.appendLog('데일리테스트 기록 양식 생성을 완료했습니다.')
 
 def saveData(gui):
     filepath = filedialog.askopenfilename(initialdir='./', title='데일리테스트 기록 양식 선택', filetypes=(('Excel files', '*.xlsx'),('all files', '*.*')))
+    if filepath == '':
+        return
     gui.appendLog('데이터 저장 중...')
 
     # 파일 위치 및 파일명 지정
@@ -325,13 +329,13 @@ def saveData(gui):
     gui.appendLog('백업 파일 생성중...')
     formWb = xl.load_workbook(filepath)
     formWs = formWb.active
-    formWb.save('./data/backup/dailyTestForm(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
+    formWb.save('./data/backup/데일리테스트 기록 양식(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
     # for i in range(2, formWs.max_row + 1):
     #     formWs.cell(i, 6).value = ''
     #     formWs.cell(i, 7).value = ''
     #     formWs.cell(i, 9).value = ''
     #     formWs.cell(i, 10).value = ''
-    # formWb.save('./dailyTestForm.xlsx')
+    # formWb.save('./데일리테스트 기록 양식.xlsx')
 
     dataFileWb.save('./data/' + config['dataFileName'] + '.xlsx')
 
@@ -380,12 +384,12 @@ def saveData(gui):
     wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
 
 def classInfo(gui):
-    if not os.path.isfile('class.xlsx'):
+    if not os.path.isfile('반 정보.xlsx'):
         gui.appendLog('반 정보 입력 파일 생성 중...')
 
         iniWb = xl.Workbook()
         iniWs = iniWb.active
-        iniWs.title = 'DailyTestForm'
+        iniWs.title = '데일리테스트 기록 양식'
         iniWs['A1'] = '반명'
         iniWs['B1'] = '선생님명'
         iniWs['C1'] = '요일'
@@ -411,7 +415,7 @@ def classInfo(gui):
                     iniWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
                     iniWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-        iniWb.save('./class.xlsx')
+        iniWb.save('./반 정보.xlsx')
         gui.appendLog('반 정보 입력 파일 생성을 완료했습니다.')
         gui.appendLog('반 정보를 입력해 주세요.')
 
@@ -420,7 +424,47 @@ def classInfo(gui):
 
 def sendMessage(gui):
     filepath = filedialog.askopenfilename(initialdir='./', title='데일리테스트 기록 양식 선택', filetypes=(('Excel files', '*.xlsx'),('all files', '*.*')))
+    if filepath == '':
+        return
+
+    today = datetime.today()
     
+    makeupDate={}
+    if today == today + relativedelta(weekday=calendar.MONDAY):
+        makeupDate['월'] = today + timedelta(days=7)
+    else:
+        makeupDate['월'] = today + relativedelta(weekday=calendar.MONDAY)
+
+    if today == today + relativedelta(weekday=calendar.TUESDAY):
+        makeupDate['화'] = today + timedelta(days=7)
+    else:
+        makeupDate['화'] = today + relativedelta(weekday=calendar.TUESDAY)
+
+    if today == today + relativedelta(weekday=calendar.WEDNESDAY):
+        makeupDate['수'] = today + timedelta(days=7)
+    else:
+        makeupDate['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
+
+    if today == today + relativedelta(weekday=calendar.THURSDAY):
+        makeupDate['목'] = today + timedelta(days=7)
+    else:
+        makeupDate['목'] = today + relativedelta(weekday=calendar.THURSDAY)
+
+    if today == today + relativedelta(weekday=calendar.FRIDAY):
+        makeupDate['금'] = today + timedelta(days=7)
+    else:
+        makeupDate['금'] = today + relativedelta(weekday=calendar.FRIDAY)
+
+    if today == today + relativedelta(weekday=calendar.SATURDAY):
+        makeupDate['토'] = today + timedelta(days=7)
+    else:
+        makeupDate['토'] = today + relativedelta(weekday=calendar.SATURDAY)
+
+    if today == today + relativedelta(weekday=calendar.SUNDAY):
+        makeupDate['일'] = today + timedelta(days=7)
+    else:
+        makeupDate['일'] = today + relativedelta(weekday=calendar.SUNDAY)
+        
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
     driver = webdriver.Chrome(service=service, options=options)
@@ -428,12 +472,29 @@ def sendMessage(gui):
     # 아이소식 접속
     driver.get(config['url'])
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config['dailyTest'])
+    
+    driver.execute_script('window.open('');')
+    driver.switch_to.window(driver.window_handles[1])
+    driver.get(config['url'])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config['makeupTest'])
 
-    # 점수기록표 xlsx 입력
+    driver.execute_script('window.open('');')
+    driver.switch_to.window(driver.window_handles[2])
+    driver.get(config['url'])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config['makeupTestDate'])
+
+    # 점수기록표 xlsx
     formWb = xl.load_workbook(filepath, data_only=True)
     formWs = formWb.active
 
+    if not os.path.isfile('./재시험 정보.xlsx'):
+        gui.appendLog('[오류]재시험 정보.xlsx 파일이 존재하지 않습니다.')
+        return
+    makeupWb = xl.load_workbook("./재시험 정보.xlsx")
+    makeupWs = makeupWb.active
+
     for i in range(2, formWs.max_row+1):
+        driver.switch_to.window(driver.window_handles[0])
         name = formWs.cell(i, 4).value
         dailyTestScore = formWs.cell(i, 7).value
         mockTestScore = formWs.cell(i, 10).value
@@ -457,9 +518,9 @@ def sendMessage(gui):
             continue
 
         tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
-        for i in range(len(tableNames)):
-            if className in tableNames[i].text:
-                index = i
+        for j in range(len(tableNames)):
+            if className in tableNames[j].text:
+                index = j
                 break
 
         trs = driver.find_element(By.ID, 'table_' + str(index)).find_elements(By.CLASS_NAME, 'style12')
@@ -470,5 +531,87 @@ def sendMessage(gui):
                 tds[1].find_element(By.TAG_NAME, 'input').send_keys(score)
                 tds[2].find_element(By.TAG_NAME, 'input').send_keys(average)
                 break
+        
+        if score < 80:
+            for j in range(2, makeupWs.max_row+1):
+                if makeupWs.cell(j, 1).value == name:
+                    date = makeupWs.cell(j, 4).value
+                    time = makeupWs.cell(j, 5).value
+                    break
+            
+            if date is None:
+                driver.switch_to.window(driver.window_handles[1])
+                trs = driver.find_element(By.ID, 'table_' + str(index)).find_elements(By.CLASS_NAME, 'style12')
+                for tr in trs:
+                    if tr.find_element(By.CLASS_NAME, 'style9').text == name:
+                        tds = tr.find_elements(By.TAG_NAME, 'td')
+                        tds[0].find_element(By.TAG_NAME, 'input').send_keys(testName)
+            else:
+                driver.switch_to.window(driver.window_handles[2])
+                trs = driver.find_element(By.ID, 'table_' + str(index)).find_elements(By.CLASS_NAME, 'style12')
+                for tr in trs:
+                    if tr.find_element(By.CLASS_NAME, 'style9').text == name:
+                        tds = tr.find_elements(By.TAG_NAME, 'td')
+                        tds[0].find_element(By.TAG_NAME, 'input').send_keys(testName)
+                        tds[1].find_element(By.TAG_NAME, 'input').send_keys(makeupDate[date].strftime('%m월 %d일') + ' ' + str(time) + '시')
+    
     gui.appendLog('메시지 입력을 완료했습니다.')
     gui.appendLog('메시지 확인 후 전송해주세요.')
+
+def makeupTestInfo(gui):
+    if not os.path.isfile('./재시험 정보.xlsx'):
+        gui.appendLog('재시험 정보 파일 생성 중...')
+
+        iniWb = xl.Workbook()
+        iniWs = iniWb.active
+        iniWs.title = 'DailyTest'
+        iniWs['A1'] = '이름'
+        iniWs['B1'] = '반명'
+        iniWs['C1'] = '담당'
+        iniWs['D1'] = '요일'
+        iniWs['E1'] = '시간'
+        iniWs.auto_filter.ref = 'A:C'
+
+        # 반 정보 확인
+        if not os.path.isfile('./반 정보.xlsx'):
+            gui.appendLog('[오류]반 정보.xlsx 파일이 존재하지 않습니다.')
+            return
+        classWb = xl.load_workbook("./반 정보.xlsx")
+        classWs = classWb.active
+
+        options = webdriver.ChromeOptions()
+        options.add_argument('headless')
+        driver = webdriver.Chrome(service = service, options = options)
+
+        # 아이소식 접속
+        driver.get(config['url'])
+        tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
+
+        # 반 루프
+        for i in range(3, len(tableNames)):
+            trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
+            writeLocation = iniWs.max_row + 1
+
+            className = tableNames[i].text.split('(')[0].rstrip()
+            for j in range(2, classWs.max_row + 1):
+                if classWs.cell(j, 1).value == className:
+                    teacher = classWs.cell(j, 2).value
+
+            # 학생 루프
+            for tr in trs:
+                writeLocation = iniWs.max_row + 1
+                iniWs.cell(writeLocation, 1).value = tr.find_element(By.CLASS_NAME, 'style9').text
+                iniWs.cell(writeLocation, 2).value = className
+                iniWs.cell(writeLocation, 3).value = teacher
+
+        # 정렬 및 테두리
+        for j in range(1, iniWs.max_row + 1):
+                for k in range(1, iniWs.max_column + 1):
+                    iniWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
+                    iniWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        
+        iniWb.save('./재시험 정보.xlsx')
+        gui.appendLog('재시험 정보 파일을 생성했습니다.')
+
+    else:
+        gui.appendLog('이미 파일이 존재합니다')
