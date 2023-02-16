@@ -49,7 +49,7 @@ class GUI():
 
         tk.Label(self.ui, text='\n< 데이터 관리 >').pack()
 
-        self.applyColorButton = tk.Button(self.ui, text='데이터 엑셀 파일 사용자 서식 재지정', width=40, command=lambda: odb.applyColor(self))
+        self.applyColorButton = tk.Button(self.ui, text='데이터 엑셀 파일 조건부 서식 재지정', width=40, command=lambda: odb.applyColor(self))
         self.applyColorButton.pack()
 
     def appendLog(self, msg):
