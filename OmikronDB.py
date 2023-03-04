@@ -59,7 +59,10 @@ def makeDataFile(gui):
             trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
             writeLocation = iniWs.max_row + 1
 
-            className = tableNames[i].text.split('(')[0].rstrip()
+            className = tableNames[i].text.rstrip()
+            time = ''
+            date = ''
+            teacher = ''
             for j in range(2, classWs.max_row + 1):
                 if classWs.cell(j, 1).value == className:
                     teacher = classWs.cell(j, 2).value
@@ -157,8 +160,10 @@ def makeDataForm(gui):
         trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
         writeLocation = start = iniWs.max_row + 1
 
-        className = tableNames[i].text.split('(')[0].rstrip()
-
+        className = tableNames[i].text.rstrip()
+        teacher = ''
+        date = ''
+        time = ''
         iniWs.cell(writeLocation, 3).value = className
         for j in range(2, classWs.max_row + 1):
             if classWs.cell(j, 1).value == className:
@@ -187,13 +192,14 @@ def makeDataForm(gui):
                 iniWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
                 iniWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
         
-        # 셀 병합
-        iniWs.merge_cells('C' + str(start) + ':C' + str(end))
-        iniWs.merge_cells('E' + str(start) + ':E' + str(end))
-        iniWs.merge_cells('F' + str(start) + ':F' + str(end))
-        iniWs.merge_cells('H' + str(start) + ':H' + str(end))
-        iniWs.merge_cells('I' + str(start) + ':I' + str(end))
-        iniWs.merge_cells('K' + str(start) + ':K' + str(end))
+        if start < end:
+            # 셀 병합
+            iniWs.merge_cells('C' + str(start) + ':C' + str(end))
+            iniWs.merge_cells('E' + str(start) + ':E' + str(end))
+            iniWs.merge_cells('F' + str(start) + ':F' + str(end))
+            iniWs.merge_cells('H' + str(start) + ':H' + str(end))
+            iniWs.merge_cells('I' + str(start) + ':I' + str(end))
+            iniWs.merge_cells('K' + str(start) + ':K' + str(end))
         
     if os.path.isfile('./데일리테스트 기록 양식.xlsx'):
         i = 1
@@ -217,6 +223,7 @@ def saveData(gui):
     # 파일 위치 및 파일명 지정
     if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
         gui.appendLog('[오류]' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
+        gui.saveDataButton['state'] = tk.NORMAL
         return
 
     # 입력 양식 엑셀
@@ -448,7 +455,7 @@ def classInfo(gui):
         for i in range(3, len(tableNames)):
             trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
             writeLocation = start = iniWs.max_row + 1
-            iniWs.cell(writeLocation, 1).value = tableNames[i].text.split('(')[0].rstrip()
+            iniWs.cell(writeLocation, 1).value = tableNames[i].text.rstrip()
 
         # 정렬 및 테두리
         for j in range(1, iniWs.max_row + 1):
@@ -639,8 +646,9 @@ def makeupTestInfo(gui):
         for i in range(3, len(tableNames)):
             trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
             writeLocation = iniWs.max_row + 1
+            teacher = ''
 
-            className = tableNames[i].text.split('(')[0].rstrip()
+            className = tableNames[i].text.rstrip()
             for j in range(2, classWs.max_row + 1):
                 if classWs.cell(j, 1).value == className:
                     teacher = classWs.cell(j, 2).value
