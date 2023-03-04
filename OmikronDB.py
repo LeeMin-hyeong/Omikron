@@ -63,11 +63,15 @@ def makeDataFile(gui):
             time = ''
             date = ''
             teacher = ''
+            isClassExist = False
             for j in range(2, classWs.max_row + 1):
                 if classWs.cell(j, 1).value == className:
                     teacher = classWs.cell(j, 2).value
                     date = classWs.cell(j, 3).value
                     time = classWs.cell(j, 4).value
+                    isClassExist = True
+            if not isClassExist:
+                continue
             
             # 시험명
             iniWs.cell(writeLocation, 1).value = time
@@ -164,12 +168,17 @@ def makeDataForm(gui):
         teacher = ''
         date = ''
         time = ''
-        iniWs.cell(writeLocation, 3).value = className
+        isClassExist = False
+
         for j in range(2, classWs.max_row + 1):
             if classWs.cell(j, 1).value == className:
                 teacher = classWs.cell(j, 2).value
                 date = classWs.cell(j, 3).value
                 time = classWs.cell(j, 4).value
+                isClassExist = True
+        if not isClassExist:
+            continue
+        iniWs.cell(writeLocation, 3).value = className
         iniWs.cell(writeLocation, 5).value = teacher
 
         #학생 루프
@@ -649,9 +658,13 @@ def makeupTestInfo(gui):
             teacher = ''
 
             className = tableNames[i].text.rstrip()
+            isClassExist = False
             for j in range(2, classWs.max_row + 1):
                 if classWs.cell(j, 1).value == className:
                     teacher = classWs.cell(j, 2).value
+                    isClassExist = True
+            if not isClassExist:
+                continue
 
             # 학생 루프
             for tr in trs:
