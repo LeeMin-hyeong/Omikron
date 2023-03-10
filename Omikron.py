@@ -9,7 +9,7 @@ config = json.load(open('config.json', encoding='UTF8'))
 class GUI():
     def __init__(self, ui):
         self.ui = ui
-        self.ui.geometry('300x385')
+        self.ui.geometry('300x385+460+460')
         self.ui.title('Omikron')
         self.ui.resizable(False, False)
 
@@ -18,7 +18,7 @@ class GUI():
         self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=41, height=5)
         self.scroll.config(command=self.log.yview)
         self.log.pack()
-
+        
         tk.Label(self.ui, text='< 기수 변경 관련 >').pack()
 
         self.classInfoButton = tk.Button(self.ui, text='반 정보 기록 양식 생성', width=40, command=lambda: self.classInfoThread())
@@ -41,10 +41,10 @@ class GUI():
         self.makeDataFormButton = tk.Button(self.ui, text='데일리 테스트 기록 양식 생성', width=40, command=lambda: self.makeDataFormThread())
         self.makeDataFormButton.pack()
 
-        self.saveDataButton = tk.Button(self.ui, text='데이터 엑셀 파일에 저장', width=40, command=lambda: odb.saveData(self))
+        self.saveDataButton = tk.Button(self.ui, text='데이터 엑셀 파일에 저장', width=40, command=lambda: self.saveDataThread())
         self.saveDataButton.pack()
         
-        self.sendMessageButton = tk.Button(self.ui, text='시험 결과 전송(휴일 미지원)', width=40, command=lambda: self.sendMessageThread())
+        self.sendMessageButton = tk.Button(self.ui, text='시험 결과 전송', width=40, command=lambda: self.sendMessageThread())
         self.sendMessageButton.pack()
 
         tk.Label(self.ui, text='\n< 데이터 관리 >').pack()
@@ -66,6 +66,11 @@ class GUI():
     def makeDataFileThread(self):
         self.makeDataFileButton['state'] = tk.DISABLED
         thread = threading.Thread(target=lambda: odb.makeDataFile(self))
+        thread.daemon = True
+        thread.start()
+
+    def saveDataThread(self):
+        thread = threading.Thread(target=lambda: odb.saveData(self))
         thread.daemon = True
         thread.start()
 
