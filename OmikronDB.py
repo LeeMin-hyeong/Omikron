@@ -10,7 +10,7 @@ from datetime import date as DATE, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from openpyxl.utils.cell import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.styles import Alignment, Border, Color, PatternFill, Side
+from openpyxl.styles import Alignment, Border, Color, PatternFill, Side, Font
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -92,6 +92,7 @@ def makeDataFile(gui):
             iniWs.cell(writeLocation, 3).value = className
             iniWs.cell(writeLocation, 4).value = teacher
             iniWs.cell(writeLocation, 5).value = '시험명'
+            start = writeLocation + 1
 
             # 학생 루프
             for tr in trs:
@@ -102,15 +103,18 @@ def makeDataFile(gui):
                 iniWs.cell(writeLocation, 4).value = teacher
                 iniWs.cell(writeLocation, 5).value = tr.find_element(By.CLASS_NAME, 'style9').text
                 iniWs.cell(writeLocation, 6).value = '=ROUND(AVERAGE(G' + str(writeLocation) + ':XFD' + str(writeLocation) + '), 0)'
+                iniWs.cell(writeLocation, 6).font = Font(bold=True)
             
             # 시험별 평균
             writeLocation = iniWs.max_row + 1
+            end = writeLocation - 1
             iniWs.cell(writeLocation, 1).value = time
             iniWs.cell(writeLocation, 2).value = date
             iniWs.cell(writeLocation, 3).value = className
             iniWs.cell(writeLocation, 4).value = teacher
             iniWs.cell(writeLocation, 5).value = '시험 평균'
-            iniWs.cell(writeLocation, 6).value = '=ROUND(AVERAGE(G' + str(writeLocation) + ':XFD' + str(writeLocation) + '), 0)'
+            iniWs.cell(writeLocation, 6).value = '=ROUND(AVERAGE(F' + str(start) + ':F' + str(end) + '), 0)'
+            iniWs.cell(writeLocation, 6).font = Font(bold=True)
 
             for j in range(1, 7):
                 iniWs.cell(writeLocation, j).border = Border(bottom = Side(border_style='medium', color='000000'))
@@ -1094,6 +1098,7 @@ def applyColor(gui):
                         dataFileWs.cell(i, j).border = Border(bottom=Side(border_style='medium', color='000000'))
                     if dataFileWs.cell(i, nameColumn).value == '날짜' and dataFileWs.cell(i, j).value is not None:
                         dataFileWs.cell(i, j).border = Border(top=Side(border_style='medium', color='000000'))
+                    dataFileWs.cell(i, j).font = Font(bold=True)
                     if type(dataFileColorWs.cell(i, j).value) == int:
                         if dataFileColorWs.cell(i, j).value < 60:
                             dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
@@ -1107,6 +1112,7 @@ def applyColor(gui):
                             dataFileWs.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
 
                 # 학생별 평균 조건부 서식
+                dataFileWs.cell(i, scoreColumn).font = Font(bold=True)
                 if type(dataFileColorWs.cell(i, scoreColumn).value) == int:
                     if dataFileColorWs.cell(i, scoreColumn).value < 60:
                         dataFileWs.cell(i, scoreColumn).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
