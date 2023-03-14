@@ -1098,7 +1098,6 @@ def applyColor(gui):
                         dataFileWs.cell(i, j).border = Border(bottom=Side(border_style='medium', color='000000'))
                     if dataFileWs.cell(i, nameColumn).value == '날짜' and dataFileWs.cell(i, j).value is not None:
                         dataFileWs.cell(i, j).border = Border(top=Side(border_style='medium', color='000000'))
-                    dataFileWs.cell(i, j).font = Font(bold=True)
                     if type(dataFileColorWs.cell(i, j).value) == int:
                         if dataFileColorWs.cell(i, j).value < 60:
                             dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
@@ -1110,6 +1109,8 @@ def applyColor(gui):
                             dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
                         else:
                             dataFileWs.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
+                    if dataFileColorWs.cell(i, nameColumn).value == '시험 평균':
+                        dataFileWs.cell(i, j).font = Font(bold=True)
 
                 # 학생별 평균 조건부 서식
                 dataFileWs.cell(i, scoreColumn).font = Font(bold=True)
