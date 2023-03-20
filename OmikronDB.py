@@ -17,7 +17,7 @@ from selenium.webdriver.chrome.service import Service
 from win32process import CREATE_NO_WINDOW
 from webdriver_manager.chrome import ChromeDriverManager
 
-config = json.load(open('config.json', encoding='UTF8'))
+config = json.load(open('./config.json', encoding='UTF8'))
 os.environ['WDM_PROGRESS_BAR'] = '0'
 service = Service(ChromeDriverManager().install())
 service.creation_flags = CREATE_NO_WINDOW
@@ -948,8 +948,19 @@ def sendMessage(gui):
                         if tr.find_element(By.CLASS_NAME, 'style9').text == name:
                             tds = tr.find_elements(By.TAG_NAME, 'td')
                             tds[0].find_element(By.TAG_NAME, 'input').send_keys(testName)
-                            if time is not None:
-                                tds[1].find_element(By.TAG_NAME, 'input').send_keys(result.strftime('%m월 %d일') + ' ' + str(time).split('/')[timeIndex] + '시')
+                            try:
+                                if time is not None:
+                                    if "/" in str(time):
+                                        tds[1].find_element(By.TAG_NAME, 'input').send_keys(result.strftime('%m월 %d일') + ' ' + str(time).split('/')[timeIndex] + '시')
+                                    else:
+                                        tds[1].find_element(By.TAG_NAME, 'input').send_keys(result.strftime('%m월 %d일') + ' ' + str(time)+ '시')
+                            except:
+                                gui.appendLog(name + "의 재시험 일정을 요일별 시간으로 설정하거나")
+                                gui.appendLog("한 시간으로 통일해 주세요.")
+                                gui.appendLog("중단되었습니다.")
+                                gui.sendMessageButton['state'] = tk.NORMAL
+                                return
+
                             else:
                                 tds[1].find_element(By.TAG_NAME, 'input').send_keys(result.strftime('%m월 %d일'))
         gui.sendMessageButton['state'] = tk.NORMAL
