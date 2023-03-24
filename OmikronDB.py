@@ -247,116 +247,7 @@ def makeDataForm(gui):
     gui.ui.wm_attributes("-topmost", 0)
 
 def saveData(gui):
-    def quitEvent():
-        window.destroy()
-        gui.saveDataButton['state'] = tk.NORMAL
-        gui.ui.wm_attributes("-disabled", False)
-        gui.ui.wm_attributes("-topmost", 1)
-        gui.ui.wm_attributes("-topmost", 0)
-    gui.saveDataButton['state'] = tk.DISABLED
-    gui.ui.wm_attributes("-disabled", True)
-    window=tk.Tk()
-    window.geometry('200x300+500+500')
-    window.resizable(False, False)
-    window.protocol("WM_DELETE_WINDOW", quitEvent)
-
-    today = DATE.today()
-
-    makeupDate={}
-    if today == today + relativedelta(weekday=calendar.MONDAY):
-        makeupDate['월'] = today + timedelta(days=7)
-    else:
-        makeupDate['월'] = today + relativedelta(weekday=calendar.MONDAY)
-
-    if today == today + relativedelta(weekday=calendar.TUESDAY):
-        makeupDate['화'] = today + timedelta(days=7)
-    else:
-        makeupDate['화'] = today + relativedelta(weekday=calendar.TUESDAY)
-
-    if today == today + relativedelta(weekday=calendar.WEDNESDAY):
-        makeupDate['수'] = today + timedelta(days=7)
-    else:
-        makeupDate['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
-
-    if today == today + relativedelta(weekday=calendar.THURSDAY):
-        makeupDate['목'] = today + timedelta(days=7)
-    else:
-        makeupDate['목'] = today + relativedelta(weekday=calendar.THURSDAY)
-
-    if today == today + relativedelta(weekday=calendar.FRIDAY):
-        makeupDate['금'] = today + timedelta(days=7)
-    else:
-        makeupDate['금'] = today + relativedelta(weekday=calendar.FRIDAY)
-
-    if today == today + relativedelta(weekday=calendar.SATURDAY):
-        makeupDate['토'] = today + timedelta(days=7)
-    else:
-        makeupDate['토'] = today + relativedelta(weekday=calendar.SATURDAY)
-
-    if today == today + relativedelta(weekday=calendar.SUNDAY):
-        makeupDate['일'] = today + timedelta(days=7)
-    else:
-        makeupDate['일'] = today + relativedelta(weekday=calendar.SUNDAY)
-
-    mon = tk.IntVar()
-    tue = tk.IntVar()
-    wed = tk.IntVar()
-    thu = tk.IntVar()
-    fri = tk.IntVar()
-    sat = tk.IntVar()
-    sun = tk.IntVar()
-
-    tk.Label(window, text='\n다음 중 휴일을 선택해주세요\n').pack()
-    dateCalc = DATE.today() + timedelta(days=1)
-    for i in range(0, 8):
-        for j in range(0, 8):
-            if dateCalc == makeupDate['월']:
-                tk.Checkbutton(window, text=str(makeupDate['월'])+' (월)', variable=mon).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['화']:
-                tk.Checkbutton(window, text=str(makeupDate['화'])+' (화)', variable=tue).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['수']:
-                tk.Checkbutton(window, text=str(makeupDate['수'])+' (수)', variable=wed).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['목']:
-                tk.Checkbutton(window, text=str(makeupDate['목'])+' (목)', variable=thu).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['금']:
-                tk.Checkbutton(window, text=str(makeupDate['금'])+' (금)', variable=fri).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['토']:
-                tk.Checkbutton(window, text=str(makeupDate['토'])+' (토)', variable=sat).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['일']:
-                tk.Checkbutton(window, text=str(makeupDate['일'])+' (일)', variable=sun).pack()
-                dateCalc += timedelta(days=1)
-    tk.Label(window, text='\n').pack()
-    tk.Button(window, text="확인", width=10 , command=window.destroy).pack()
-    
-    window.mainloop()
-
-    if mon.get() == 1:
-        makeupDate['월'] += timedelta(days=7)
-    if tue.get() == 1:
-        makeupDate['화'] += timedelta(days=7)
-    if wed.get() == 1:
-        makeupDate['수'] += timedelta(days=7)
-    if thu.get() == 1:
-        makeupDate['목'] += timedelta(days=7)
-    if fri.get() == 1:
-        makeupDate['금'] += timedelta(days=7)
-    if sat.get() == 1:
-        makeupDate['토'] += timedelta(days=7)
-    if sun.get() == 1:
-        makeupDate['일'] += timedelta(days=7)
-    gui.ui.wm_attributes("-disabled", False)
+    makeupDate = holidayDialog(gui)
 
     if gui.saveDataButton['state'] == tk.NORMAL: return
     # 입력 양식 엑셀
@@ -716,115 +607,7 @@ def classInfo(gui):
         gui.classInfoButton['state'] = tk.DISABLED
 
 def sendMessage(gui):
-    def quitEvent():
-        window.destroy()
-        gui.sendMessageButton['state'] = tk.NORMAL
-        gui.ui.wm_attributes("-disabled", False)
-        gui.ui.wm_attributes("-topmost", 1)
-        gui.ui.wm_attributes("-topmost", 0)
-    gui.sendMessageButton['state'] = tk.DISABLED
-    gui.ui.wm_attributes("-disabled", True)
-    window=tk.Tk()
-    window.geometry('200x300+500+500')
-    window.resizable(False, False)
-    window.protocol("WM_DELETE_WINDOW", quitEvent)
-
-    today = DATE.today()
-
-    makeupDate={}
-    if today == today + relativedelta(weekday=calendar.MONDAY):
-        makeupDate['월'] = today + timedelta(days=7)
-    else:
-        makeupDate['월'] = today + relativedelta(weekday=calendar.MONDAY)
-
-    if today == today + relativedelta(weekday=calendar.TUESDAY):
-        makeupDate['화'] = today + timedelta(days=7)
-    else:
-        makeupDate['화'] = today + relativedelta(weekday=calendar.TUESDAY)
-
-    if today == today + relativedelta(weekday=calendar.WEDNESDAY):
-        makeupDate['수'] = today + timedelta(days=7)
-    else:
-        makeupDate['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
-
-    if today == today + relativedelta(weekday=calendar.THURSDAY):
-        makeupDate['목'] = today + timedelta(days=7)
-    else:
-        makeupDate['목'] = today + relativedelta(weekday=calendar.THURSDAY)
-
-    if today == today + relativedelta(weekday=calendar.FRIDAY):
-        makeupDate['금'] = today + timedelta(days=7)
-    else:
-        makeupDate['금'] = today + relativedelta(weekday=calendar.FRIDAY)
-
-    if today == today + relativedelta(weekday=calendar.SATURDAY):
-        makeupDate['토'] = today + timedelta(days=7)
-    else:
-        makeupDate['토'] = today + relativedelta(weekday=calendar.SATURDAY)
-
-    if today == today + relativedelta(weekday=calendar.SUNDAY):
-        makeupDate['일'] = today + timedelta(days=7)
-    else:
-        makeupDate['일'] = today + relativedelta(weekday=calendar.SUNDAY)
-
-    mon = tk.IntVar()
-    tue = tk.IntVar()
-    wed = tk.IntVar()
-    thu = tk.IntVar()
-    fri = tk.IntVar()
-    sat = tk.IntVar()
-    sun = tk.IntVar()
-
-    tk.Label(window, text='\n다음 중 휴일을 선택해주세요\n').pack()
-    dateCalc = DATE.today() + timedelta(days=1)
-    for i in range(0, 8):
-        for j in range(0, 8):
-            if dateCalc == makeupDate['월']:
-                tk.Checkbutton(window, text=str(makeupDate['월'])+' (월)', variable=mon).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['화']:
-                tk.Checkbutton(window, text=str(makeupDate['화'])+' (화)', variable=tue).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['수']:
-                tk.Checkbutton(window, text=str(makeupDate['수'])+' (수)', variable=wed).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['목']:
-                tk.Checkbutton(window, text=str(makeupDate['목'])+' (목)', variable=thu).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['금']:
-                tk.Checkbutton(window, text=str(makeupDate['금'])+' (금)', variable=fri).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['토']:
-                tk.Checkbutton(window, text=str(makeupDate['토'])+' (토)', variable=sat).pack()
-                dateCalc += timedelta(days=1)
-        for j in range(0, 8):
-            if dateCalc == makeupDate['일']:
-                tk.Checkbutton(window, text=str(makeupDate['일'])+' (일)', variable=sun).pack()
-                dateCalc += timedelta(days=1)
-    tk.Label(window, text='\n').pack()
-    tk.Button(window, text="확인", width=10 , command=window.destroy).pack()
-    
-    window.mainloop()
-    if mon.get() == 1:
-        makeupDate['월'] += timedelta(days=7)
-    if tue.get() == 1:
-        makeupDate['화'] += timedelta(days=7)
-    if wed.get() == 1:
-        makeupDate['수'] += timedelta(days=7)
-    if thu.get() == 1:
-        makeupDate['목'] += timedelta(days=7)
-    if fri.get() == 1:
-        makeupDate['금'] += timedelta(days=7)
-    if sat.get() == 1:
-        makeupDate['토'] += timedelta(days=7)
-    if sun.get() == 1:
-        makeupDate['일'] += timedelta(days=7)
-    gui.ui.wm_attributes("-disabled", False)
+    makeupDate = holidayDialog(gui)
     
     if gui.sendMessageButton['state'] == tk.NORMAL: return
 
@@ -843,7 +626,6 @@ def sendMessage(gui):
         gui.sendMessageButton['state'] = tk.NORMAL
         return
 
-    # 휴일 선택창
     try:
         gui.appendLog('크롬을 실행시키는 중...')
         options = webdriver.ChromeOptions()
@@ -959,10 +741,9 @@ def sendMessage(gui):
                                 gui.appendLog("한 시간으로 통일해 주세요.")
                                 gui.appendLog("중단되었습니다.")
                                 gui.sendMessageButton['state'] = tk.NORMAL
+                                driver.quit()
                                 return
 
-                            else:
-                                tds[1].find_element(By.TAG_NAME, 'input').send_keys(result.strftime('%m월 %d일'))
         gui.sendMessageButton['state'] = tk.NORMAL
         gui.appendLog('메시지 입력을 완료했습니다.')
         gui.appendLog('메시지 확인 후 전송해주세요.')
@@ -1162,3 +943,116 @@ def applyColor(gui):
         gui.appendLog('데이터 파일 창을 끄고 다시 실행해 주세요.')
         gui.applyColorButton['state'] = tk.NORMAL
         return
+
+def holidayDialog(gui):
+    def quitEvent():
+        window.destroy()
+        gui.sendMessageButton['state'] = tk.NORMAL
+        gui.ui.wm_attributes("-disabled", False)
+        gui.ui.wm_attributes("-topmost", 1)
+        gui.ui.wm_attributes("-topmost", 0)
+    gui.sendMessageButton['state'] = tk.DISABLED
+    gui.ui.wm_attributes("-disabled", True)
+    window=tk.Tk()
+    window.geometry('200x300+500+500')
+    window.resizable(False, False)
+    window.protocol("WM_DELETE_WINDOW", quitEvent)
+
+    today = DATE.today()
+
+    makeupDate={}
+    if today == today + relativedelta(weekday=calendar.MONDAY):
+        makeupDate['월'] = today + timedelta(days=7)
+    else:
+        makeupDate['월'] = today + relativedelta(weekday=calendar.MONDAY)
+
+    if today == today + relativedelta(weekday=calendar.TUESDAY):
+        makeupDate['화'] = today + timedelta(days=7)
+    else:
+        makeupDate['화'] = today + relativedelta(weekday=calendar.TUESDAY)
+
+    if today == today + relativedelta(weekday=calendar.WEDNESDAY):
+        makeupDate['수'] = today + timedelta(days=7)
+    else:
+        makeupDate['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
+
+    if today == today + relativedelta(weekday=calendar.THURSDAY):
+        makeupDate['목'] = today + timedelta(days=7)
+    else:
+        makeupDate['목'] = today + relativedelta(weekday=calendar.THURSDAY)
+
+    if today == today + relativedelta(weekday=calendar.FRIDAY):
+        makeupDate['금'] = today + timedelta(days=7)
+    else:
+        makeupDate['금'] = today + relativedelta(weekday=calendar.FRIDAY)
+
+    if today == today + relativedelta(weekday=calendar.SATURDAY):
+        makeupDate['토'] = today + timedelta(days=7)
+    else:
+        makeupDate['토'] = today + relativedelta(weekday=calendar.SATURDAY)
+
+    if today == today + relativedelta(weekday=calendar.SUNDAY):
+        makeupDate['일'] = today + timedelta(days=7)
+    else:
+        makeupDate['일'] = today + relativedelta(weekday=calendar.SUNDAY)
+
+    mon = tk.IntVar()
+    tue = tk.IntVar()
+    wed = tk.IntVar()
+    thu = tk.IntVar()
+    fri = tk.IntVar()
+    sat = tk.IntVar()
+    sun = tk.IntVar()
+
+    tk.Label(window, text='\n다음 중 휴일을 선택해주세요\n').pack()
+    dateCalc = DATE.today() + timedelta(days=1)
+    for i in range(0, 8):
+        for j in range(0, 8):
+            if dateCalc == makeupDate['월']:
+                tk.Checkbutton(window, text=str(makeupDate['월'])+' (월)', variable=mon).pack()
+                dateCalc += timedelta(days=1)
+        for j in range(0, 8):
+            if dateCalc == makeupDate['화']:
+                tk.Checkbutton(window, text=str(makeupDate['화'])+' (화)', variable=tue).pack()
+                dateCalc += timedelta(days=1)
+        for j in range(0, 8):
+            if dateCalc == makeupDate['수']:
+                tk.Checkbutton(window, text=str(makeupDate['수'])+' (수)', variable=wed).pack()
+                dateCalc += timedelta(days=1)
+        for j in range(0, 8):
+            if dateCalc == makeupDate['목']:
+                tk.Checkbutton(window, text=str(makeupDate['목'])+' (목)', variable=thu).pack()
+                dateCalc += timedelta(days=1)
+        for j in range(0, 8):
+            if dateCalc == makeupDate['금']:
+                tk.Checkbutton(window, text=str(makeupDate['금'])+' (금)', variable=fri).pack()
+                dateCalc += timedelta(days=1)
+        for j in range(0, 8):
+            if dateCalc == makeupDate['토']:
+                tk.Checkbutton(window, text=str(makeupDate['토'])+' (토)', variable=sat).pack()
+                dateCalc += timedelta(days=1)
+        for j in range(0, 8):
+            if dateCalc == makeupDate['일']:
+                tk.Checkbutton(window, text=str(makeupDate['일'])+' (일)', variable=sun).pack()
+                dateCalc += timedelta(days=1)
+    tk.Label(window, text='\n').pack()
+    tk.Button(window, text="확인", width=10 , command=window.destroy).pack()
+    
+    window.mainloop()
+    if mon.get() == 1:
+        makeupDate['월'] += timedelta(days=7)
+    if tue.get() == 1:
+        makeupDate['화'] += timedelta(days=7)
+    if wed.get() == 1:
+        makeupDate['수'] += timedelta(days=7)
+    if thu.get() == 1:
+        makeupDate['목'] += timedelta(days=7)
+    if fri.get() == 1:
+        makeupDate['금'] += timedelta(days=7)
+    if sat.get() == 1:
+        makeupDate['토'] += timedelta(days=7)
+    if sun.get() == 1:
+        makeupDate['일'] += timedelta(days=7)
+    gui.ui.wm_attributes("-disabled", False)
+
+    return makeupDate
