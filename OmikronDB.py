@@ -1103,7 +1103,7 @@ def updateClass(gui):
         
     if len(unregistered) == 0:
         gui.appendLog('업데이트된 사항이 없습니다.')
-        gui.makeClassButton['state'] = tk.NORMAL
+        gui.updateClassButton['state'] = tk.NORMAL
         return
 
     for newClass, newClassIndex in unregistered.items():
@@ -1112,5 +1112,5 @@ def updateClass(gui):
     # writeLocation = start = iniWs.max_row + 1
     # iniWs.cell(writeLocation, 1).value = tableNames[i].text.rstrip()
 
-    gui.makeClassButton['state'] = tk.NORMAL
+    gui.updateClassButton['state'] = tk.NORMAL
     return
