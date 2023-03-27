@@ -247,7 +247,7 @@ def makeDataForm(gui):
     gui.ui.wm_attributes("-topmost", 0)
 
 def saveData(gui):
-    makeupDate = holidayDialog(gui)
+    makeupDate = holidayDialog(gui, gui.saveDataButton)
 
     if gui.saveDataButton['state'] == tk.NORMAL: return
     # 입력 양식 엑셀
@@ -584,10 +584,9 @@ def classInfo(gui):
         tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
 
         # 반 루프
-        for i in range(3, len(tableNames)):
-            trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
-            writeLocation = start = iniWs.max_row + 1
-            iniWs.cell(writeLocation, 1).value = tableNames[i].text.rstrip()
+        for tableName in tableNames:
+            writeLocation = iniWs.max_row + 1
+            iniWs.cell(writeLocation, 1).value = tableName.text.rstrip()
 
         # 정렬 및 테두리
         for j in range(1, iniWs.max_row + 1):
@@ -607,7 +606,8 @@ def classInfo(gui):
         gui.classInfoButton['state'] = tk.DISABLED
 
 def sendMessage(gui):
-    makeupDate = holidayDialog(gui)
+    
+    makeupDate = holidayDialog(gui, gui.sendMessageButton)
     
     if gui.sendMessageButton['state'] == tk.NORMAL: return
 
@@ -884,25 +884,26 @@ def applyColor(gui):
             for i in range(2, dataFileColorWs.max_row+1):
                 if dataFileColorWs.cell(i, nameColumn).value is None:
                     break
-                for j in range(scoreColumn+1, dataFileColorWs.max_column+1):
+                for j in range(1, dataFileColorWs.max_column+1):
                     dataFileWs.column_dimensions[get_column_letter(j)].width = 14
                     if dataFileWs.cell(i, nameColumn).value == '시험 평균' and dataFileWs.cell(i, j).value is not None:
                         dataFileWs.cell(i, j).border = Border(bottom=Side(border_style='medium', color='000000'))
-                    if dataFileWs.cell(i, nameColumn).value == '날짜' and dataFileWs.cell(i, j).value is not None:
-                        dataFileWs.cell(i, j).border = Border(top=Side(border_style='medium', color='000000'))
-                    if type(dataFileColorWs.cell(i, j).value) == int:
-                        if dataFileColorWs.cell(i, j).value < 60:
-                            dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
-                        elif dataFileColorWs.cell(i, j).value < 70:
-                            dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
-                        elif dataFileColorWs.cell(i, j).value < 80:
-                            dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
-                        elif dataFileColorWs.cell(i, nameColumn).value == '시험 평균':
-                            dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
-                        else:
-                            dataFileWs.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
-                    if dataFileColorWs.cell(i, nameColumn).value == '시험 평균':
-                        dataFileWs.cell(i, j).font = Font(bold=True)
+                    if j > scoreColumn:    
+                        if dataFileWs.cell(i, nameColumn).value == '날짜' and dataFileWs.cell(i, j).value is not None:
+                            dataFileWs.cell(i, j).border = Border(top=Side(border_style='medium', color='000000'))
+                        if type(dataFileColorWs.cell(i, j).value) == int:
+                            if dataFileColorWs.cell(i, j).value < 60:
+                                dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
+                            elif dataFileColorWs.cell(i, j).value < 70:
+                                dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
+                            elif dataFileColorWs.cell(i, j).value < 80:
+                                dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
+                            elif dataFileColorWs.cell(i, nameColumn).value == '시험 평균':
+                                dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
+                            else:
+                                dataFileWs.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
+                        if dataFileColorWs.cell(i, nameColumn).value == '시험 평균':
+                            dataFileWs.cell(i, j).font = Font(bold=True)
 
                 # 학생별 평균 조건부 서식
                 dataFileWs.cell(i, scoreColumn).font = Font(bold=True)
@@ -944,14 +945,14 @@ def applyColor(gui):
         gui.applyColorButton['state'] = tk.NORMAL
         return
 
-def holidayDialog(gui):
+def holidayDialog(gui, button):
     def quitEvent():
         window.destroy()
-        gui.sendMessageButton['state'] = tk.NORMAL
+        button['state'] = tk.NORMAL
         gui.ui.wm_attributes("-disabled", False)
         gui.ui.wm_attributes("-topmost", 1)
         gui.ui.wm_attributes("-topmost", 0)
-    gui.sendMessageButton['state'] = tk.DISABLED
+    button['state'] = tk.DISABLED
     gui.ui.wm_attributes("-disabled", True)
     window=tk.Tk()
     window.geometry('200x300+500+500')
@@ -1056,3 +1057,60 @@ def holidayDialog(gui):
     gui.ui.wm_attributes("-disabled", False)
 
     return makeupDate
+
+def makeClass(gui):
+    # 반 정보 확인
+    if not os.path.isfile('./반 정보.xlsx'):
+        gui.appendLog('[오류] 반 정보.xlsx 파일이 존재하지 않습니다.')
+        return
+    classWb = xl.load_workbook("./반 정보.xlsx")
+    try:
+        classWs = classWb['반 정보']
+    except:
+        gui.appendLog('[오류] \'반 정보.xlsx\'의 시트명을')
+        gui.appendLog('\'반 정보\'로 변경해 주세요.')
+        gui.makeClassButton['state'] = tk.NORMAL
+        return
+
+    # 데이터 저장 엑셀
+    if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
+        gui.appendLog('[오류] ' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
+        gui.saveDataButton['state'] = tk.NORMAL
+        return
+
+    dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
+    dataFileWs = dataFileWb['DailyTest']
+
+    options = webdriver.ChromeOptions()
+    options.add_argument('headless')
+    driver = webdriver.Chrome(service = service, options = options)
+
+    gui.appendLog('아이소식으로부터 반 정보를 업데이트 하는 중...')
+    # 아이소식 접속
+    driver.get(config['url'])
+    tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
+
+    # 반 루프
+    unregistered = {}
+    for i in range(3, len(tableNames)):
+        isExist = False
+        for j in range(1, classWs.max_row+1):
+            if classWs.cell(j, 1).value == tableNames[i].text.rstrip():
+                isExist = True;
+                break
+        if isExist: continue
+        unregistered[tableNames[i].text.rstrip()] = i
+        
+    if len(unregistered) == 0:
+        gui.appendLog('업데이트된 사항이 없습니다.')
+        gui.makeClassButton['state'] = tk.NORMAL
+        return
+
+    for newClass, newClassIndex in unregistered.items():
+        print(newClass, newClassIndex)
+    # trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
+    # writeLocation = start = iniWs.max_row + 1
+    # iniWs.cell(writeLocation, 1).value = tableNames[i].text.rstrip()
+
+    gui.makeClassButton['state'] = tk.NORMAL
+    return

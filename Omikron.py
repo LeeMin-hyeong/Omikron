@@ -9,7 +9,7 @@ config = json.load(open('config.json', encoding='UTF8'))
 class GUI():
     def __init__(self, ui):
         self.ui = ui
-        self.ui.geometry('300x385+460+460')
+        self.ui.geometry('300x410+460+460')
         self.ui.title('Omikron')
         self.ui.resizable(False, False)
 
@@ -52,6 +52,9 @@ class GUI():
         self.applyColorButton = tk.Button(self.ui, text='데이터 엑셀 파일 조건부 서식 재지정', width=40, command=lambda: odb.applyColor(self))
         self.applyColorButton.pack()
 
+        self.makeClassButton = tk.Button(self.ui, text='반 생성', width=40, command=lambda: self.makeClassThread())
+        self.makeClassButton.pack()
+
     def appendLog(self, msg):
         self.log.insert(tk.END, msg)
         self.log.update()
@@ -87,6 +90,12 @@ class GUI():
     def makeupTestInfoThread(self):
         self.makeupTestInfoButton['state'] = tk.DISABLED
         thread = threading.Thread(target=lambda: odb.makeupTestInfo(self))
+        thread.daemon = True
+        thread.start()
+
+    def makeClassThread(self):
+        self.makeClassButton['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: odb.makeClass(self))
         thread.daemon = True
         thread.start()
 
