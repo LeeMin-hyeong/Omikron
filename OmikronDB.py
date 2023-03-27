@@ -1107,7 +1107,7 @@ def makeClass(gui):
         return
 
     for newClass, newClassIndex in unregistered.items():
-        print(newClass, newClassIndex)
+        gui.appendLog(str(newClass))
     # trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
     # writeLocation = start = iniWs.max_row + 1
     # iniWs.cell(writeLocation, 1).value = tableNames[i].text.rstrip()
