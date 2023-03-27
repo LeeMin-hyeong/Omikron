@@ -1069,13 +1069,13 @@ def updateClass(gui):
     except:
         gui.appendLog('[오류] \'반 정보.xlsx\'의 시트명을')
         gui.appendLog('\'반 정보\'로 변경해 주세요.')
-        gui.makeClassButton['state'] = tk.NORMAL
+        gui.updateClassButton['state'] = tk.NORMAL
         return
 
     # 데이터 저장 엑셀
     if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
         gui.appendLog('[오류] ' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
-        gui.saveDataButton['state'] = tk.NORMAL
+        gui.updateDataButton['state'] = tk.NORMAL
         return
 
     dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
