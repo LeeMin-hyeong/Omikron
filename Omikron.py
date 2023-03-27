@@ -36,6 +36,9 @@ class GUI():
         if os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
             self.makeDataFileButton['state'] = tk.DISABLED
 
+        self.updateClassButton = tk.Button(self.ui, text='반 업데이트', width=40, command=lambda: self.updateClassThread())
+        self.updateClassButton.pack()
+
         tk.Label(self.ui, text='\n< 데이터 저장 및 문자 전송 >').pack()
 
         self.makeDataFormButton = tk.Button(self.ui, text='데일리 테스트 기록 양식 생성', width=40, command=lambda: self.makeDataFormThread())
@@ -51,9 +54,6 @@ class GUI():
 
         self.applyColorButton = tk.Button(self.ui, text='데이터 엑셀 파일 조건부 서식 재지정', width=40, command=lambda: odb.applyColor(self))
         self.applyColorButton.pack()
-
-        self.makeClassButton = tk.Button(self.ui, text='반 생성', width=40, command=lambda: self.makeClassThread())
-        self.makeClassButton.pack()
 
     def appendLog(self, msg):
         self.log.insert(tk.END, msg)
@@ -93,9 +93,9 @@ class GUI():
         thread.daemon = True
         thread.start()
 
-    def makeClassThread(self):
-        self.makeClassButton['state'] = tk.DISABLED
-        thread = threading.Thread(target=lambda: odb.makeClass(self))
+    def updateClassThread(self):
+        self.updateClassButton['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: odb.updateClass(self))
         thread.daemon = True
         thread.start()
 

@@ -1058,7 +1058,7 @@ def holidayDialog(gui, button):
 
     return makeupDate
 
-def makeClass(gui):
+def updateClass(gui):
     # 반 정보 확인
     if not os.path.isfile('./반 정보.xlsx'):
         gui.appendLog('[오류] 반 정보.xlsx 파일이 존재하지 않습니다.')
