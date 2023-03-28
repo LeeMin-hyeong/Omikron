@@ -1,3 +1,4 @@
+# OmikronDB v1.2.0-alpha.2
 import os
 import json
 import threading

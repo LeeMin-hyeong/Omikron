@@ -1,3 +1,4 @@
+# Omikron v1.2.0-alpha.2
 import json
 import os.path
 import calendar
@@ -435,7 +436,7 @@ def saveData(gui):
         dataFileWs = dataFileWb['DailyTest']
 
         # 재시험 작성
-        if score < 80:
+        if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
             for j in range(2, makeupWs.max_row+1):
                 if makeupWs.cell(j, 1).value == formWs.cell(i, 4).value:
                     dates = makeupWs.cell(j, 4).value
@@ -703,7 +704,7 @@ def sendMessage(gui):
                     tds[2].find_element(By.TAG_NAME, 'input').send_keys(average)
                     break
             
-            if score < 80 and ((formWs.cell(i, 12).value != 'x') or (formWs.cell(i, 12).value != 'X')):
+            if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
                 for j in range(2, makeupWs.max_row+1):
                     if makeupWs.cell(j, 1).value == name:
                         date = makeupWs.cell(j, 4).value
