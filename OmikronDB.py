@@ -266,30 +266,13 @@ def saveData(gui):
         gui.saveDataButton['state'] = tk.NORMAL
         return
     
-
     # 데이터 저장 엑셀
     if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
         gui.appendLog('[오류] ' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
         gui.saveDataButton['state'] = tk.NORMAL
         return
 
-    dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
-    dataFileWs = dataFileWb['DailyTest']
-    
-    for i in range(1, dataFileWs.max_column+1):
-        if dataFileWs.cell(1, i).value == '반':
-            classColumn = i
-            break
-    for i in range(1, dataFileWs.max_column+1):
-        if dataFileWs.cell(1, i).value == '이름':
-            nameColumn = i
-            break
-    for i in range(1, dataFileWs.max_column+1):
-        if dataFileWs.cell(1, i).value == '학생 평균':
-            scoreColumn = i
-            break
-
-
+    # 재시험 정보 열기
     if not os.path.isfile('./재시험 정보.xlsx'):
         gui.appendLog('[오류] 재시험 정보.xlsx 파일이 존재하지 않습니다.')
         return
@@ -302,6 +285,7 @@ def saveData(gui):
         gui.saveDataButton['state'] = tk.NORMAL
         return
 
+    # 재시험 명단 열기
     if not os.path.isfile('./data/재시험 명단.xlsx'):
         gui.appendLog('재시험 명단 파일 생성 중...')
 
@@ -321,7 +305,6 @@ def saveData(gui):
         iniWs['K1'] = '비고'
         iniWs.auto_filter.ref = 'A:K'
         iniWb.save('./data/재시험 명단.xlsx')
-    
     makeupListWb = xl.load_workbook('./data/재시험 명단.xlsx')
     try:
         makeupListWs = makeupListWb['재시험 명단']
@@ -330,32 +313,43 @@ def saveData(gui):
         gui.appendLog('\'재시험 명단\'으로 변경해 주세요.')
         gui.saveDataButton['state'] = tk.NORMAL
         return
+    
     # try:
-    gui.appendLog('데이터 저장 중...')
-
     excel = win32com.client.Dispatch('Excel.Application')
     excel.Visible = False
     wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
     wb.Save()
     wb.Close()
 
-    dailyWriteColumn = 7
-    mockWriteColumn = 7
+    gui.appendLog('데이터 저장 중...')
+    dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
+
+    # 데일리 테스트 작성
+    dataFileWs = dataFileWb['DailyTest']
+
+    for i in range(1, dataFileWs.max_column+1):
+        if dataFileWs.cell(1, i).value == '반':
+            classColumn = i
+            break
+    for i in range(1, dataFileWs.max_column+1):
+        if dataFileWs.cell(1, i).value == '이름':
+            nameColumn = i
+            break
+    for i in range(1, dataFileWs.max_column+1):
+        if dataFileWs.cell(1, i).value == '학생 평균':
+            scoreColumn = i
+            break
+    
     for i in range(2, formWs.max_row+1):
-        dailyTestScore = formWs.cell(i, 7).value
-        mockTestScore = formWs.cell(i, 10).value
         # 파일 끝 검사
         if formWs.cell(i, 4).value is None:
             break
         
         # 반 필터링
-        if formWs.cell(i, 3).value is not None: # form className is not None
+        if (formWs.cell(i, 3).value is not None) and (formWs.cell(i, 6).value is not None): # form className is not None and form dailyTestName is not None
             className = formWs.cell(i, 3).value
-            dailyTestName = formWs.cell(i, 6).value
+            testName = formWs.cell(i, 6).value
             teacher = formWs.cell(i, 5).value
-            mockTestName = formWs.cell(i, 9).value
-            if dailyTestName is None and mockTestName is None:
-                continue # 시험 안 본 반 건너뛰기
 
             #반 시작 찾기
             for j in range(2, dataFileWs.max_row+1):
@@ -365,66 +359,142 @@ def saveData(gui):
             # 반 끝 찾기
             for j in range(start, dataFileWs.max_row+1):
                 if dataFileWs.cell(j, nameColumn).value == '시험 평균': # data name is 시험 평균
-                    end = j #데이터파일에서 반이 끝나는 행 번호
+                    end = j # 데이터파일에서 반이 끝나는 행 번호
                     break
             
-            if dailyTestName is not None:
-                # 데일리테스트 작성 열 위치 찾기
-                dataFileWs = dataFileWb['DailyTest']
-                for j in range(scoreColumn+1, dataFileWs.max_column+2):
-                    if dataFileWs.cell(start, j).value is None:
-                        dailyWriteColumn = j
-                        break
-                    if dataFileWs.cell(start, j).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
-                        dailyWriteColumn = j
-                        break
-                # 입력 틀 작성
-                average = '=ROUND(AVERAGE(' + get_column_letter(dailyWriteColumn) + str(start + 2) + ':' + get_column_letter(dailyWriteColumn) + str(end - 1) + '), 0)'
-                dataFileWs.cell(start, dailyWriteColumn).value = DATE.today()
-                dataFileWs.cell(start, dailyWriteColumn).number_format = 'yyyy.mm.dd(aaa)'
-                dataFileWs.cell(start, dailyWriteColumn).alignment = Alignment(horizontal='center', vertical='center')
+            # 데일리테스트 작성 열 위치 찾기
+            for j in range(scoreColumn+1, dataFileWs.max_column+2):
+                if dataFileWs.cell(start, j).value is None:
+                    writeColumn = j
+                    break
+                if dataFileWs.cell(start, j).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
+                    writeColumn = j
+                    break
+            # 입력 틀 작성
+            average = '=ROUND(AVERAGE(' + get_column_letter(writeColumn) + str(start + 2) + ':' + get_column_letter(writeColumn) + str(end - 1) + '), 0)'
+            dataFileWs.cell(start, writeColumn).value = DATE.today()
+            dataFileWs.cell(start, writeColumn).number_format = 'yyyy.mm.dd(aaa)'
+            dataFileWs.cell(start, writeColumn).alignment = Alignment(horizontal='center', vertical='center')
 
-                dataFileWs.cell(start + 1, dailyWriteColumn).value = dailyTestName
-                dataFileWs.cell(start + 1, dailyWriteColumn).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            dataFileWs.cell(start + 1, writeColumn).value = testName
+            dataFileWs.cell(start + 1, writeColumn).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-                dataFileWs.cell(end, dailyWriteColumn).value = average
-                dataFileWs.cell(end, dailyWriteColumn).alignment = Alignment(horizontal='center', vertical='center')
-                dataFileWs.cell(end, dailyWriteColumn).border = Border(bottom=Side(border_style='medium', color='000000'))
+            dataFileWs.cell(end, writeColumn).value = average
+            dataFileWs.cell(end, writeColumn).alignment = Alignment(horizontal='center', vertical='center')
+            dataFileWs.cell(end, writeColumn).border = Border(bottom=Side(border_style='medium', color='000000'))
             
-            if mockTestName is not None:
-                # 모의고사 작성 열 위치 찾기
-                dataFileWs = dataFileWb['모의고사']
-                for j in range(scoreColumn+1, dataFileWs.max_column+2):
-                    if dataFileWs.cell(start, j).value is None:
-                        mockWriteColumn = j
-                        break
-                    if dataFileWs.cell(start, j).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
-                        mockWriteColumn = j
-                        break
-                # 입력 틀 작성
-                average = '=ROUND(AVERAGE(' + get_column_letter(mockWriteColumn) + str(start + 2) + ':' + get_column_letter(mockWriteColumn) + str(end - 1) + '), 0)'
-                dataFileWs.cell(start, mockWriteColumn).value = DATE.today()
-                dataFileWs.cell(start, mockWriteColumn).number_format = 'yyyy.mm.dd(aaa)'
-                dataFileWs.cell(start, mockWriteColumn).alignment = Alignment(horizontal='center', vertical='center')
+        score = formWs.cell(i, 7).value
+        if score is None:
+            continue # 점수 없으면 미응시 처리
+        
+        for j in range(start + 2, end):
+            if dataFileWs.cell(j, nameColumn).value == formWs.cell(i, 4).value: # data name == form name
+                dataFileWs.cell(j, writeColumn).value = score
+                dataFileWs.cell(j, writeColumn).alignment = Alignment(horizontal='center', vertical='center')
+                break
 
-                dataFileWs.cell(start + 1, mockWriteColumn).value = mockTestName
-                dataFileWs.cell(start + 1, mockWriteColumn).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        # 재시험 작성
+        if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
+            check = makeupListWs.max_row
+            duplicated = False
+            while makeupListWs.cell(check, 1).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
+                if makeupListWs.cell(check, 4).value == formWs.cell(i, 4).value:
+                    duplicated = True
+                    break
+                check -= 1
+            if duplicated: continue
 
-                dataFileWs.cell(end, mockWriteColumn).value = average
-                dataFileWs.cell(end, mockWriteColumn).alignment = Alignment(horizontal='center', vertical='center')
-                dataFileWs.cell(end, mockWriteColumn).border = Border(bottom=Side(border_style='medium', color='000000'))
+            for j in range(2, makeupWs.max_row+1):
+                if makeupWs.cell(j, 1).value == formWs.cell(i, 4).value:
+                    dates = makeupWs.cell(j, 4).value
+                    time = makeupWs.cell(j, 5).value
+                    newFace = makeupWs.cell(j, 6).value
+                    break
+            for j in range(2, makeupListWs.max_row + 2):
+                if makeupListWs.cell(j, 1).value is None:
+                    writeRow = j
+                    break
+            makeupListWs.cell(writeRow, 1).value = DATE.today()
+            makeupListWs.cell(writeRow, 2).value = className
+            makeupListWs.cell(writeRow, 3).value = teacher
+            makeupListWs.cell(writeRow, 4).value = formWs.cell(i, 4).value
+            if (newFace is not None) and (newFace == 'N'):
+                makeupListWs.cell(writeRow, 4).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
+            makeupListWs.cell(writeRow, 5).value = testName
+            makeupListWs.cell(writeRow, 6).value = score
+            if dates is not None:
+                makeupListWs.cell(writeRow, 7).value = dates
+                dateList = dates.split('/')
+                result = makeupDate[dateList[0].replace(' ', '')]
+                for d in dateList:
+                    if result > makeupDate[d.replace(' ', '')]:
+                        result = makeupDate[d.replace(' ', '')]
+                if time is not None:
+                    makeupListWs.cell(writeRow, 8).value = time
+                makeupListWs.cell(writeRow, 9).value = result
+                makeupListWs.cell(writeRow, 9).number_format = 'mm월 dd일(aaa)'
+        
+    # 모의고사 작성
+    dataFileWs = dataFileWb['모의고사']
 
-        if dailyTestScore is not None:
-            dataFileWs = dataFileWb['DailyTest']
-            testName = dailyTestName
-            score = dailyTestScore
-            writeColumn = dailyWriteColumn
-        elif mockTestScore is not None:
-            dataFileWs = dataFileWb['모의고사']
-            testName = mockTestName
-            score = mockTestScore
-            writeColumn = mockWriteColumn
-        else:
+    for i in range(1, dataFileWs.max_column+1):
+        if dataFileWs.cell(1, i).value == '반':
+            classColumn = i
+            break
+    for i in range(1, dataFileWs.max_column+1):
+        if dataFileWs.cell(1, i).value == '이름':
+            nameColumn = i
+            break
+    for i in range(1, dataFileWs.max_column+1):
+        if dataFileWs.cell(1, i).value == '학생 평균':
+            scoreColumn = i
+            break
+    
+    for i in range(2, formWs.max_row+1):
+        # 파일 끝 검사
+        if formWs.cell(i, 4).value is None:
+            break
+        
+        # 반 필터링
+        if (formWs.cell(i, 3).value is not None) and (formWs.cell(i, 9).value is not None): # form className is not None and form mockTestName is not None
+            className = formWs.cell(i, 3).value
+            testName = formWs.cell(i, 9).value
+            teacher = formWs.cell(i, 5).value
+
+            #반 시작 찾기
+            for j in range(2, dataFileWs.max_row+1):
+                if dataFileWs.cell(j, classColumn).value == className: # data className == form className
+                    start = j # 데이터파일에서 반이 시작하는 행 번호
+                    break
+            # 반 끝 찾기
+            for j in range(start, dataFileWs.max_row+1):
+                if dataFileWs.cell(j, nameColumn).value == '시험 평균': # data name is 시험 평균
+                    end = j # 데이터파일에서 반이 끝나는 행 번호
+                    break
+            
+            # 데일리테스트 작성 열 위치 찾기
+            for j in range(scoreColumn+1, dataFileWs.max_column+2):
+                if dataFileWs.cell(start, j).value is None:
+                    writeColumn = j
+                    break
+                if dataFileWs.cell(start, j).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
+                    writeColumn = j
+                    break
+            # 입력 틀 작성
+            average = '=ROUND(AVERAGE(' + get_column_letter(writeColumn) + str(start + 2) + ':' + get_column_letter(writeColumn) + str(end - 1) + '), 0)'
+            dataFileWs.cell(start, writeColumn).value = DATE.today()
+            dataFileWs.cell(start, writeColumn).number_format = 'yyyy.mm.dd(aaa)'
+            dataFileWs.cell(start, writeColumn).alignment = Alignment(horizontal='center', vertical='center')
+
+            dataFileWs.cell(start + 1, writeColumn).value = testName
+            dataFileWs.cell(start + 1, writeColumn).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+            dataFileWs.cell(end, writeColumn).value = average
+            dataFileWs.cell(end, writeColumn).alignment = Alignment(horizontal='center', vertical='center')
+            dataFileWs.cell(end, writeColumn).border = Border(bottom=Side(border_style='medium', color='000000'))
+            
+        score = formWs.cell(i, 10).value
+        if score is None:
             continue # 점수 없으면 미응시 처리
         
         for j in range(start + 2, end):
@@ -433,10 +503,17 @@ def saveData(gui):
                 dataFileWs.cell(j, writeColumn).alignment = Alignment(horizontal='center', vertical='center')
                 break
         
-        dataFileWs = dataFileWb['DailyTest']
-
         # 재시험 작성
         if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
+            check = makeupListWs.max_row
+            duplicated = False
+            while makeupListWs.cell(check, 1).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
+                if makeupListWs.cell(check, 4).value == formWs.cell(i, 4).value:
+                    duplicated = True
+                    break
+                check -= 1
+            if duplicated: continue
+
             for j in range(2, makeupWs.max_row+1):
                 if makeupWs.cell(j, 1).value == formWs.cell(i, 4).value:
                     dates = makeupWs.cell(j, 4).value
@@ -472,13 +549,13 @@ def saveData(gui):
     #     gui.saveDataButton['state'] = tk.NORMAL
     #     return
 
+    gui.appendLog('재시험 명단 작성 중...')
     for j in range(1, makeupListWs.max_row + 1):
+        if makeupListWs.cell(j, 1).value is None: break
         for k in range(1, makeupListWs.max_column + 1):
             makeupListWs.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
             makeupListWs.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-    gui.appendLog('재시험 명단 작성 중...')
-    
     gui.appendLog('백업 파일 생성중...')
     formWb = xl.load_workbook(filepath)
     formWs = formWb['데일리테스트 기록 양식']
@@ -511,10 +588,18 @@ def saveData(gui):
 
     dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
     dataFileColorWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx', data_only=True)
-    sheetNames = dataFileWb.sheetnames
-    for i in range(0, 2):
-        dataFileWs = dataFileWb[sheetNames[i]]
-        dataFileColorWs = dataFileColorWb[sheetNames[i]]
+
+    for sheetName in dataFileWb.sheetnames:
+        dataFileWs = dataFileWb[sheetName]
+        dataFileColorWs = dataFileColorWb[sheetName]
+        for j in range(1, dataFileWs.max_column+1):
+            if dataFileWs.cell(1, j).value == '이름':
+                nameColumn = j
+                break
+        for j in range(1, dataFileWs.max_column+1):
+            if dataFileWs.cell(1, j).value == '학생 평균':
+                scoreColumn = j
+                break
         for j in range(2, dataFileColorWs.max_row+1):
             for k in range(scoreColumn+1, dataFileColorWs.max_column+1):
                 if k > scoreColumn:

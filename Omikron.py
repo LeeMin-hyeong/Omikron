@@ -10,7 +10,7 @@ config = json.load(open('config.json', encoding='UTF8'))
 class GUI():
     def __init__(self, ui):
         self.ui = ui
-        self.ui.geometry('300x410+460+460')
+        self.ui.geometry('300x385+460+460')
         self.ui.title('Omikron')
         self.ui.resizable(False, False)
 
