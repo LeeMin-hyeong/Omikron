@@ -1,4 +1,4 @@
-# Omikron v1.2.0-alpha.2
+# Omikron v1.1.6-alpha.1
 import json
 import os.path
 import calendar
@@ -1058,60 +1058,3 @@ def holidayDialog(gui, button):
     gui.ui.wm_attributes("-disabled", False)
 
     return makeupDate
-
-def updateClass(gui):
-    # 반 정보 확인
-    if not os.path.isfile('./반 정보.xlsx'):
-        gui.appendLog('[오류] 반 정보.xlsx 파일이 존재하지 않습니다.')
-        return
-    classWb = xl.load_workbook("./반 정보.xlsx")
-    try:
-        classWs = classWb['반 정보']
-    except:
-        gui.appendLog('[오류] \'반 정보.xlsx\'의 시트명을')
-        gui.appendLog('\'반 정보\'로 변경해 주세요.')
-        gui.updateClassButton['state'] = tk.NORMAL
-        return
-
-    # 데이터 저장 엑셀
-    if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
-        gui.appendLog('[오류] ' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
-        gui.updateDataButton['state'] = tk.NORMAL
-        return
-
-    dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
-    dataFileWs = dataFileWb['DailyTest']
-
-    options = webdriver.ChromeOptions()
-    options.add_argument('headless')
-    driver = webdriver.Chrome(service = service, options = options)
-
-    gui.appendLog('아이소식으로부터 반 정보를 업데이트 하는 중...')
-    # 아이소식 접속
-    driver.get(config['url'])
-    tableNames = driver.find_elements(By.CLASS_NAME, 'style1')
-
-    # 반 루프
-    unregistered = {}
-    for i in range(3, len(tableNames)):
-        isExist = False
-        for j in range(1, classWs.max_row+1):
-            if classWs.cell(j, 1).value == tableNames[i].text.rstrip():
-                isExist = True;
-                break
-        if isExist: continue
-        unregistered[tableNames[i].text.rstrip()] = i
-        
-    if len(unregistered) == 0:
-        gui.appendLog('업데이트된 사항이 없습니다.')
-        gui.updateClassButton['state'] = tk.NORMAL
-        return
-
-    for newClass, newClassIndex in unregistered.items():
-        gui.appendLog(str(newClass))
-    # trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
-    # writeLocation = start = iniWs.max_row + 1
-    # iniWs.cell(writeLocation, 1).value = tableNames[i].text.rstrip()
-
-    gui.updateClassButton['state'] = tk.NORMAL
-    return
