@@ -1,4 +1,4 @@
-# Omikron v1.1.6-alpha.1
+# Omikron v1.1.6-alpha.2
 import json
 import os.path
 import calendar
@@ -239,7 +239,7 @@ def makeDataForm(gui):
         while True:
             if not os.path.isfile('./데일리테스트 기록 양식(' + str(i) +').xlsx'):
                 iniWb.save('./데일리테스트 기록 양식(' + str(i) +').xlsx')
-                break;
+                break
             i += 1
     else:
         iniWb.save('./데일리테스트 기록 양식.xlsx')
@@ -314,7 +314,6 @@ def saveData(gui):
         gui.saveDataButton['state'] = tk.NORMAL
         return
     
-    # try:
     excel = win32com.client.Dispatch('Excel.Application')
     excel.Visible = False
     wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
@@ -340,7 +339,7 @@ def saveData(gui):
             scoreColumn = i
             break
     
-    for i in range(2, formWs.max_row+1):
+    for i in range(2, formWs.max_row+1): # 데일리데이터 기록 양식 루프
         # 파일 끝 검사
         if formWs.cell(i, 4).value is None:
             break
@@ -394,7 +393,7 @@ def saveData(gui):
                 break
 
         # 재시험 작성
-        if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
+        if (type(score) == int) and (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
             check = makeupListWs.max_row
             duplicated = False
             while makeupListWs.cell(check, 1).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
@@ -408,7 +407,7 @@ def saveData(gui):
                 if makeupWs.cell(j, 1).value == formWs.cell(i, 4).value:
                     dates = makeupWs.cell(j, 4).value
                     time = makeupWs.cell(j, 5).value
-                    newFace = makeupWs.cell(j, 6).value
+                    newStudent = makeupWs.cell(j, 6).value
                     break
             for j in range(2, makeupListWs.max_row + 2):
                 if makeupListWs.cell(j, 1).value is None:
@@ -418,7 +417,7 @@ def saveData(gui):
             makeupListWs.cell(writeRow, 2).value = className
             makeupListWs.cell(writeRow, 3).value = teacher
             makeupListWs.cell(writeRow, 4).value = formWs.cell(i, 4).value
-            if (newFace is not None) and (newFace == 'N'):
+            if (newStudent is not None) and (newStudent == 'N'):
                 makeupListWs.cell(writeRow, 4).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
             makeupListWs.cell(writeRow, 5).value = testName
             makeupListWs.cell(writeRow, 6).value = score
@@ -450,7 +449,7 @@ def saveData(gui):
             scoreColumn = i
             break
     
-    for i in range(2, formWs.max_row+1):
+    for i in range(2, formWs.max_row+1): # 데일리데이터 기록 양식 루프
         # 파일 끝 검사
         if formWs.cell(i, 4).value is None:
             break
@@ -504,7 +503,7 @@ def saveData(gui):
                 break
         
         # 재시험 작성
-        if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
+        if (type(score) == int) and (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
             check = makeupListWs.max_row
             duplicated = False
             while makeupListWs.cell(check, 1).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
@@ -518,7 +517,7 @@ def saveData(gui):
                 if makeupWs.cell(j, 1).value == formWs.cell(i, 4).value:
                     dates = makeupWs.cell(j, 4).value
                     time = makeupWs.cell(j, 5).value
-                    newFace = makeupWs.cell(j, 6).value
+                    newStudent = makeupWs.cell(j, 6).value
                     break
             for j in range(2, makeupListWs.max_row + 2):
                 if makeupListWs.cell(j, 1).value is None:
@@ -528,7 +527,7 @@ def saveData(gui):
             makeupListWs.cell(writeRow, 2).value = className
             makeupListWs.cell(writeRow, 3).value = teacher
             makeupListWs.cell(writeRow, 4).value = formWs.cell(i, 4).value
-            if (newFace is not None) and (newFace == 'N'):
+            if (newStudent is not None) and (newStudent == 'N'):
                 makeupListWs.cell(writeRow, 4).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
             makeupListWs.cell(writeRow, 5).value = testName
             makeupListWs.cell(writeRow, 6).value = score
@@ -544,11 +543,6 @@ def saveData(gui):
                 makeupListWs.cell(writeRow, 9).value = result
                 makeupListWs.cell(writeRow, 9).number_format = 'mm월 dd일(aaa)'
 
-    # except:
-    #     gui.appendLog('이 데이터 파일 양식에는 작성할 수 없습니다.')
-    #     gui.saveDataButton['state'] = tk.NORMAL
-    #     return
-
     gui.appendLog('재시험 명단 작성 중...')
     for j in range(1, makeupListWs.max_row + 1):
         if makeupListWs.cell(j, 1).value is None: break
@@ -560,17 +554,6 @@ def saveData(gui):
     formWb = xl.load_workbook(filepath)
     formWs = formWb['데일리테스트 기록 양식']
     formWb.save('./data/backup/데일리테스트 기록 양식(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
-    # 양식 지우기
-    # for i in range(2, formWs.max_row + 1):
-    #     formWs.cell(i, 6).value = ''
-    #     formWs.cell(i, 7).value = ''
-    #     formWs.cell(i, 9).value = ''
-    #     formWs.cell(i, 10).value = ''
-    # formWb.save('./데일리테스트 기록 양식.xlsx')
-    # except:
-    #     gui.appendLog('재시험명단 파일 창을 끄고 다시 실행해 주세요.')
-    #     gui.saveDataButton['state'] = tk.NORMAL
-    #     return
     
     try:
         dataFileWb.save('./data/' + config['dataFileName'] + '.xlsx')
@@ -579,60 +562,6 @@ def saveData(gui):
         gui.saveDataButton['state'] = tk.NORMAL
         return
 
-    # 조건부서식
-    excel = win32com.client.Dispatch('Excel.Application')
-    excel.Visible = False
-    wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
-    wb.Save()
-    wb.Close()
-
-    dataFileWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
-    dataFileColorWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx', data_only=True)
-
-    for sheetName in dataFileWb.sheetnames:
-        dataFileWs = dataFileWb[sheetName]
-        dataFileColorWs = dataFileColorWb[sheetName]
-        for j in range(1, dataFileWs.max_column+1):
-            if dataFileWs.cell(1, j).value == '이름':
-                nameColumn = j
-                break
-        for j in range(1, dataFileWs.max_column+1):
-            if dataFileWs.cell(1, j).value == '학생 평균':
-                scoreColumn = j
-                break
-        for j in range(2, dataFileColorWs.max_row+1):
-            for k in range(scoreColumn+1, dataFileColorWs.max_column+1):
-                if k > scoreColumn:
-                    dataFileWs.column_dimensions[get_column_letter(j)].width = 14
-
-                if type(dataFileColorWs.cell(j, k).value) == int:
-                    if dataFileColorWs.cell(j, k).value < 60:
-                        dataFileWs.cell(j, k).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
-                    elif dataFileColorWs.cell(j, k).value < 70:
-                        dataFileWs.cell(j, k).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
-                    elif dataFileColorWs.cell(j, k).value < 80:
-                        dataFileWs.cell(j, k).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
-                    elif dataFileColorWs.cell(j, nameColumn).value == '시험 평균':
-                        dataFileWs.cell(j, k).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
-
-            # 학생별 평균 조건부 서식
-            if type(dataFileColorWs.cell(j, scoreColumn).value) == int:
-                if dataFileColorWs.cell(j, scoreColumn).value < 60:
-                    dataFileWs.cell(j, scoreColumn).fill = PatternFill(fill_type='solid', fgColor=Color('EC7E31'))
-                elif dataFileColorWs.cell(j, scoreColumn).value < 70:
-                    dataFileWs.cell(j, scoreColumn).fill = PatternFill(fill_type='solid', fgColor=Color('F5AF85'))
-                elif dataFileColorWs.cell(j, scoreColumn).value < 80:
-                    dataFileWs.cell(j, scoreColumn).fill = PatternFill(fill_type='solid', fgColor=Color('FCE4D6'))
-                elif dataFileColorWs.cell(j, nameColumn).value == '시험 평균':
-                    dataFileWs.cell(j, scoreColumn).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
-                else:
-                    dataFileWs.cell(j, scoreColumn).fill = PatternFill(fill_type='solid', fgColor=Color('E2EFDA'))
-            name = dataFileWs.cell(j, nameColumn)
-            if (name.value is not None) or (name.value != '날짜') or (name.value != '시험명') or (name.value != '시험 평균'):
-                for k in range(2, makeupWs.max_row+1):
-                    if (name.value == makeupWs.cell(k, 1).value) and (makeupWs.cell(k, 6).value == 'N'):
-                        name.fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
-                        break
     dataFileWs = dataFileWb['DailyTest']
     dataFileWb.save('./data/' + config['dataFileName'] + '.xlsx')
     try:
@@ -642,6 +571,8 @@ def saveData(gui):
         gui.saveDataButton['state'] = tk.NORMAL
         return
     
+    applyColor(gui)
+
     gui.appendLog('데이터 저장을 완료했습니다.')
     gui.ui.wm_attributes("-topmost", 1)
     gui.ui.wm_attributes("-topmost", 0)
@@ -768,6 +699,9 @@ def sendMessage(gui):
                 average = mockTestAverage
             else:
                 continue
+
+            if type(score) != int:
+                continue
             
             if testName is None:
                 gui.appendLog(className + '반의 시험명이 없습니다.')
@@ -789,7 +723,7 @@ def sendMessage(gui):
                     tds[2].find_element(By.TAG_NAME, 'input').send_keys(average)
                     break
             
-            if (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
+            if (type(score) == int) and (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
                 for j in range(2, makeupWs.max_row+1):
                     if makeupWs.cell(j, 1).value == name:
                         date = makeupWs.cell(j, 4).value
@@ -988,6 +922,8 @@ def applyColor(gui):
                                 dataFileWs.cell(i, j).fill = PatternFill(fill_type='solid', fgColor=Color('DDEBF7'))
                             else:
                                 dataFileWs.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
+                        else:
+                            dataFileWs.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
                         if dataFileColorWs.cell(i, nameColumn).value == '시험 평균':
                             dataFileWs.cell(i, j).font = Font(bold=True)
 
@@ -1010,6 +946,8 @@ def applyColor(gui):
                         if (name.value == makeupWs.cell(j, 1).value) and (makeupWs.cell(j, 6).value == 'N'):
                             name.fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
                             break
+                        else:
+                            name.fill = PatternFill(fill_type=None, fgColor=Color('00FFFFFF'))
 
     except:
         gui.appendLog('이 데이터 양식에는 조건부 서식을 지정할 수 없습니다.')
@@ -1041,7 +979,12 @@ def holidayDialog(gui, button):
     button['state'] = tk.DISABLED
     gui.ui.wm_attributes("-disabled", True)
     window=tk.Tk()
-    window.geometry('200x300+500+500')
+    width = 200
+    height = 300
+    x = int((window.winfo_screenwidth()/4) - (width/2))
+    y = int((window.winfo_screenheight()/2) - (height/2))
+    window.geometry(f'{width}x{height}+{x}+{y}')
+    window.title('휴일 선택')
     window.resizable(False, False)
     window.protocol("WM_DELETE_WINDOW", quitEvent)
 

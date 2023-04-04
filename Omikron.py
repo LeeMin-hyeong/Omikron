@@ -1,4 +1,4 @@
-# Omikron v1.1.6-alpha.1
+# Omikron v1.1.6-alpha.2
 import os
 import json
 import threading
@@ -10,7 +10,11 @@ config = json.load(open('config.json', encoding='UTF8'))
 class GUI():
     def __init__(self, ui):
         self.ui = ui
-        self.ui.geometry('300x385+460+460')
+        self.width = 300
+        self.height = 385 # button +25
+        self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
+        self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
+        self.ui.geometry(f'{self.width}x{self.height}+{self.x}+{self.y}')
         self.ui.title('Omikron')
         self.ui.resizable(False, False)
 
