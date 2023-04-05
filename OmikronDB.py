@@ -1,4 +1,4 @@
-# Omikron v1.1.6-alpha.2
+# Omikron v1.1.6-alpha.3
 import json
 import os.path
 import calendar
@@ -314,7 +314,7 @@ def saveData(gui):
         gui.saveDataButton['state'] = tk.NORMAL
         return
     
-    excel = win32com.client.Dispatch('Excel.Application')
+    excel = win32com.client.dynamic.Dispatch('Excel.Application')
     excel.Visible = False
     wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
     wb.Save()
@@ -577,8 +577,6 @@ def saveData(gui):
     gui.ui.wm_attributes("-topmost", 1)
     gui.ui.wm_attributes("-topmost", 0)
     gui.saveDataButton['state'] = tk.NORMAL
-    excel.Visible = True
-    wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
 
 def classInfo(gui):
     if not os.path.isfile('반 정보.xlsx'):
@@ -872,7 +870,7 @@ def applyColor(gui):
             gui.applyColorButton['state'] = tk.NORMAL
             return
         
-        excel = win32com.client.Dispatch('Excel.Application')
+        excel = win32com.client.dynamic.Dispatch('Excel.Application')
         excel.Visible = False
         wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
         wb.Save()

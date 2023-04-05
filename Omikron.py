@@ -1,4 +1,4 @@
-# Omikron v1.1.6-alpha.2
+# Omikron v1.1.6-alpha.3
 import os
 import json
 import threading
