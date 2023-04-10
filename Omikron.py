@@ -1,4 +1,4 @@
-# OmikronDB v1.2.0-alpha.2
+# Omikron v1.1.6
 import os
 import json
 import threading
@@ -10,7 +10,11 @@ config = json.load(open('config.json', encoding='UTF8'))
 class GUI():
     def __init__(self, ui):
         self.ui = ui
-        self.ui.geometry('300x410+460+460')
+        self.width = 300
+        self.height = 385 # button +25
+        self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
+        self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
+        self.ui.geometry(f'{self.width}x{self.height}+{self.x}+{self.y}')
         self.ui.title('Omikron')
         self.ui.resizable(False, False)
 
@@ -36,9 +40,6 @@ class GUI():
         self.makeDataFileButton.pack()
         if os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
             self.makeDataFileButton['state'] = tk.DISABLED
-
-        self.updateClassButton = tk.Button(self.ui, text='반 업데이트', width=40, command=lambda: self.updateClassThread())
-        self.updateClassButton.pack()
 
         tk.Label(self.ui, text='\n< 데이터 저장 및 문자 전송 >').pack()
 
@@ -91,12 +92,6 @@ class GUI():
     def makeupTestInfoThread(self):
         self.makeupTestInfoButton['state'] = tk.DISABLED
         thread = threading.Thread(target=lambda: odb.makeupTestInfo(self))
-        thread.daemon = True
-        thread.start()
-
-    def updateClassThread(self):
-        self.updateClassButton['state'] = tk.DISABLED
-        thread = threading.Thread(target=lambda: odb.updateClass(self))
         thread.daemon = True
         thread.start()
 
