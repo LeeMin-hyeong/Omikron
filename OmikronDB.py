@@ -1,4 +1,4 @@
-# Omikron v1.1.6-alpha.3
+# Omikron v1.1.6
 import json
 import os.path
 import calendar
