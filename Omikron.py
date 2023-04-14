@@ -1,4 +1,4 @@
-# Omikron v1.1.6
+# Omikron v1.2.0-alpha
 import os
 import json
 import threading
@@ -11,7 +11,7 @@ class GUI():
     def __init__(self, ui):
         self.ui = ui
         self.width = 300
-        self.height = 385 # button +25
+        self.height = 435 # button +25
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
         self.ui.geometry(f'{self.width}x{self.height}+{self.x}+{self.y}')
@@ -26,72 +26,84 @@ class GUI():
         
         tk.Label(self.ui, text='< 기수 변경 관련 >').pack()
 
-        self.classInfoButton = tk.Button(self.ui, text='반 정보 기록 양식 생성', width=40, command=lambda: self.classInfoThread())
-        self.classInfoButton.pack()
+        self.class_info_button = tk.Button(self.ui, text='반 정보 기록 양식 생성', width=40, command=lambda: self.class_info_thread())
+        self.class_info_button.pack()
         if os.path.isfile('반 정보.xlsx'):
-            self.classInfoButton['state'] = tk.DISABLED
+            self.class_info_button['state'] = tk.DISABLED
 
-        self.makeupTestInfoButton = tk.Button(self.ui, text='재시험 정보 기록 양식 생성', width=40, command=lambda: self.makeupTestInfoThread())
-        self.makeupTestInfoButton.pack()
-        if os.path.isfile('재시험 정보.xlsx'):
-            self.makeupTestInfoButton['state'] = tk.DISABLED
+        self.student_info_button = tk.Button(self.ui, text='학생 정보 기록 양식 생성', width=40, command=lambda: self.student_info_thread())
+        self.student_info_button.pack()
+        if os.path.isfile('학생 정보.xlsx'):
+            self.student_info_button['state'] = tk.DISABLED
 
-        self.makeDataFileButton = tk.Button(self.ui, text='데이터 파일 생성', width=40, command=lambda: self.makeDataFileThread())
-        self.makeDataFileButton.pack()
+        self.make_data_file_button = tk.Button(self.ui, text='데이터 파일 생성', width=40, command=lambda: self.make_data_file_thread())
+        self.make_data_file_button.pack()
         if os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
-            self.makeDataFileButton['state'] = tk.DISABLED
+            self.make_data_file_button['state'] = tk.DISABLED
+
+        self.update_class_button = tk.Button(self.ui, text='반 업데이트', width=40, command=lambda: self.update_class_thread())
+        self.update_class_button.pack()
 
         tk.Label(self.ui, text='\n< 데이터 저장 및 문자 전송 >').pack()
 
-        self.makeDataFormButton = tk.Button(self.ui, text='데일리 테스트 기록 양식 생성', width=40, command=lambda: self.makeDataFormThread())
-        self.makeDataFormButton.pack()
+        self.make_data_form_button = tk.Button(self.ui, text='데일리 테스트 기록 양식 생성', width=40, command=lambda: self.mkae_data_form_thread())
+        self.make_data_form_button.pack()
 
-        self.saveDataButton = tk.Button(self.ui, text='데이터 엑셀 파일에 저장', width=40, command=lambda: self.saveDataThread())
-        self.saveDataButton.pack()
+        self.save_data_button = tk.Button(self.ui, text='데이터 엑셀 파일에 저장', width=40, command=lambda: self.save_data_thread())
+        self.save_data_button.pack()
         
-        self.sendMessageButton = tk.Button(self.ui, text='시험 결과 전송', width=40, command=lambda: self.sendMessageThread())
-        self.sendMessageButton.pack()
+        self.send_message_button = tk.Button(self.ui, text='시험 결과 전송', width=40, command=lambda: self.send_message_thread())
+        self.send_message_button.pack()
 
         tk.Label(self.ui, text='\n< 데이터 관리 >').pack()
 
-        self.applyColorButton = tk.Button(self.ui, text='데이터 엑셀 파일 조건부 서식 재지정', width=40, command=lambda: odb.applyColor(self))
-        self.applyColorButton.pack()
+        self.apply_color_button = tk.Button(self.ui, text='데이터 엑셀 파일 조건부 서식 재지정', width=40, command=lambda: odb.apply_color(self))
+        self.apply_color_button.pack()
 
-    def appendLog(self, msg):
+        self.student_menagement_button = tk.Button(self.ui, text='신규 등록 / 퇴원 관리', width=40, command=None)
+        self.student_menagement_button.pack()
+
+    def append_log(self, msg:str):
         self.log.insert(tk.END, msg)
         self.log.update()
         self.log.see(tk.END)
 
-    def classInfoThread(self):
-        self.classInfoButton['state'] = tk.DISABLED
-        thread = threading.Thread(target=lambda: odb.classInfo(self))
+    def class_info_thread(self):
+        self.class_info_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: odb.class_info(self))
         thread.daemon = True
         thread.start()
 
-    def makeDataFileThread(self):
-        self.makeDataFileButton['state'] = tk.DISABLED
-        thread = threading.Thread(target=lambda: odb.makeDataFile(self))
+    def make_data_file_thread(self):
+        self.make_data_file_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: odb.make_data_file(self))
         thread.daemon = True
         thread.start()
 
-    def saveDataThread(self):
-        thread = threading.Thread(target=lambda: odb.saveData(self))
+    def save_data_thread(self):
+        thread = threading.Thread(target=lambda: odb.save_data(self))
         thread.daemon = True
         thread.start()
 
-    def makeDataFormThread(self):
-        thread = threading.Thread(target=lambda: odb.makeDataForm(self))
+    def mkae_data_form_thread(self):
+        thread = threading.Thread(target=lambda: odb.make_data_form(self))
         thread.daemon = True
         thread.start()
 
-    def sendMessageThread(self):
-        thread = threading.Thread(target=lambda: odb.sendMessage(self))
+    def send_message_thread(self):
+        thread = threading.Thread(target=lambda: odb.send_message(self))
         thread.daemon = True
         thread.start()
 
-    def makeupTestInfoThread(self):
-        self.makeupTestInfoButton['state'] = tk.DISABLED
-        thread = threading.Thread(target=lambda: odb.makeupTestInfo(self))
+    def student_info_thread(self):
+        self.student_info_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: odb.student_info(self))
+        thread.daemon = True
+        thread.start()
+
+    def update_class_thread(self):
+        self.update_class_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: odb.update_class(self))
         thread.daemon = True
         thread.start()
 
