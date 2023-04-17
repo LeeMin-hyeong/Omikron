@@ -2,11 +2,12 @@
 import json
 import os.path
 import calendar
+import threading
 import tkinter as tk
 import openpyxl as xl
 import win32com.client # only works in Windows
 
-from OmikronConst import *
+from omikronconst import *
 from tkinter import filedialog
 from datetime import date as DATE, datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -25,7 +26,106 @@ os.environ['WDM_PROGRESS_BAR'] = '0'
 service = Service(ChromeDriverManager().install())
 service.creation_flags = CREATE_NO_WINDOW
 
-def make_data_file(gui:tk.Tk):
+class GUI():
+    def __init__(self, ui):
+        self.ui = ui
+        self.width = 320
+        self.height = 435 # button +25
+        self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
+        self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
+        self.ui.geometry(f'{self.width}x{self.height}+{self.x}+{self.y}')
+        self.ui.title('Omikron')
+        self.ui.resizable(False, False)
+
+        tk.Label(self.ui, text='Omikron 데이터 프로그램').pack()
+        self.scroll = tk.Scrollbar(self.ui, orient='vertical')
+        self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=51, height=5)
+        self.scroll.config(command=self.log.yview)
+        self.log.pack()
+        
+        tk.Label(self.ui, text='< 기수 변경 관련 >').pack()
+
+        self.class_info_button = tk.Button(self.ui, text='반 정보 기록 양식 생성', width=40, command=lambda: self.class_info_thread())
+        self.class_info_button.pack()
+        if os.path.isfile('반 정보.xlsx'):
+            self.class_info_button['state'] = tk.DISABLED
+
+        self.student_info_button = tk.Button(self.ui, text='학생 정보 기록 양식 생성', width=40, command=lambda: self.student_info_thread())
+        self.student_info_button.pack()
+        if os.path.isfile('학생 정보.xlsx'):
+            self.student_info_button['state'] = tk.DISABLED
+
+        self.make_data_file_button = tk.Button(self.ui, text='데이터 파일 생성', width=40, command=lambda: self.make_data_file_thread())
+        self.make_data_file_button.pack()
+        if os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
+            self.make_data_file_button['state'] = tk.DISABLED
+
+        self.update_class_button = tk.Button(self.ui, text='반 업데이트', width=40, command=lambda: self.update_class_thread())
+        self.update_class_button.pack()
+
+        tk.Label(self.ui, text='\n< 데이터 저장 및 문자 전송 >').pack()
+
+        self.make_data_form_button = tk.Button(self.ui, text='데일리 테스트 기록 양식 생성', width=40, command=lambda: self.mkae_data_form_thread())
+        self.make_data_form_button.pack()
+
+        self.save_data_button = tk.Button(self.ui, text='데이터 엑셀 파일에 저장', width=40, command=lambda: self.save_data_thread())
+        self.save_data_button.pack()
+        
+        self.send_message_button = tk.Button(self.ui, text='시험 결과 전송', width=40, command=lambda: self.send_message_thread())
+        self.send_message_button.pack()
+
+        tk.Label(self.ui, text='\n< 데이터 관리 >').pack()
+
+        self.apply_color_button = tk.Button(self.ui, text='데이터 엑셀 파일 조건부 서식 재지정', width=40, command=lambda: apply_color(self))
+        self.apply_color_button.pack()
+
+        self.student_menagement_button = tk.Button(self.ui, text='신규 등록 / 퇴원 관리', width=40, command=None)
+        self.student_menagement_button.pack()
+
+    def append_log(self, msg:str):
+        self.log.insert(tk.END, msg)
+        self.log.update()
+        self.log.see(tk.END)
+
+    def class_info_thread(self):
+        self.class_info_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: class_info(self))
+        thread.daemon = True
+        thread.start()
+
+    def make_data_file_thread(self):
+        self.make_data_file_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: make_data_file(self))
+        thread.daemon = True
+        thread.start()
+
+    def save_data_thread(self):
+        thread = threading.Thread(target=lambda: save_data(self))
+        thread.daemon = True
+        thread.start()
+
+    def mkae_data_form_thread(self):
+        thread = threading.Thread(target=lambda: make_data_form(self))
+        thread.daemon = True
+        thread.start()
+
+    def send_message_thread(self):
+        thread = threading.Thread(target=lambda: send_message(self))
+        thread.daemon = True
+        thread.start()
+
+    def student_info_thread(self):
+        self.student_info_button['state'] = tk.DISABLED
+        thread = threading.Thread(target=lambda: student_info(self))
+        thread.daemon = True
+        thread.start()
+
+    def update_class_thread(self):
+        thread = threading.Thread(target=lambda: update_class(self))
+        thread.daemon = True
+        thread.start()
+
+def make_data_file(gui:GUI):
     gui.make_data_file_button['state'] = tk.DISABLED
     if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
         gui.append_log('데이터파일 생성 중...')
@@ -141,7 +241,7 @@ def make_data_file(gui:tk.Tk):
     else:
         gui.append_log('이미 파일이 존재합니다')
 
-def make_data_form(gui:tk.Tk):
+def make_data_form(gui:GUI):
     gui.append_log('데일리테스트 기록 양식 생성 중...')
 
     ini_wb = xl.Workbook()
@@ -152,10 +252,10 @@ def make_data_form(gui:tk.Tk):
     ini_ws[get_column_letter(DataForm.CLASS_NAME_COLUMN)+'1'] = '반'
     ini_ws[get_column_letter(DataForm.STUDENT_NAME_COLUMN)+'1'] = '이름'
     ini_ws[get_column_letter(DataForm.TEACHER_COLUMN)+'1'] = '담당T'
-    ini_ws[get_column_letter(DataForm.DAILYTEST_TEST_NAME)+'1'] = '시험명'
+    ini_ws[get_column_letter(DataForm.DAILYTEST_TEST_NAME_COLUMN)+'1'] = '시험명'
     ini_ws[get_column_letter(DataForm.DAILYTEST_SCORE_COLUMN)+'1'] = '점수'
     ini_ws[get_column_letter(DataForm.DAILYTEST_AVERAGE_COLUMN)+'1'] = '평균'
-    ini_ws[get_column_letter(DataForm.MOCKTEST_TEST_NAME)+'1'] = '시험대비 모의고사명'
+    ini_ws[get_column_letter(DataForm.MOCKTEST_TEST_NAME_COLUMN)+'1'] = '시험대비 모의고사명'
     ini_ws[get_column_letter(DataForm.MOCKTEST_SCORE_COLUMN)+'1'] = '모의고사 점수'
     ini_ws[get_column_letter(DataForm.MOCKTEST_AVERAGE_COLUMN)+'1'] = '모의고사 평균'
     ini_ws[get_column_letter(DataForm.MAKEUP_TEST_CHECK_COLUMN)+'1'] = '재시문자 X'
@@ -230,9 +330,9 @@ def make_data_form(gui:tk.Tk):
         if start < end:
             ini_ws.merge_cells(get_column_letter(DataForm.CLASS_NAME_COLUMN)+str(start)+':'+get_column_letter(DataForm.CLASS_NAME_COLUMN)+str(end))
             ini_ws.merge_cells(get_column_letter(DataForm.TEACHER_COLUMN)+str(start)+':'+get_column_letter(DataForm.TEACHER_COLUMN)+str(end))
-            ini_ws.merge_cells(get_column_letter(DataForm.DAILYTEST_TEST_NAME)+str(start)+':'+get_column_letter(DataForm.DAILYTEST_TEST_NAME)+str(end))
+            ini_ws.merge_cells(get_column_letter(DataForm.DAILYTEST_TEST_NAME_COLUMN)+str(start)+':'+get_column_letter(DataForm.DAILYTEST_TEST_NAME_COLUMN)+str(end))
             ini_ws.merge_cells(get_column_letter(DataForm.DAILYTEST_AVERAGE_COLUMN)+str(start)+':'+get_column_letter(DataForm.DAILYTEST_AVERAGE_COLUMN)+str(end))
-            ini_ws.merge_cells(get_column_letter(DataForm.MOCKTEST_TEST_NAME)+str(start)+':'+get_column_letter(DataForm.MOCKTEST_TEST_NAME)+str(end))
+            ini_ws.merge_cells(get_column_letter(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(start)+':'+get_column_letter(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(end))
             ini_ws.merge_cells(get_column_letter(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)+':'+get_column_letter(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end))
         
     if os.path.isfile('./데일리테스트 기록 양식.xlsx'):
@@ -248,7 +348,7 @@ def make_data_form(gui:tk.Tk):
     gui.ui.wm_attributes("-topmost", 1)
     gui.ui.wm_attributes("-topmost", 0)
 
-def save_data(gui:tk.Tk):
+def save_data(gui:GUI):
     makeup_test_date = holiday_dialog(gui, gui.save_data_button)
 
     if gui.save_data_button['state'] == tk.NORMAL: return
@@ -263,6 +363,7 @@ def save_data(gui:tk.Tk):
 
     # 올바른 양식이 아닙니다.
     if not check_data_form(gui, form_ws):
+        gui.append_log('데이터 저장이 중단되었습니다.')
         gui.save_data_button['state'] = tk.NORMAL
         return
     
@@ -348,9 +449,9 @@ def save_data(gui:tk.Tk):
             break
         
         # 반 필터링
-        if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME).value is not None):
+        if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value is not None):
             class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-            test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME).value
+            test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
             teacher = form_ws.cell(i, DataForm.TEACHER_COLUMN).value
 
             #반 시작 찾기
@@ -426,9 +527,9 @@ def save_data(gui:tk.Tk):
             makeup_list_ws.cell(writeRow, MakeupTestList.TEST_SCORE_COLUMN).value = score
             if dates is not None:
                 makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
-                dateList = dates.split('/')
-                result = makeup_test_date[dateList[0].replace(' ', '')]
-                for d in dateList:
+                date_list = dates.split('/')
+                result = makeup_test_date[date_list[0].replace(' ', '')]
+                for d in date_list:
                     if result > makeup_test_date[d.replace(' ', '')]:
                         result = makeup_test_date[d.replace(' ', '')]
                 if time is not None:
@@ -459,9 +560,9 @@ def save_data(gui:tk.Tk):
             break
         
         # 반 필터링
-        if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME).value is not None): # form class_name is not None and form mock_test_name is not None
+        if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value is not None): # form class_name is not None and form mock_test_name is not None
             class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-            test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME).value
+            test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
             teacher = form_ws.cell(i, DataForm.TEACHER_COLUMN).value
 
             #반 시작 찾기
@@ -537,9 +638,9 @@ def save_data(gui:tk.Tk):
             makeup_list_ws.cell(writeRow, MakeupTestList.TEST_SCORE_COLUMN).value = score
             if dates is not None:
                 makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
-                dateList = dates.split('/')
-                result = makeup_test_date[dateList[0].replace(' ', '')]
-                for d in dateList:
+                date_list = dates.split('/')
+                result = makeup_test_date[date_list[0].replace(' ', '')]
+                for d in date_list:
                     if result > makeup_test_date[d.replace(' ', '')]:
                         result = makeup_test_date[d.replace(' ', '')]
                 if time is not None:
@@ -580,7 +681,7 @@ def save_data(gui:tk.Tk):
     gui.ui.wm_attributes("-topmost", 0)
     gui.save_data_button['state'] = tk.NORMAL
 
-def class_info(gui:tk.Tk):
+def class_info(gui:GUI):
     if not os.path.isfile('반 정보.xlsx'):
         gui.append_log('반 정보 입력 파일 생성 중...')
 
@@ -622,7 +723,7 @@ def class_info(gui:tk.Tk):
         gui.append_log('이미 파일이 존재합니다.')
         gui.class_info_button['state'] = tk.DISABLED
 
-def send_message(gui:tk.Tk):
+def send_message(gui:GUI):
     
     makeup_test_date = holiday_dialog(gui, gui.send_message_button)
     
@@ -639,6 +740,7 @@ def send_message(gui:tk.Tk):
     
     # 올바른 양식이 아닙니다.
     if not check_data_form(gui, form_ws):
+        gui.append_log('시험 점수 전송이 중단되었습니다.')
         gui.send_message_button['state'] = tk.NORMAL
         return
 
@@ -682,8 +784,8 @@ def send_message(gui:tk.Tk):
             mock_test_score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
             if form_ws.cell(i, 3).value is not None:
                 class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-                daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME).value
-                mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME).value
+                daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
+                mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
                 daily_test_average = form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value
                 mock_test_average = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
 
@@ -701,13 +803,6 @@ def send_message(gui:tk.Tk):
 
             if type(score) != int:
                 continue
-            
-            if test_name is None:
-                gui.append_log(class_name + '반의 시험명이 없습니다.')
-                gui.append_log('시험 결과 전송을 중단합니다.')
-                gui.send_message_button['state'] = tk.NORMAL
-                driver.quit()
-                return
             
             table_names = driver.find_elements(By.CLASS_NAME, 'style1')
             for j in range(len(table_names)):
@@ -738,12 +833,12 @@ def send_message(gui:tk.Tk):
                             tds = tr.find_elements(By.TAG_NAME, 'td')
                             tds[0].find_element(By.TAG_NAME, 'input').send_keys(test_name)
                 else:
-                    dateList = date.split('/')
-                    result = makeup_test_date[dateList[0].replace(' ', '')]
+                    date_list = date.split('/')
+                    result = makeup_test_date[date_list[0].replace(' ', '')]
                     timeIndex = 0
-                    for i in range(len(dateList)):
-                        if result > makeup_test_date[dateList[i].replace(' ', '')]:
-                            result = makeup_test_date[dateList[i].replace(' ', '')]
+                    for i in range(len(date_list)):
+                        if result > makeup_test_date[date_list[i].replace(' ', '')]:
+                            result = makeup_test_date[date_list[i].replace(' ', '')]
                             timeIndex = i
                     driver.switch_to.window(driver.window_handles[2])
                     trs = driver.find_element(By.ID, 'table_' + str(index)).find_elements(By.CLASS_NAME, 'style12')
@@ -775,7 +870,7 @@ def send_message(gui:tk.Tk):
         gui.send_message_button['state'] = tk.NORMAL
         return
 
-def student_info(gui:tk.Tk):
+def student_info(gui:GUI):
     if not os.path.isfile('./학생 정보.xlsx'):
         gui.append_log('학생 정보 파일 생성 중...')
 
@@ -853,7 +948,7 @@ def student_info(gui:tk.Tk):
         gui.append_log('이미 파일이 존재합니다')
         gui.makeupTestInfoButton['state'] = tk.DISABLED
 
-def apply_color(gui:tk.Tk):
+def apply_color(gui:GUI):
     gui.apply_color_button['state'] = tk.DISABLED
     try:
         if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
@@ -970,7 +1065,7 @@ def apply_color(gui:tk.Tk):
         gui.apply_color_button['state'] = tk.NORMAL
         return
 
-def check_data_form(gui:tk.Tk, form_ws:Worksheet) -> bool:
+def check_data_form(gui:GUI, form_ws:Worksheet) -> bool:
     gui.append_log('양식이 올바른지 확인 중...')
     # 올바른 양식이 아닙니다.
     if (form_ws.title != '데일리테스트 기록 양식') or \
@@ -979,19 +1074,43 @@ def check_data_form(gui:tk.Tk, form_ws:Worksheet) -> bool:
                 (form_ws[get_column_letter(DataForm.CLASS_NAME_COLUMN)+'1'].value != '반') or \
                     (form_ws[get_column_letter(DataForm.STUDENT_NAME_COLUMN)+'1'].value != '이름') or \
                         (form_ws[get_column_letter(DataForm.TEACHER_COLUMN)+'1'].value != '담당T') or \
-                            (form_ws[get_column_letter(DataForm.DAILYTEST_TEST_NAME)+'1'].value != '시험명') or \
+                            (form_ws[get_column_letter(DataForm.DAILYTEST_TEST_NAME_COLUMN)+'1'].value != '시험명') or \
                                 (form_ws[get_column_letter(DataForm.DAILYTEST_SCORE_COLUMN)+'1'].value != '점수') or \
                                     (form_ws[get_column_letter(DataForm.DAILYTEST_AVERAGE_COLUMN)+'1'].value != '평균') or \
-                                        (form_ws[get_column_letter(DataForm.MOCKTEST_TEST_NAME)+'1'].value != '시험대비 모의고사명') or \
+                                        (form_ws[get_column_letter(DataForm.MOCKTEST_TEST_NAME_COLUMN)+'1'].value != '시험대비 모의고사명') or \
                                             (form_ws[get_column_letter(DataForm.MOCKTEST_SCORE_COLUMN)+'1'].value != '모의고사 점수') or \
                                                 (form_ws[get_column_letter(DataForm.MOCKTEST_AVERAGE_COLUMN)+'1'].value != '모의고사 평균') or \
                                                     (form_ws[get_column_letter(DataForm.MAKEUP_TEST_CHECK_COLUMN)+'1'].value != '재시문자 X'):
         gui.append_log('올바른 기록 양식이 아닙니다.')
         return False
     
+    form_checked = True
+    dailytest_checked = False
+    mocktest_checked = False
+    for i in range(1, form_ws.max_row+1):
+        if form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None:
+            class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
+            dailytest_checked = False
+            mocktest_checked = False
+            dailytest_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
+            mocktest_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
+        
+        if dailytest_checked and mocktest_checked: continue
+        
+        if not dailytest_checked and form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value is not None and dailytest_name is None:
+            gui.append_log(f'{class_name}의 시험명이 작성되지 않았습니다.')
+            dailytest_checked = True
+            form_checked = False
+        if not mocktest_checked and form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value is not None and mocktest_name is None:
+            gui.append_log(f'{class_name}의 모의고사명이 작성되지 않았습니다.')
+            mocktest_checked = True
+            form_checked = False
+    
+    if not form_checked: return False
+
     return True
 
-def holiday_dialog(gui:tk.Tk, button:tk.Button) -> dict:
+def holiday_dialog(gui:GUI, button:tk.Button) -> dict:
     def quitEvent():
         window.destroy()
         button['state'] = tk.NORMAL
@@ -1109,7 +1228,8 @@ def holiday_dialog(gui:tk.Tk, button:tk.Button) -> dict:
 
     return makeup_test_date
 
-def update_class(gui:tk.Tk):
+def update_class(gui:GUI):
+    gui.update_class_button['state'] = tk.DISABLED
     # 반 정보 확인
     if not os.path.isfile('./반 정보.xlsx'):
         gui.append_log('[오류] 반 정보.xlsx 파일이 존재하지 않습니다.')
@@ -1157,11 +1277,15 @@ def update_class(gui:tk.Tk):
         gui.update_class_button['state'] = tk.NORMAL
         return
 
-    for newClass, newClassIndex in unregistered.items():
-        gui.append_log(str(newClass))
+    for new_class, new_class_index in unregistered.items():
+        gui.append_log(str(new_class))
     # trs = driver.find_element(By.ID, 'table_' + str(i)).find_elements(By.CLASS_NAME, 'style12')
     # write_location = start = ini_ws.max_row + 1
     # ini_ws.cell(write_location, 1).value = table_names[i].text.rstrip()
 
     gui.update_class_button['state'] = tk.NORMAL
     return
+
+ui = tk.Tk()
+gui = GUI(ui)
+ui.mainloop()

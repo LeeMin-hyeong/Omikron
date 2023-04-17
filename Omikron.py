@@ -3,14 +3,14 @@ import os
 import json
 import threading
 import tkinter as tk
-import OmikronDB as odb
+import omikrondb as odb
 
 config = json.load(open('config.json', encoding='UTF8'))
 
 class GUI():
     def __init__(self, ui):
         self.ui = ui
-        self.width = 300
+        self.width = 320
         self.height = 435 # button +25
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
@@ -20,7 +20,7 @@ class GUI():
 
         tk.Label(self.ui, text='Omikron 데이터 프로그램').pack()
         self.scroll = tk.Scrollbar(self.ui, orient='vertical')
-        self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=41, height=5)
+        self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=51, height=5)
         self.scroll.config(command=self.log.yview)
         self.log.pack()
         
