@@ -57,7 +57,7 @@ class GUI():
 
         self.make_data_file_button = tk.Button(self.ui, text='데이터 파일 생성', width=40, command=lambda: self.make_data_file_thread())
         self.make_data_file_button.pack()
-        if os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
+        if os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
             self.make_data_file_button['state'] = tk.DISABLED
 
         self.update_class_button = tk.Button(self.ui, text='반 업데이트', width=40, command=lambda: self.update_class_thread())
@@ -127,7 +127,7 @@ class GUI():
 
 def make_data_file(gui:GUI):
     gui.make_data_file_button['state'] = tk.DISABLED
-    if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
+    if not os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
         gui.append_log('데이터파일 생성 중...')
 
         ini_wb = xl.Workbook()
@@ -150,8 +150,8 @@ def make_data_file(gui:GUI):
         try:
             class_ws = class_wb['반 정보']
         except:
-            gui.append_log('[오류] \'반 정보.xlsx\'의 시트명을')
-            gui.append_log('\'반 정보\'로 변경해 주세요.')
+            gui.append_log(r"[오류] '반 정보.xlsx'의 시트명을")
+            gui.append_log(r"'반 정보'로 변경해 주세요.")
             gui.make_data_file_button['state'] = tk.NORMAL
             return
 
@@ -205,7 +205,7 @@ def make_data_file(gui:GUI):
                 ini_ws.cell(write_location, DataFile.CLASS_NAME_COLUMN).value = class_name
                 ini_ws.cell(write_location, DataFile.TEACHER_COLUMN).value = teacher
                 ini_ws.cell(write_location, DataFile.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, 'style9').text
-                ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).value = '=ROUND(AVERAGE(G' + str(write_location) + ':XFD' + str(write_location) + '), 0)'
+                ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(G{str(write_location)}:XFD{str(write_location)}), 0)"
                 ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
             
             # 시험별 평균
@@ -216,7 +216,7 @@ def make_data_file(gui:GUI):
             ini_ws.cell(write_location, DataFile.CLASS_NAME_COLUMN).value = class_name
             ini_ws.cell(write_location, DataFile.TEACHER_COLUMN).value = teacher
             ini_ws.cell(write_location, DataFile.STUDENT_NAME_COLUMN).value = '시험 평균'
-            ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).value = '=ROUND(AVERAGE(F' + str(start) + ':F' + str(end) + '), 0)'
+            ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(F{str(start)}:F{str(end)}), 0)"
             ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
             for j in range(1, DataFile.DATA_COLUMN):
@@ -233,7 +233,7 @@ def make_data_file(gui:GUI):
         copy_ws.freeze_panes = get_column_letter(DataFile.DATA_COLUMN) + '2'
         copy_ws.auto_filter.ref = 'A:' + get_column_letter(DataFile.STUDENT_NAME_COLUMN)
 
-        ini_wb.save('./data/' + config['dataFileName'] + '.xlsx')
+        ini_wb.save(f"./data/{config['dataFileName']}.xlsx")
         gui.append_log('데이터 파일을 생성했습니다.')
         gui.ui.wm_attributes("-topmost", 1)
         gui.ui.wm_attributes("-topmost", 0)
@@ -368,8 +368,8 @@ def save_data(gui:GUI):
         return
     
     # 데이터 저장 엑셀
-    if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
-        gui.append_log('[오류] ' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
+    if not os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
+        gui.append_log(f"[오류] {config['dataFileName']}.xlsx 파일이 존재하지 않습니다.")
         gui.save_data_button['state'] = tk.NORMAL
         return
 
@@ -382,8 +382,8 @@ def save_data(gui:GUI):
     try:
         student_ws = student_wb['학생 정보']
     except:
-        gui.append_log('[오류] \'학생 정보.xlsx\'의 시트명을')
-        gui.append_log('\'학생 정보\'로 변경해 주세요.')
+        gui.append_log(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.append_log(r"'학생 정보'로 변경해 주세요.")
         gui.save_data_button['state'] = tk.NORMAL
         return
 
@@ -411,20 +411,20 @@ def save_data(gui:GUI):
     try:
         makeup_list_ws = makeup_list_wb['재시험 명단']
     except:
-        gui.append_log('[오류] \'재시험 명단.xlsx\'의 시트명을')
-        gui.append_log('\'재시험 명단\'으로 변경해 주세요.')
+        gui.append_log(r"[오류] '재시험 명단.xlsx'의 시트명을")
+        gui.append_log(r"'재시험 명단'으로 변경해 주세요.")
         gui.save_data_button['state'] = tk.NORMAL
         return
     
     excel = win32com.client.Dispatch('Excel.Application')
     excel.Visible = False
-    wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     wb.Save()
     wb.Close()
 
     gui.append_log('데이터 저장 중...')
-    data_file_wb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
-    data_file_wb.save('./data/' + config['dataFileName'] + '(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_wb.save(f"./data/{config['dataFileName']}({datetime.today().strftime('%Y%m%d')}).xlsx")
 
     # 데일리 테스트 작성
     data_file_ws = data_file_wb['데일리테스트']
@@ -474,7 +474,7 @@ def save_data(gui:GUI):
                     write_column = j
                     break
             # 입력 틀 작성
-            average = '=ROUND(AVERAGE(' + get_column_letter(write_column) + str(start + 2) + ':' + get_column_letter(write_column) + str(end - 1) + '), 0)'
+            average = f"=ROUND(AVERAGE({get_column_letter(write_column)}{str(start + 2)}:{get_column_letter(write_column)}{str(end - 1)}), 0)"
             data_file_ws.cell(start, write_column).value = DATE.today()
             data_file_ws.cell(start, write_column).number_format = 'yyyy.mm.dd(aaa)'
             data_file_ws.cell(start, write_column).alignment = Alignment(horizontal='center', vertical='center')
@@ -587,7 +587,7 @@ def save_data(gui:GUI):
                     write_column = j
                     break
             # 입력 틀 작성
-            average = '=ROUND(AVERAGE(' + get_column_letter(write_column) + str(start + 2) + ':' + get_column_letter(write_column) + str(end - 1) + '), 0)'
+            average = f"=ROUND(AVERAGE({get_column_letter(write_column)}{str(start + 2)}:{get_column_letter(write_column)}{str(end - 1)}), 0)"
             data_file_ws.cell(start, write_column).value = DATE.today()
             data_file_ws.cell(start, write_column).number_format = 'yyyy.mm.dd(aaa)'
             data_file_ws.cell(start, write_column).alignment = Alignment(horizontal='center', vertical='center')
@@ -660,17 +660,16 @@ def save_data(gui:GUI):
             makeup_list_ws.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
     gui.append_log('백업 파일 생성중...')
-    form_wb.save('./data/backup/데일리테스트 기록 양식(' + datetime.today().strftime('%Y%m%d') + ').xlsx')
+    form_wb.save(f"./data/backup/데일리테스트 기록 양식({datetime.today().strftime('%Y%m%d')}).xlsx")
     
     try:
-        data_file_wb.save('./data/' + config['dataFileName'] + '.xlsx')
+        data_file_ws = data_file_wb['데일리테스트']
+        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
     except:
         gui.append_log('데이터 파일 창을 끄고 다시 실행해 주세요.')
         gui.save_data_button['state'] = tk.NORMAL
         return
 
-    data_file_ws = data_file_wb['데일리테스트']
-    data_file_wb.save('./data/' + config['dataFileName'] + '.xlsx')
     try:
         makeup_list_wb.save('./data/재시험 명단.xlsx')
     except:
@@ -955,33 +954,33 @@ def student_info(gui:GUI):
 def apply_color(gui:GUI):
     gui.apply_color_button['state'] = tk.DISABLED
     try:
-        if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
-            gui.append_log('[오류] '+ config['dataFileName'] +'.xlsx 파일이 존재하지 않습니다.')
+        if not os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
+            gui.append_log(f"[오류] '{config['dataFileName']}.xlsx' 파일이 존재하지 않습니다.")
             gui.apply_color_button['state'] = tk.NORMAL
             return
         
         if not os.path.isfile('./학생 정보.xlsx'):
-            gui.append_log('[오류] 학생 정보.xlsx 파일이 존재하지 않습니다.')
+            gui.append_log(r"[오류] '학생 정보.xlsx' 파일이 존재하지 않습니다.")
             return
         student_wb = xl.load_workbook("./학생 정보.xlsx")
         try:
             student_ws = student_wb['학생 정보']
         except:
-            gui.append_log('[오류] \'학생 정보.xlsx\'의 시트명을')
-            gui.append_log('\'학생 정보\'로 변경해 주세요.')
+            gui.append_log(r"[오류] '학생 정보.xlsx'의 시트명을")
+            gui.append_log(r"'학생 정보'로 변경해 주세요.")
             gui.apply_color_button['state'] = tk.NORMAL
             return
         
         excel = win32com.client.Dispatch('Excel.Application')
         excel.Visible = False
-        wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
+        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
         wb.Save()
         wb.Close()
 
         gui.append_log('조건부 서식 적용중...')
 
-        data_file_wb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
-        dataFileColorWb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx', data_only=True)
+        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        dataFileColorWb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
     except:
         gui.append_log('데이터 파일 창을 끄고 다시 실행해 주세요.')
         gui.apply_color_button['state'] = tk.NORMAL
@@ -1055,13 +1054,13 @@ def apply_color(gui:GUI):
         return
     
     try:
-        data_file_wb.save('./data/' + config['dataFileName'] + '.xlsx')
+        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
         gui.append_log('조건부 서식 지정을 완료했습니다.')
         gui.ui.wm_attributes("-topmost", 1)
         gui.ui.wm_attributes("-topmost", 0)
         gui.apply_color_button['state'] = tk.NORMAL
         excel.Visible = True
-        wb = excel.Workbooks.Open(os.getcwd() + '\\data\\' + config['dataFileName'] + '.xlsx')
+        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
         gui.ui.wm_attributes("-topmost", 1)
         gui.ui.wm_attributes("-topmost", 0)
     except:
@@ -1110,9 +1109,9 @@ def check_data_form(gui:GUI, form_ws:Worksheet) -> bool:
             mocktest_checked = True
             form_checked = False
     
-    if not form_checked: return False
+    if not form_checked: return False # 오류
 
-    return True
+    return True # 이상 없음
 
 def holiday_dialog(gui:GUI, button:tk.Button) -> dict:
     def quitEvent():
@@ -1178,12 +1177,12 @@ def update_class(gui:GUI):
         return
 
     # 데이터 저장 엑셀
-    if not os.path.isfile('./data/' + config['dataFileName'] + '.xlsx'):
-        gui.append_log('[오류] ' + config['dataFileName'] + '.xlsx' + '파일이 존재하지 않습니다.')
+    if not os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
+        gui.append_log(f"[오류] {config['dataFileName']}.xlsx 파일이 존재하지 않습니다.")
         gui.updateDataButton['state'] = tk.NORMAL
         return
 
-    data_file_wb = xl.load_workbook('./data/' + config['dataFileName'] + '.xlsx')
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     data_file_ws = data_file_wb['데일리테스트']
 
     options = webdriver.ChromeOptions()
