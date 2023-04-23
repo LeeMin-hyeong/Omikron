@@ -500,6 +500,8 @@ def save_data(gui:GUI):
         if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != 'x') and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != 'X'):
             check = makeup_list_ws.max_row
             duplicated = False
+            while makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
+                check -= 1
             while makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
                 if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                     duplicated = True
@@ -611,6 +613,8 @@ def save_data(gui:GUI):
         if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != 'x') and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != 'X'):
             check = makeup_list_ws.max_row
             duplicated = False
+            while makeup_list_ws.cell(check, MakeupTestList.TEST_NAME_COLUMN).value is None:
+                check -= 1
             while makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
                 if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                     duplicated = True
