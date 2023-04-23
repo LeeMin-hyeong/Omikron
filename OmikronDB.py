@@ -396,6 +396,8 @@ def saveData(gui):
         if (type(score) == int) and (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
             check = makeupListWs.max_row
             duplicated = False
+            while makeupListWs.cell(check, 1).value is None:
+                check -= 1
             while makeupListWs.cell(check, 1).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
                 if makeupListWs.cell(check, 4).value == formWs.cell(i, 4).value:
                     duplicated = True
@@ -506,6 +508,8 @@ def saveData(gui):
         if (type(score) == int) and (score < 80) and (formWs.cell(i, 12).value != 'x') and (formWs.cell(i, 12).value != 'X'):
             check = makeupListWs.max_row
             duplicated = False
+            while makeupListWs.cell(check, 1).value is None:
+                check -= 1
             while makeupListWs.cell(check, 1).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
                 if makeupListWs.cell(check, 4).value == formWs.cell(i, 4).value:
                     duplicated = True
