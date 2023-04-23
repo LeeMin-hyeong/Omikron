@@ -1134,42 +1134,10 @@ def holiday_dialog(gui:GUI, button:tk.Button) -> dict:
     window.protocol("WM_DELETE_WINDOW", quitEvent)
 
     today = DATE.today()
-
-    makeup_test_date={}
-    if today == today + relativedelta(weekday=calendar.MONDAY):
-        makeup_test_date['월'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['월'] = today + relativedelta(weekday=calendar.MONDAY)
-
-    if today == today + relativedelta(weekday=calendar.TUESDAY):
-        makeup_test_date['화'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['화'] = today + relativedelta(weekday=calendar.TUESDAY)
-
-    if today == today + relativedelta(weekday=calendar.WEDNESDAY):
-        makeup_test_date['수'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['수'] = today + relativedelta(weekday=calendar.WEDNESDAY)
-
-    if today == today + relativedelta(weekday=calendar.THURSDAY):
-        makeup_test_date['목'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['목'] = today + relativedelta(weekday=calendar.THURSDAY)
-
-    if today == today + relativedelta(weekday=calendar.FRIDAY):
-        makeup_test_date['금'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['금'] = today + relativedelta(weekday=calendar.FRIDAY)
-
-    if today == today + relativedelta(weekday=calendar.SATURDAY):
-        makeup_test_date['토'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['토'] = today + relativedelta(weekday=calendar.SATURDAY)
-
-    if today == today + relativedelta(weekday=calendar.SUNDAY):
-        makeup_test_date['일'] = today + timedelta(days=7)
-    else:
-        makeup_test_date['일'] = today + relativedelta(weekday=calendar.SUNDAY)
+    weekday = ('월', '화', '수', '목', '금', '토', '일')
+    makeup_test_date = {weekday[i] : today + relativedelta(weekday=i) for i in range(7)}
+    for key, value in makeup_test_date.items():
+        if value == today: makeup_test_date[key] += timedelta(days=7)
 
     mon = tk.IntVar()
     tue = tk.IntVar()
@@ -1178,56 +1146,18 @@ def holiday_dialog(gui:GUI, button:tk.Button) -> dict:
     fri = tk.IntVar()
     sat = tk.IntVar()
     sun = tk.IntVar()
-
+    var_tuple = (mon, tue, wed, thu, fri, sat, sun)
     tk.Label(window, text='\n다음 중 휴일을 선택해주세요\n').pack()
-    date_calculated = DATE.today() + timedelta(days=1)
-    for i in range(0, 8):
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['월']:
-                tk.Checkbutton(window, text=str(makeup_test_date['월'])+' (월)', variable=mon).pack()
-                date_calculated += timedelta(days=1)
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['화']:
-                tk.Checkbutton(window, text=str(makeup_test_date['화'])+' (화)', variable=tue).pack()
-                date_calculated += timedelta(days=1)
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['수']:
-                tk.Checkbutton(window, text=str(makeup_test_date['수'])+' (수)', variable=wed).pack()
-                date_calculated += timedelta(days=1)
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['목']:
-                tk.Checkbutton(window, text=str(makeup_test_date['목'])+' (목)', variable=thu).pack()
-                date_calculated += timedelta(days=1)
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['금']:
-                tk.Checkbutton(window, text=str(makeup_test_date['금'])+' (금)', variable=fri).pack()
-                date_calculated += timedelta(days=1)
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['토']:
-                tk.Checkbutton(window, text=str(makeup_test_date['토'])+' (토)', variable=sat).pack()
-                date_calculated += timedelta(days=1)
-        for j in range(0, 8):
-            if date_calculated == makeup_test_date['일']:
-                tk.Checkbutton(window, text=str(makeup_test_date['일'])+' (일)', variable=sun).pack()
-                date_calculated += timedelta(days=1)
+    sort = today.weekday()+1
+    for i in range(7):
+        tk.Checkbutton(window, text=str(makeup_test_date[weekday[(sort+i)%7]]) + ' ' + weekday[(sort+i)%7], variable=var_tuple[(sort+i)%7]).pack()
     tk.Label(window, text='\n').pack()
     tk.Button(window, text="확인", width=10 , command=window.destroy).pack()
     
     window.mainloop()
-    if mon.get() == 1:
-        makeup_test_date['월'] += timedelta(days=7)
-    if tue.get() == 1:
-        makeup_test_date['화'] += timedelta(days=7)
-    if wed.get() == 1:
-        makeup_test_date['수'] += timedelta(days=7)
-    if thu.get() == 1:
-        makeup_test_date['목'] += timedelta(days=7)
-    if fri.get() == 1:
-        makeup_test_date['금'] += timedelta(days=7)
-    if sat.get() == 1:
-        makeup_test_date['토'] += timedelta(days=7)
-    if sun.get() == 1:
-        makeup_test_date['일'] += timedelta(days=7)
+    for i in range(7):
+        if var_tuple[i].get() == 1:
+            makeup_test_date[weekday[i]] += timedelta(days=7)
     gui.ui.wm_attributes("-disabled", False)
 
     return makeup_test_date
