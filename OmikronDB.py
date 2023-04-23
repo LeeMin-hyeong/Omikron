@@ -1,4 +1,4 @@
-# Omikron v1.1.6
+# Omikron v1.1.6 hotfix
 import json
 import os.path
 import calendar
