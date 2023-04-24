@@ -422,9 +422,11 @@ def save_data(gui:GUI):
     wb.Save()
     wb.Close()
 
-    gui.append_log('데이터 저장 중...')
+    gui.append_log('백업 파일 생성중...')
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-    data_file_wb.save(f"./data/{config['dataFileName']}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    data_file_wb.save(f"./data/backup/{config['dataFileName']}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    
+    gui.append_log('데이터 저장 중...')
 
     # 데일리 테스트 작성
     data_file_ws = data_file_wb['데일리테스트']
@@ -468,23 +470,23 @@ def save_data(gui:GUI):
             # 데일리테스트 작성 열 위치 찾기
             for j in range(SCORE_COLUMN+1, data_file_ws.max_column+2):
                 if data_file_ws.cell(start, j).value is None:
-                    write_column = j
+                    WRITE_COLUMN = j
                     break
                 if data_file_ws.cell(start, j).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
-                    write_column = j
+                    WRITE_COLUMN = j
                     break
             # 입력 틀 작성
-            average = f"=ROUND(AVERAGE({gcl(write_column)+str(start + 2)}:{gcl(write_column)+str(end - 1)}), 0)"
-            data_file_ws.cell(start, write_column).value = DATE.today()
-            data_file_ws.cell(start, write_column).number_format = 'yyyy.mm.dd(aaa)'
-            data_file_ws.cell(start, write_column).alignment = Alignment(horizontal='center', vertical='center')
+            average = f"=ROUND(AVERAGE({gcl(WRITE_COLUMN)+str(start + 2)}:{gcl(WRITE_COLUMN)+str(end - 1)}), 0)"
+            data_file_ws.cell(start, WRITE_COLUMN).value = DATE.today()
+            data_file_ws.cell(start, WRITE_COLUMN).number_format = 'yyyy.mm.dd(aaa)'
+            data_file_ws.cell(start, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center')
 
-            data_file_ws.cell(start + 1, write_column).value = test_name
-            data_file_ws.cell(start + 1, write_column).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            data_file_ws.cell(start + 1, WRITE_COLUMN).value = test_name
+            data_file_ws.cell(start + 1, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-            data_file_ws.cell(end, write_column).value = average
-            data_file_ws.cell(end, write_column).alignment = Alignment(horizontal='center', vertical='center')
-            data_file_ws.cell(end, write_column).border = Border(bottom=Side(border_style='medium', color='000000'))
+            data_file_ws.cell(end, WRITE_COLUMN).value = average
+            data_file_ws.cell(end, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center')
+            data_file_ws.cell(end, WRITE_COLUMN).border = Border(bottom=Side(border_style='medium', color='000000'))
             
         score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value
         if score is None:
@@ -492,8 +494,8 @@ def save_data(gui:GUI):
         
         for j in range(start + 2, end):
             if data_file_ws.cell(j, NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value: # data name == form name
-                data_file_ws.cell(j, write_column).value = score
-                data_file_ws.cell(j, write_column).alignment = Alignment(horizontal='center', vertical='center')
+                data_file_ws.cell(j, WRITE_COLUMN).value = score
+                data_file_ws.cell(j, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center')
                 break
 
         # 재시험 작성
@@ -517,27 +519,27 @@ def save_data(gui:GUI):
                     break
             for j in range(2, makeup_list_ws.max_row + 2):
                 if makeup_list_ws.cell(j, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                    writeRow = j
+                    WRITE_ROW = j
                     break
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
-            makeup_list_ws.cell(writeRow, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEACHER_COLUMN).value = teacher
-            makeup_list_ws.cell(writeRow, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
             if (new_studnet is not None) and (new_studnet == 'N'):
-                makeup_list_ws.cell(writeRow, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEST_NAME_COLUMN).value = test_name
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEST_SCORE_COLUMN).value = score
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
             if dates is not None:
-                makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
                 date_list = dates.split('/')
                 result = makeup_test_date[date_list[0].replace(' ', '')]
                 for d in date_list:
                     if result > makeup_test_date[d.replace(' ', '')]:
                         result = makeup_test_date[d.replace(' ', '')]
                 if time is not None:
-                    makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
-                makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
-                makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = 'mm월 dd일(aaa)'
+                    makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = 'mm월 dd일(aaa)'
         
     # 모의고사 작성
     data_file_ws = data_file_wb['모의고사']
@@ -581,23 +583,23 @@ def save_data(gui:GUI):
             # 데일리테스트 작성 열 위치 찾기
             for j in range(SCORE_COLUMN+1, data_file_ws.max_column+2):
                 if data_file_ws.cell(start, j).value is None:
-                    write_column = j
+                    WRITE_COLUMN = j
                     break
                 if data_file_ws.cell(start, j).value.strftime('%y.%m.%d') == DATE.today().strftime('%y.%m.%d'):
-                    write_column = j
+                    WRITE_COLUMN = j
                     break
             # 입력 틀 작성
-            average = f"=ROUND(AVERAGE({gcl(write_column)+str(start + 2)}:{gcl(write_column)+str(end - 1)}), 0)"
-            data_file_ws.cell(start, write_column).value = DATE.today()
-            data_file_ws.cell(start, write_column).number_format = 'yyyy.mm.dd(aaa)'
-            data_file_ws.cell(start, write_column).alignment = Alignment(horizontal='center', vertical='center')
+            average = f"=ROUND(AVERAGE({gcl(WRITE_COLUMN)+str(start + 2)}:{gcl(WRITE_COLUMN)+str(end - 1)}), 0)"
+            data_file_ws.cell(start, WRITE_COLUMN).value = DATE.today()
+            data_file_ws.cell(start, WRITE_COLUMN).number_format = 'yyyy.mm.dd(aaa)'
+            data_file_ws.cell(start, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center')
 
-            data_file_ws.cell(start + 1, write_column).value = test_name
-            data_file_ws.cell(start + 1, write_column).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            data_file_ws.cell(start + 1, WRITE_COLUMN).value = test_name
+            data_file_ws.cell(start + 1, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-            data_file_ws.cell(end, write_column).value = average
-            data_file_ws.cell(end, write_column).alignment = Alignment(horizontal='center', vertical='center')
-            data_file_ws.cell(end, write_column).border = Border(bottom=Side(border_style='medium', color='000000'))
+            data_file_ws.cell(end, WRITE_COLUMN).value = average
+            data_file_ws.cell(end, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center')
+            data_file_ws.cell(end, WRITE_COLUMN).border = Border(bottom=Side(border_style='medium', color='000000'))
             
         score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
         if score is None:
@@ -605,8 +607,8 @@ def save_data(gui:GUI):
         
         for j in range(start + 2, end):
             if data_file_ws.cell(j, NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value: # data name == form name
-                data_file_ws.cell(j, write_column).value = score
-                data_file_ws.cell(j, write_column).alignment = Alignment(horizontal='center', vertical='center')
+                data_file_ws.cell(j, WRITE_COLUMN).value = score
+                data_file_ws.cell(j, WRITE_COLUMN).alignment = Alignment(horizontal='center', vertical='center')
                 break
         
         # 재시험 작성
@@ -630,27 +632,27 @@ def save_data(gui:GUI):
                     break
             for j in range(2, makeup_list_ws.max_row + 2):
                 if makeup_list_ws.cell(j, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                    writeRow = j
+                    WRITE_ROW = j
                     break
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
-            makeup_list_ws.cell(writeRow, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEACHER_COLUMN).value = teacher
-            makeup_list_ws.cell(writeRow, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
             if (new_studnet is not None) and (new_studnet == 'N'):
-                makeup_list_ws.cell(writeRow, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEST_NAME_COLUMN).value = test_name
-            makeup_list_ws.cell(writeRow, MakeupTestList.TEST_SCORE_COLUMN).value = score
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type='solid', fgColor=Color('FFFF00'))
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
+            makeup_list_ws.cell(WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
             if dates is not None:
-                makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
                 date_list = dates.split('/')
                 result = makeup_test_date[date_list[0].replace(' ', '')]
                 for d in date_list:
                     if result > makeup_test_date[d.replace(' ', '')]:
                         result = makeup_test_date[d.replace(' ', '')]
                 if time is not None:
-                    makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
-                makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
-                makeup_list_ws.cell(writeRow, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = 'mm월 dd일(aaa)'
+                    makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
+                makeup_list_ws.cell(WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = 'mm월 dd일(aaa)'
 
     gui.append_log('재시험 명단 작성 중...')
     for j in range(1, makeup_list_ws.max_row + 1):
@@ -659,8 +661,8 @@ def save_data(gui:GUI):
             makeup_list_ws.cell(j, k).alignment = Alignment(horizontal='center', vertical='center')
             makeup_list_ws.cell(j, k).border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-    gui.append_log('백업 파일 생성중...')
-    form_wb.save(f"./data/backup/데일리테스트 기록 양식({datetime.today().strftime('%Y%m%d')}).xlsx")
+    # gui.append_log('백업 파일 생성중...')
+    # form_wb.save(f"./data/backup/데일리테스트 기록 양식({datetime.today().strftime('%Y%m%d')}).xlsx")
     
     try:
         data_file_ws = data_file_wb['데일리테스트']
