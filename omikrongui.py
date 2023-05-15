@@ -5,9 +5,9 @@ import threading
 import tkinter as tk
 import tkinter.messagebox
 import openpyxl as xl
-import win32com.client # only works in Windows
+import win32com.client # only works in popups
 
-from omikronconst import *
+from omikronfile import *
 from tkinter import ttk, filedialog
 from datetime import date as DATE, datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -25,6 +25,17 @@ config = json.load(open("./config.json", encoding="UTF8"))
 os.environ["WDM_PROGRESS_BAR"] = "0"
 service = Service(ChromeDriverManager().install())
 service.creation_flags = CREATE_NO_WINDOW
+
+if not os.path.exists("./data"):
+    os.makedirs("./data")
+if not os.path.exists("./data/backup"):
+    os.makedirs("./data/backup")
+
+datafile = DataFile()
+formfile = DataForm()
+classfile = ClassInfo()
+studentfile = StudentInfo()
+
 
 class GUI():
     def __init__(self, ui):
@@ -45,48 +56,185 @@ class GUI():
         
         tk.Label(self.ui, text="< 기수 변경 관련 >").pack()
 
+        # self.class_info_button = tk.Button(self.ui, text="반 정보 기록 양식 생성", width=40)
         self.class_info_button = tk.Button(self.ui, text="반 정보 기록 양식 생성", width=40, command=lambda: self.class_info_thread())
         self.class_info_button.pack()
         if os.path.isfile("반 정보.xlsx"):
             self.class_info_button["state"] = tk.DISABLED
 
+        # self.student_info_button = tk.Button(self.ui, text="학생 정보 기록 양식 생성", width=40)
         self.student_info_button = tk.Button(self.ui, text="학생 정보 기록 양식 생성", width=40, command=lambda: self.student_info_thread())
         self.student_info_button.pack()
         if os.path.isfile("학생 정보.xlsx"):
             self.student_info_button["state"] = tk.DISABLED
 
+        # self.make_data_file_button = tk.Button(self.ui, text="데이터 파일 생성", width=40)
         self.make_data_file_button = tk.Button(self.ui, text="데이터 파일 생성", width=40, command=lambda: self.make_data_file_thread())
         self.make_data_file_button.pack()
         if os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
             self.make_data_file_button["state"] = tk.DISABLED
 
+        # self.update_class_button = tk.Button(self.ui, text="반 업데이트", width=4)
         self.update_class_button = tk.Button(self.ui, text="반 업데이트", width=40, command=lambda: self.update_class_thread())
         self.update_class_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 저장 및 문자 전송 >").pack()
 
+        # self.make_data_form_button = tk.Button(self.ui, text="데일리 테스트 기록 양식 생성")
         self.make_data_form_button = tk.Button(self.ui, text="데일리 테스트 기록 양식 생성", width=40, command=lambda: self.make_data_form_thread())
         self.make_data_form_button.pack()
 
+        # self.save_data_button = tk.Button(self.ui, text="데이터 엑셀 파일에 저장")
         self.save_data_button = tk.Button(self.ui, text="데이터 엑셀 파일에 저장", width=40, command=lambda: self.save_data_thread())
         self.save_data_button.pack()
         
+        # self.send_message_button = tk.Button(self.ui, text="시험 결과 전송", command=lambda: self.after_dialog(self.send_message_button))
         self.send_message_button = tk.Button(self.ui, text="시험 결과 전송", width=40, command=lambda: self.send_message_thread())
         self.send_message_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
+        # self.apply_color_button = tk.Button(self.ui, text="데이터 엑셀 파일 조건부 서식 재지정")
         self.apply_color_button = tk.Button(self.ui, text="데이터 엑셀 파일 조건부 서식 재지정", width=40, command=lambda: apply_color(self))
         self.apply_color_button.pack()
 
+        # self.delete_student_button = tk.Button(self.ui, text="퇴원 관리", width=40)
         self.delete_student_button = tk.Button(self.ui, text="퇴원 관리", width=40, command=lambda: self.delete_student_thread())
         self.delete_student_button.pack()
-
+    
     def append_log(self, msg:str):
         self.log.insert(tk.END, msg)
         self.log.update()
         self.log.see(tk.END)
 
+    def holiday_dialog(self, button:tk.Button) -> dict:
+        def quitEvent():
+            button["state"] = tk.NORMAL
+            for i in range(7):
+                if var_tuple[i].get():
+                    makeup_test_date[weekday[i]] += timedelta(days=7)
+                print(makeup_test_date[weekday[i]])
+            self.ui.wm_attributes("-disabled", False)
+            self.ui.wm_attributes("-topmost", 1)
+            popup.update()
+            popup.quit()
+            popup.destroy()
+            self.ui.wm_attributes("-topmost", 0)
+        button["state"] = tk.DISABLED
+        # self.ui.wm_attributes("-disabled", True)
+        popup = tk.Toplevel()
+        width = 200
+        height = 300
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.title("휴일 선택")
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+
+        today = DATE.today()
+        weekday = ("월", "화", "수", "목", "금", "토", "일")
+        makeup_test_date = {weekday[i] : today + relativedelta(weekday=i) for i in range(7)}
+        for key, value in makeup_test_date.items():
+            if value == today: makeup_test_date[key] += timedelta(days=7)
+
+        mon = tk.BooleanVar()
+        tue = tk.BooleanVar()
+        wed = tk.BooleanVar()
+        thu = tk.BooleanVar()
+        fri = tk.BooleanVar()
+        sat = tk.BooleanVar()
+        sun = tk.BooleanVar()
+        var_tuple = [mon, tue, wed, thu, fri, sat, sun]
+        tk.Label(popup, text="\n다음 중 휴일을 선택해주세요\n").pack()
+        sort = today.weekday()+1
+        for i in range(7):
+            tk.Checkbutton(popup, text=f"{str(makeup_test_date[weekday[(sort+i)%7]])} {weekday[(sort+i)%7]}", variable=var_tuple[(sort+i)%7]).pack()
+        tk.Label(popup, text="\n").pack()
+        tk.Button(popup, text="확인", width=10 , command=quitEvent).pack()
+        
+        popup.mainloop()    
+        
+        self.ui.wm_attributes("-disabled", False)
+        return makeup_test_date
+    
+    def select_student_name_dialog(self, button:tk.Button) -> str:
+        def quitEvent():
+            button["state"] = tk.NORMAL
+            self.ui.wm_attributes("-disabled", False)
+            self.ui.wm_attributes("-topmost", 1)
+            self.ui.wm_attributes("-topmost", 0)
+            window.quit()
+        button["state"] = tk.DISABLED
+        self.ui.wm_attributes("-disabled", True)
+        window=tk.Toplevel()
+        width = 250
+        height = 140
+        x = int((window.winfo_screenwidth()/4) - (width/2))
+        y = int((window.winfo_screenheight()/2) - (height/2))
+        window.geometry(f"{width}x{height}+{x}+{y}")
+        window.title("퇴원 관리")
+        window.resizable(False, False)
+        window.protocol("WM_DELETE_WINDOW", quitEvent)
+
+        try:
+            class_ws = classfile.require_file()
+            data_file_wb = datafile.require_file()
+        except Exception as e:
+            print(e)
+            quitEvent()
+            self.append_log(e)
+            button["state"] = tk.NORMAL
+            return
+        
+        data_file_ws = data_file_wb.worksheets[0]
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "이름":
+                NAME_COLUMN = i
+                break
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "반":
+                CLASS_COLUMN = i
+                break
+
+        class_dict = {}
+        for i in range(2, class_ws.max_row + 1):
+            class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
+            student_list = [data_file_ws.cell(j, NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
+                            if data_file_ws.cell(j, CLASS_COLUMN).value == class_name and\
+                                data_file_ws.cell(j, NAME_COLUMN).value != "날짜" and\
+                                    data_file_ws.cell(j, NAME_COLUMN).value != "시험명" and\
+                                        data_file_ws.cell(j, NAME_COLUMN).value != "시험 평균" and\
+                                            not data_file_ws.cell(j, NAME_COLUMN).font.strike]
+            class_dict[class_name] = student_list
+
+            
+        tk.Label(window).pack()
+        def class_call_back(event):
+            class_name = event.widget.get()
+            student_combo.set("학생 선택")
+            student_combo["values"] = class_dict[class_name]
+        class_combo = ttk.Combobox(window, values=list(class_dict.keys()), state="readonly")
+        class_combo.set("반 선택")
+        class_combo.bind("<<ComboboxSelected>>", class_call_back)
+        class_combo.pack()
+
+        tk.Label(window).pack()
+        selected_student = tk.StringVar()
+        student_combo = ttk.Combobox(window, values=None, state="readonly", textvariable=selected_student)
+        student_combo.set("학생 선택")
+        student_combo.pack()
+
+        tk.Label(window).pack()
+        tk.Button(window, text="삭제", width=10 , command=quitEvent).pack()
+        
+        window.mainloop()
+        
+        student = selected_student.get()
+        print(student)
+        if student == "학생 선택": return None
+        else: return student
+    
     def class_info_thread(self):
         thread = threading.Thread(target=lambda: class_info(self))
         thread.daemon = True
@@ -98,7 +246,8 @@ class GUI():
         thread.start()
 
     def save_data_thread(self):
-        thread = threading.Thread(target=lambda: save_data(self))
+        makeup_test_date = self.holiday_dialog(self.save_data_button)
+        thread = threading.Thread(target=lambda: save_data(self, makeup_test_date))
         thread.daemon = True
         thread.start()
 
@@ -108,7 +257,9 @@ class GUI():
         thread.start()
 
     def send_message_thread(self):
-        thread = threading.Thread(target=lambda: send_message(self))
+        # makeup_test_date = self.holiday_dialog(self.save_data_button)
+        makeup_test_date = {}
+        thread = threading.Thread(target=lambda: send_message(self, makeup_test_date))
         thread.daemon = True
         thread.start()
 
@@ -123,7 +274,12 @@ class GUI():
         thread.start()
 
     def delete_student_thread(self):
-        thread = threading.Thread(target=lambda: delete_student(self, self.delete_student_button))
+        student = self.select_student_name_dialog(self.delete_student_button)
+        if student is None: return
+        # 퇴원 처리 확인
+        if not tkinter.messagebox.askyesno("퇴원 확인", f"{student} 학생을 퇴원 처리하시겠습니까?"):
+            return
+        thread = threading.Thread(target=lambda: delete_student(self, self.delete_student_button, student))
         thread.daemon = True
         thread.start()
 
@@ -350,9 +506,7 @@ def make_data_form(gui:GUI):
     gui.ui.wm_attributes("-topmost", 1)
     gui.ui.wm_attributes("-topmost", 0)
 
-def save_data(gui:GUI):
-    makeup_test_date = holiday_dialog(gui, gui.save_data_button)
-
+def save_data(gui:GUI, makeup_test_date:dict):
     if gui.save_data_button["state"] == tk.NORMAL: return
     # 입력 양식 엑셀
     filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
@@ -737,10 +891,7 @@ def class_info(gui:GUI):
         gui.append_log("이미 파일이 존재합니다.")
         gui.class_info_button["state"] = tk.DISABLED
 
-def send_message(gui:GUI):
-    makeup_test_date = holiday_dialog(gui, gui.send_message_button)
-    print(makeup_test_date)
-    
+def send_message(gui:GUI, makeup_test_date:dict):
     if gui.send_message_button["state"] == tk.NORMAL: return
 
     filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
@@ -1129,55 +1280,6 @@ def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
 
     return True # 이상 없음
 
-def holiday_dialog(gui:GUI, button:tk.Button) -> dict:
-    def quitEvent():
-        window.quit()
-        button["state"] = tk.NORMAL
-        gui.ui.wm_attributes("-disabled", False)
-        gui.ui.wm_attributes("-topmost", 1)
-        gui.ui.wm_attributes("-topmost", 0)
-    button["state"] = tk.DISABLED
-    gui.ui.wm_attributes("-disabled", True)
-    window=tk.Tk()
-    width = 200
-    height = 300
-    x = int((window.winfo_screenwidth()/4) - (width/2))
-    y = int((window.winfo_screenheight()/2) - (height/2))
-    window.geometry(f"{width}x{height}+{x}+{y}")
-    window.title("휴일 선택")
-    window.resizable(False, False)
-    window.protocol("WM_DELETE_WINDOW", quitEvent)
-
-    today = DATE.today()
-    weekday = ("월", "화", "수", "목", "금", "토", "일")
-    makeup_test_date = {weekday[i] : today + relativedelta(weekday=i) for i in range(7)}
-    for key, value in makeup_test_date.items():
-        if value == today: makeup_test_date[key] += timedelta(days=7)
-
-    mon = tk.BooleanVar()
-    tue = tk.BooleanVar()
-    wed = tk.BooleanVar()
-    thu = tk.BooleanVar()
-    fri = tk.BooleanVar()
-    sat = tk.BooleanVar()
-    sun = tk.BooleanVar()
-    var_tuple = [mon, tue, wed, thu, fri, sat, sun]
-    tk.Label(window, text="\n다음 중 휴일을 선택해주세요\n").pack()
-    sort = today.weekday()+1
-    for i in range(7):
-        tk.Checkbutton(window, text=f"{str(makeup_test_date[weekday[(sort+i)%7]])} {weekday[(sort+i)%7]}", variable=var_tuple[(sort+i)%7]).pack()
-    tk.Label(window, text="\n").pack()
-    tk.Button(window, text="확인", width=10 , command=window.destroy).pack()
-    
-    window.mainloop()
-    for i in range(7):
-        if var_tuple[i].get():
-            makeup_test_date[weekday[i]] += timedelta(days=7)
-            print(makeup_test_date[weekday[i]])
-    gui.ui.wm_attributes("-disabled", False)
-
-    return makeup_test_date
-
 def update_class(gui:GUI):
     gui.update_class_button["state"] = tk.DISABLED
     # 반 정보 확인
@@ -1236,122 +1338,8 @@ def update_class(gui:GUI):
     gui.update_class_button["state"] = tk.NORMAL
     return
 
-def delete_student(gui:GUI, button):
-    def quitEvent(x=False):
-        window.destroy()
-        if "student" in globals() and x:
-            global student
-            del student
-        button["state"] = tk.NORMAL
-        gui.ui.wm_attributes("-disabled", False)
-        gui.ui.wm_attributes("-topmost", 1)
-        gui.ui.wm_attributes("-topmost", 0)
-    button["state"] = tk.DISABLED
-    gui.ui.wm_attributes("-disabled", True)
-    window=tk.Tk()
-    width = 250
-    height = 140
-    x = int((window.winfo_screenwidth()/4) - (width/2))
-    y = int((window.winfo_screenheight()/2) - (height/2))
-    window.geometry(f"{width}x{height}+{x}+{y}")
-    window.title("퇴원 관리")
-    window.resizable(False, False)
-    window.protocol("WM_DELETE_WINDOW", lambda: quitEvent(True))
-
-    # 반 정보 확인
-    if not os.path.isfile("./반 정보.xlsx"):
-        quitEvent()
-        gui.append_log(r"[오류] '반 정보.xlsx' 파일이 존재하지 않습니다.")
-        button["state"] = tk.NORMAL
-        return
-    class_wb = xl.load_workbook("./반 정보.xlsx")
-    try:
-        class_ws = class_wb["반 정보"]
-    except:
-        quitEvent()
-        gui.append_log(r"[오류] '반 정보.xlsx'의 시트명을")
-        gui.append_log(r"'반 정보'로 변경해 주세요.")
-        button["state"] = tk.NORMAL
-        return
-    
-    if not os.path.isfile("./학생 정보.xlsx"):
-        gui.append_log(r"[오류] '학생 정보.xlsx' 파일이 존재하지 않습니다.")
-        return
-    student_wb = xl.load_workbook("./학생 정보.xlsx")
-    try:
-        student_ws = student_wb["학생 정보"]
-    except:
-        gui.append_log(r"[오류] '학생 정보.xlsx'의 시트명을")
-        gui.append_log(r"'학생 정보'로 변경해 주세요.")
-        gui.button["state"] = tk.NORMAL
-        return
-    
-    if not os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
-        gui.append_log(f"[오류] '{config['dataFileName']}.xlsx' 파일이 존재하지 않습니다.")
-        button["state"] = tk.NORMAL
-        return
-    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-    data_file_ws = data_file_wb.worksheets[0]
-    for i in range(1, data_file_ws.max_column):
-        if data_file_ws.cell(1, i).value == "이름":
-            NAME_COLUMN = i
-            break
-    for i in range(1, data_file_ws.max_column):
-        if data_file_ws.cell(1, i).value == "반":
-            CLASS_COLUMN = i
-            break
-
-    class_dict = {}
-    for i in range(2, class_ws.max_row + 1):
-        class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
-        student_list = [data_file_ws.cell(j, NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
-                        if data_file_ws.cell(j, CLASS_COLUMN).value == class_name and\
-                            data_file_ws.cell(j, NAME_COLUMN).value != "날짜" and\
-                                data_file_ws.cell(j, NAME_COLUMN).value != "시험명" and\
-                                    data_file_ws.cell(j, NAME_COLUMN).value != "시험 평균" and\
-                                        not data_file_ws.cell(j, NAME_COLUMN).font.strike]
-        class_dict[class_name] = student_list
-
-        
-    tk.Label(window).pack()
-    def class_call_back(event):
-        class_name = event.widget.get()
-        student_combo.set("학생 선택")
-        if "student" in globals():
-            global student
-            del student
-        student_combo["values"] = class_dict[class_name]
-    class_combo = ttk.Combobox(window, values=list(class_dict.keys()), state="readonly")
-    class_combo.set("반 선택")
-    class_combo.bind("<<ComboboxSelected>>", class_call_back)
-    class_combo.pack()
-
-    tk.Label(window).pack()
-    global student
-    def student_call_back(event):
-        global student
-        student = event.widget.get()
-    student_combo = ttk.Combobox(window, values=None, state="readonly")
-    student_combo.set("학생 선택")
-    student_combo.bind("<<ComboboxSelected>>", student_call_back)
-    student_combo.pack()
-
-    tk.Label(window).pack()
-    tk.Button(window, text="삭제", width=10 , command=quitEvent).pack()
-    
-    window.mainloop()
-
-    if not "student" in globals():
-        button["state"] = tk.NORMAL
-        gui.ui.wm_attributes("-disabled", False)
-        gui.ui.wm_attributes("-topmost", 1)
-        gui.ui.wm_attributes("-topmost", 0)
-        return
-    
-    # 퇴원 처리 확인
-    if not tkinter.messagebox.askyesno("퇴원 확인", f"{student} 학생을 퇴원 처리하시겠습니까?"):
-        return
-    
+def delete_student(gui:GUI, button:tk.Button, student:str):
+    data_file_wb = datafile.open_workbook()
     # 데이터 파일 취소선
     for sheetName in data_file_wb.sheetnames:
         data_file_ws = data_file_wb[sheetName]
@@ -1365,6 +1353,7 @@ def delete_student(gui:GUI, button):
                 for col in range(1, data_file_ws.max_column+1):
                     data_file_ws.cell(row, col).font = Font(strike=True)
     
+    student_ws = studentfile.open_worksheet()
     # 학생 정보 삭제
     for row in range(2, student_ws.max_row+1):
         if student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == student:
@@ -1372,21 +1361,19 @@ def delete_student(gui:GUI, button):
             break
     
     try:
-        data_file_ws = data_file_wb["데일리테스트"]
-        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+        datafile.save_file()
     except:
         gui.append_log("데이터 파일 창을 끄고 다시 실행해 주세요.")
         button["state"] = tk.NORMAL
         return
     try:
-        student_wb.save("./학생 정보.xlsx")
+        studentfile.save_file()
     except:
         gui.append_log("학생 정보 파일 창을 끄고 다시 실행해 주세요.")
         button["state"] = tk.NORMAL
         return
     
     gui.append_log(f"{student} 학생을 퇴원 처리하였습니다.")
-    del student
     return
 
 ui = tk.Tk()
