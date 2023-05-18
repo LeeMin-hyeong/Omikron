@@ -244,6 +244,60 @@ class GUI():
         else:
             return student
     
+    def update_class_dialog(self):
+        def quitEvent():
+            self.ui.wm_attributes("-disabled", False)
+            popup.quit()
+            popup.destroy()
+
+        self.ui.wm_attributes("-disabled", True)
+        popup = tk.Toplevel()
+        width = 500
+        height = 300
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.title("업데이트 반 선택")
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+
+        # 반 정보 확인
+        class_wb = xl.load_workbook("./반 정보.xlsx")
+        try:
+            class_ws = class_wb["반 정보"]
+        except:
+            gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            gui.q.put(r"'반 정보'로 변경해 주세요.")
+            return
+
+        options = webdriver.ChromeOptions()
+        options.add_argument("headless")
+        driver = webdriver.Chrome(service = service, options = options)
+
+        # 아이소식 접속
+        driver.get(config["url"])
+        table_names = driver.find_elements(By.CLASS_NAME, "style1")
+        
+        current_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row+1)]
+        current_class_list = tk.StringVar(value=current_class)
+        # 반 루프
+        unregistered_class = {}
+        for i in range(3, len(table_names)):
+            if not table_names[i].text.rstrip() in current_class:
+                unregistered_class[table_names[i].text.rstrip()] = i
+            
+        if len(unregistered_class) == 0:
+            gui.q.put("업데이트된 사항이 없습니다.")
+            return
+        
+        new_class = list(unregistered_class.keys())
+        new_class_list = tk.StringVar(value=new_class)
+        delete_class_list = tk.StringVar(value=[])
+        new_class_listbox = tk.Listbox(popup, listvariable=new_class_list).pack(side="left", anchor="center")
+        delete_class_listbox = tk.Listbox(popup, listvariable=delete_class_list).pack(side="right", anchor="center")
+        current_class_listbox = tk.Listbox(popup, listvariable=current_class_list).pack(anchor="center")
+        popup.mainloop()
+
     def make_class_info_file_thread(self):
         thread = threading.Thread(target=lambda: make_class_info_file(self))
         thread.daemon = True
@@ -267,10 +321,10 @@ class GUI():
 
     def update_class_thread(self):
         self.update_class_button["state"] = tk.DISABLED
+        # self.update_class_dialog()
         thread = threading.Thread(target=lambda: update_class(self))
         thread.daemon = True
         thread.start()
-        thread.join()
         self.update_class_button["state"] = tk.NORMAL
         self.ui.wm_attributes("-topmost", 1)
         self.ui.wm_attributes("-topmost", 0)
@@ -549,23 +603,52 @@ def update_class(gui:GUI):
     # 아이소식 접속
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
+    current_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(1, class_ws.max_row+1)]
 
     # 반 루프
-    unregistered = {}
+    unregistered_class = {}
     for i in range(3, len(table_names)):
-        is_class_exist = False
-        for j in range(1, class_ws.max_row+1):
-            if class_ws.cell(j, 1).value == table_names[i].text.rstrip():
-                is_class_exist = True
-                break
-        if is_class_exist: continue
-        unregistered[table_names[i].text.rstrip()] = i
+        if not table_names[i].text.rstrip() in current_class:
+            unregistered_class[table_names[i].text.rstrip()] = i
         
-    if len(unregistered) == 0:
+    if len(unregistered_class) == 0:
         gui.q.put("업데이트된 사항이 없습니다.")
         return
 
-    for new_class, new_class_index in unregistered.items():
+    for i in range(2, class_ws.max_row+2):
+        if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is None:
+            write_row = i
+            break
+    
+    for new_class_name in list(unregistered_class.keys()):
+        class_ws.cell(write_row, ClassInfo.CLASS_NAME_COLUMN).value = new_class_name
+        write_row += 1
+    # 정렬 및 테두리
+    for j in range(1, class_ws.max_row + 1):
+        for k in range(1, class_ws.max_column + 1):
+            class_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
+            class_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    class_wb.save("./반 정보.xlsx")
+
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = True
+    excel.Workbooks.Open(f"{os.getcwd()}\\반 정보.xlsx")
+    
+    if not tkinter.messagebox.askokcancel("반 정보 변경 확인", f"반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고 확인 버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요."):
+        return
+    
+    class_wb = xl.load_workbook("./반 정보.xlsx")
+    try:
+        class_ws = class_wb["반 정보"]
+    except:
+        gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+        gui.q.put(r"'반 정보'로 변경해 주세요.")
+        return
+    update_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(1, class_ws.max_row+1)]
+    delete_class = [c for c in current_class if not c in update_class]
+    
+    
+    for new_class, new_class_index in unregistered_class.items():
         gui.q.put(str(new_class))
     # trs = driver.find_element(By.ID, "table_" + str(i)).find_elements(By.CLASS_NAME, "style12")
     # write_location = start = ini_ws.max_row + 1
