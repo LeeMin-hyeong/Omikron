@@ -322,9 +322,21 @@ class GUI():
     def update_class_thread(self):
         self.update_class_button["state"] = tk.DISABLED
         # self.update_class_dialog()
-        thread = threading.Thread(target=lambda: update_class(self))
+        thread = threading.Thread(target=lambda: check_update_class(self))
         thread.daemon = True
         thread.start()
+        thread.join()
+        excel = win32com.client.Dispatch("Excel.Application")
+        excel.Visible = True
+        wb = excel.Workbooks.Open(f"{os.getcwd()}\\temp.xlsx")
+        if not tkinter.messagebox.askokcancel("반 정보 변경 확인", f"반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고 확인 버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요."):
+            wb.Close()
+            if os.path.isfile("./temp.xlsx"):
+                os.remove("./temp.xlsx")
+                self.q.put("반 업데이트를 중단합니다.")
+        else:
+            # do somthing
+            update
         self.update_class_button["state"] = tk.NORMAL
         self.ui.wm_attributes("-topmost", 1)
         self.ui.wm_attributes("-topmost", 0)
@@ -582,7 +594,7 @@ def make_data_file(gui:GUI):
     ini_wb.save(f"./data/{config['dataFileName']}.xlsx")
     gui.q.put("데이터 파일을 생성했습니다.")
 
-def update_class(gui:GUI):
+def check_update_class(gui:GUI):
     # 반 정보 확인
     class_wb = xl.load_workbook("./반 정보.xlsx")
     try:
@@ -613,7 +625,6 @@ def update_class(gui:GUI):
         
     if len(unregistered_class) == 0:
         gui.q.put("업데이트된 사항이 없습니다.")
-        return
 
     for i in range(2, class_ws.max_row+2):
         if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is None:
@@ -628,14 +639,9 @@ def update_class(gui:GUI):
         for k in range(1, class_ws.max_column + 1):
             class_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
             class_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-    class_wb.save("./반 정보.xlsx")
+    class_wb.save("./temp.xlsx")
 
-    excel = win32com.client.Dispatch("Excel.Application")
-    excel.Visible = True
-    excel.Workbooks.Open(f"{os.getcwd()}\\반 정보.xlsx")
     
-    if not tkinter.messagebox.askokcancel("반 정보 변경 확인", f"반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고 확인 버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요."):
-        return
     
     class_wb = xl.load_workbook("./반 정보.xlsx")
     try:
@@ -647,9 +653,10 @@ def update_class(gui:GUI):
     update_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(1, class_ws.max_row+1)]
     delete_class = [c for c in current_class if not c in update_class]
     
-    
     for new_class, new_class_index in unregistered_class.items():
         gui.q.put(str(new_class))
+    for a in delete_class:
+        gui.q.put(a)
     # trs = driver.find_element(By.ID, "table_" + str(i)).find_elements(By.CLASS_NAME, "style12")
     # write_location = start = ini_ws.max_row + 1
     # ini_ws.cell(write_location, 1).value = table_names[i].text.rstrip()
