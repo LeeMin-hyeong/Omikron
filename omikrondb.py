@@ -8,10 +8,12 @@ import tkinter.messagebox
 import openpyxl as xl
 import win32com.client # only works in popups
 
+from copy import copy
 from omikronconst import *
 from tkinter import ttk, filedialog
 from datetime import date as DATE, datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from openpyxl.cell import Cell
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -100,12 +102,20 @@ class GUI():
         if os.path.isfile("반 정보.xlsx"):
             self.make_class_info_file_button["state"] = tk.DISABLED
             check1 = True
+        else:
+            self.make_class_info_file_button["state"] = tk.NORMAL
+            self.make_student_info_file_button["state"] = tk.DISABLED
+            self.make_data_file_button["state"] = tk.DISABLED
         if os.path.isfile("학생 정보.xlsx"):
             self.make_student_info_file_button["state"] = tk.DISABLED
             check2 = True
+        else: 
+            self.make_student_info_file_button["state"] = tk.NORMAL
         if os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
             self.make_data_file_button["state"] = tk.DISABLED
             check3 = True
+        else:
+            self.make_data_file_button["state"] = tk.NORMAL
         
         if check1 and check2 and check3:
             self.update_class_button["state"] = tk.NORMAL
@@ -243,60 +253,6 @@ class GUI():
             return None
         else:
             return student
-    
-    def update_class_dialog(self):
-        def quitEvent():
-            self.ui.wm_attributes("-disabled", False)
-            popup.quit()
-            popup.destroy()
-
-        self.ui.wm_attributes("-disabled", True)
-        popup = tk.Toplevel()
-        width = 500
-        height = 300
-        x = int((popup.winfo_screenwidth()/4) - (width/2))
-        y = int((popup.winfo_screenheight()/2) - (height/2))
-        popup.geometry(f"{width}x{height}+{x}+{y}")
-        popup.title("업데이트 반 선택")
-        popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
-
-        # 반 정보 확인
-        class_wb = xl.load_workbook("./반 정보.xlsx")
-        try:
-            class_ws = class_wb["반 정보"]
-        except:
-            gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
-            gui.q.put(r"'반 정보'로 변경해 주세요.")
-            return
-
-        options = webdriver.ChromeOptions()
-        options.add_argument("headless")
-        driver = webdriver.Chrome(service = service, options = options)
-
-        # 아이소식 접속
-        driver.get(config["url"])
-        table_names = driver.find_elements(By.CLASS_NAME, "style1")
-        
-        current_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row+1)]
-        current_class_list = tk.StringVar(value=current_class)
-        # 반 루프
-        unregistered_class = {}
-        for i in range(3, len(table_names)):
-            if not table_names[i].text.rstrip() in current_class:
-                unregistered_class[table_names[i].text.rstrip()] = i
-            
-        if len(unregistered_class) == 0:
-            gui.q.put("업데이트된 사항이 없습니다.")
-            return
-        
-        new_class = list(unregistered_class.keys())
-        new_class_list = tk.StringVar(value=new_class)
-        delete_class_list = tk.StringVar(value=[])
-        new_class_listbox = tk.Listbox(popup, listvariable=new_class_list).pack(side="left", anchor="center")
-        delete_class_listbox = tk.Listbox(popup, listvariable=delete_class_list).pack(side="right", anchor="center")
-        current_class_listbox = tk.Listbox(popup, listvariable=current_class_list).pack(anchor="center")
-        popup.mainloop()
 
     def make_class_info_file_thread(self):
         thread = threading.Thread(target=lambda: make_class_info_file(self))
@@ -320,23 +276,30 @@ class GUI():
         self.ui.wm_attributes("-topmost", 0)
 
     def update_class_thread(self):
-        self.update_class_button["state"] = tk.DISABLED
-        # self.update_class_dialog()
-        thread = threading.Thread(target=lambda: check_update_class(self))
-        thread.daemon = True
-        thread.start()
-        thread.join()
-        excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = True
-        wb = excel.Workbooks.Open(f"{os.getcwd()}\\temp.xlsx")
-        if not tkinter.messagebox.askokcancel("반 정보 변경 확인", f"반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고 확인 버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요."):
-            wb.Close()
-            if os.path.isfile("./temp.xlsx"):
-                os.remove("./temp.xlsx")
-                self.q.put("반 업데이트를 중단합니다.")
+        if self.update_class_button["text"] == "반 업데이트":
+            self.update_class_button["state"] = tk.DISABLED
+            global ret
+            ret = check_update_class(self)
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = True
+            wb = excel.Workbooks.Open(f"{os.getcwd()}\\temp.xlsx")
+            if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
+                wb.Close()
+                if os.path.isfile("./temp.xlsx"):
+                    os.remove("./temp.xlsx")
+                    self.q.put(r"반 업데이트를 중단합니다.")
+            else: self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
         else:
-            # do somthing
-            update
+            if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 업데이트를 계속하시겠습니까?"):
+                wb.Close()
+                if os.path.isfile("./temp.xlsx"):
+                    os.remove("./temp.xlsx")
+                    self.q.put(r"반 업데이트를 중단합니다.")
+            thread = threading.Thread(target=lambda: update_class(self, ret[0], ret[1]))
+            thread.daemon = True
+            thread.start()
+            del ret
+            self.update_class_button["text"] = "반 업데이트"
         self.update_class_button["state"] = tk.NORMAL
         self.ui.wm_attributes("-topmost", 1)
         self.ui.wm_attributes("-topmost", 0)
@@ -604,9 +567,6 @@ def check_update_class(gui:GUI):
         gui.q.put(r"'반 정보'로 변경해 주세요.")
         return
 
-    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-    data_file_ws = data_file_wb["데일리테스트"]
-
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
     driver = webdriver.Chrome(service = service, options = options)
@@ -615,16 +575,9 @@ def check_update_class(gui:GUI):
     # 아이소식 접속
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
-    current_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(1, class_ws.max_row+1)]
+    current_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row+1)]
 
-    # 반 루프
-    unregistered_class = {}
-    for i in range(3, len(table_names)):
-        if not table_names[i].text.rstrip() in current_class:
-            unregistered_class[table_names[i].text.rstrip()] = i
-        
-    if len(unregistered_class) == 0:
-        gui.q.put("업데이트된 사항이 없습니다.")
+    unregistered_class = {table_names[i].text.rstrip() : i for i in range(3, len(table_names)) if not table_names[i].text.rstrip() in current_class}
 
     for i in range(2, class_ws.max_row+2):
         if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is None:
@@ -640,28 +593,194 @@ def check_update_class(gui:GUI):
             class_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
             class_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
     class_wb.save("./temp.xlsx")
+    return current_class, unregistered_class
 
-    
-    
-    class_wb = xl.load_workbook("./반 정보.xlsx")
-    try:
-        class_ws = class_wb["반 정보"]
-    except:
-        gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
-        gui.q.put(r"'반 정보'로 변경해 주세요.")
-        return
-    update_class = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(1, class_ws.max_row+1)]
+def update_class(gui:GUI, current_class:list, unregistered_class:dict):
+    options = webdriver.ChromeOptions()
+    options.add_argument("headless")
+    driver = webdriver.Chrome(service = service, options = options)
+    driver.get(config["url"])
+
+    gui.q.put("수정된 반 정보를 바탕으로 업데이트 중...")
+    class_wb_temp = xl.load_workbook("./temp.xlsx")
+
+    class_temp_ws = class_wb_temp["반 정보"]
+    update_class = [class_temp_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_temp_ws.max_row+1)]
     delete_class = [c for c in current_class if not c in update_class]
-    
-    for new_class, new_class_index in unregistered_class.items():
-        gui.q.put(str(new_class))
-    for a in delete_class:
-        gui.q.put(a)
-    # trs = driver.find_element(By.ID, "table_" + str(i)).find_elements(By.CLASS_NAME, "style12")
-    # write_location = start = ini_ws.max_row + 1
-    # ini_ws.cell(write_location, 1).value = table_names[i].text.rstrip()
+    check_list = [c for c in list(unregistered_class.keys()) if c in update_class]
 
-    return
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_ws = data_file_wb["데일리테스트"]
+
+    if len(check_list) == 0 and len(delete_class) == 0:
+        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+        class_wb_temp.save("./반 정보.xlsx")
+        os.remove("./temp.xlsx")
+        gui.q.put("업데이트 된 항목이 없습니다.")
+        return
+    
+    # 데이터 파일에 새 반 추가
+    if len(check_list) != 0:
+        gui.q.put("신규 반 추가중...")
+        for sheetName in data_file_wb.sheetnames:
+            data_file_ws = data_file_wb[sheetName]
+            for i in range(1, data_file_ws.max_column+1):
+                temp = data_file_ws.cell(1, i).value
+                if temp == "시간":
+                    TEST_TIME_COLUMN = i
+                elif temp == "요일":
+                    DATE_COLUMN = i
+                elif temp == "반":
+                    CLASS_NAME_COLUMN = i
+                elif temp == "담당":
+                    TEACHER_COLUMN = i
+                elif temp == "이름":
+                    STUDENT_NAME_COLUMN = i
+                elif temp == "학생 평균":
+                    AVERAGE_SCORE_COLUMN = i
+            
+            for i in range(2, data_file_ws.max_row+2):
+                if data_file_ws.cell(i, DataFile.CLASS_NAME_COLUMN).value is None:
+                    write_location = i
+                    break
+            
+            for new_class, new_class_index in unregistered_class.items():
+                if not new_class in update_class: continue
+                trs = driver.find_element(By.ID, "table_" + str(new_class_index)).find_elements(By.CLASS_NAME, "style12")
+
+                class_name = new_class
+                time = ""
+                date = ""
+                teacher = ""
+                is_class_exist = False
+                for j in range(2, class_temp_ws.max_row + 1):
+                    if class_temp_ws.cell(j, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
+                        teacher = class_temp_ws.cell(j, ClassInfo.TEACHER_COLUMN).value
+                        date = class_temp_ws.cell(j, ClassInfo.DATE_COLUMN).value
+                        time = class_temp_ws.cell(j, ClassInfo.TEST_TIME_COLUMN).value
+                        is_class_exist = True
+                if not is_class_exist:
+                    continue
+                
+                # 시험명
+                data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
+                data_file_ws.cell(write_location, DATE_COLUMN).value = date
+                data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
+                data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
+                data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = "날짜"
+                
+                write_location += 1
+                data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
+                data_file_ws.cell(write_location, DATE_COLUMN).value = date
+                data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
+                data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
+                data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = "시험명"
+                start = write_location + 1
+
+                # 학생 루프
+                for tr in trs:
+                    write_location += 1
+                    data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
+                    data_file_ws.cell(write_location, DATE_COLUMN).value = date
+                    data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
+                    data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
+                    data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+                    data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{str(write_location)}:XFD{str(write_location)}), 0)"
+                    data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+                
+                # 시험별 평균
+                write_location += 1
+                end = write_location - 1
+                data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
+                data_file_ws.cell(write_location, DATE_COLUMN).value = date
+                data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
+                data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
+                data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = "시험 평균"
+                data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN)}{str(start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(end)}), 0)"
+                data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+
+                for j in range(1, AVERAGE_SCORE_COLUMN+1):
+                    data_file_ws.cell(write_location, j).border = Border(bottom = Side(border_style="medium", color="000000"))
+
+            # 정렬
+            for i in range(1, data_file_ws.max_row + 1):
+                for j in range(1, data_file_ws.max_column + 1):
+                    data_file_ws.cell(i, j).alignment = Alignment(horizontal="center", vertical="center")
+    
+    # 데이터 파일에서 이전 데이터 이동 및 삭제
+    if len(delete_class) != 0:
+        gui.q.put("이전 데이터 제거 중...")
+        if not os.path.isfile("./data/지난 데이터.xlsx"):
+            ini_wb = xl.Workbook()
+            ini_ws = ini_wb.active
+            ini_ws.title = "데일리테스트"
+            ini_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"] = "시간"
+            ini_ws[gcl(DataFile.DATE_COLUMN)+"1"] = "요일"
+            ini_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"] = "반"
+            ini_ws[gcl(DataFile.TEACHER_COLUMN)+"1"] = "담당"
+            ini_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"] = "이름"
+            ini_ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
+            ini_ws.freeze_panes = gcl(DataFile.DATA_COLUMN) + "2"
+            ini_ws.auto_filter.ref = "A:" + gcl(DataFile.MAX)
+
+            copy_ws = ini_wb.copy_worksheet(ini_wb["데일리테스트"])
+            copy_ws.title = "모의고사"
+            copy_ws.freeze_panes = gcl(DataFile.DATA_COLUMN) + "2"
+            copy_ws.auto_filter.ref = "A:" + gcl(DataFile.STUDENT_NAME_COLUMN)
+
+            ini_wb.save("./data/지난 데이터.xlsx")
+        
+        excel = win32com.client.Dispatch("Excel.Application")
+        excel.Visible = False
+        try:
+            wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+            wb.Save()
+            wb.Close()
+        except:
+            gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
+            return
+        
+        post_data_wb = xl.load_workbook("./data/지난 데이터.xlsx")
+        data_file_temp_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
+        for sheetName in data_file_temp_wb.sheetnames:
+            data_file_temp_ws = data_file_temp_wb[sheetName]
+            post_data_ws = post_data_wb[sheetName]
+            data_file_ws = data_file_wb[sheetName]
+            for i in range(1, data_file_temp_ws.max_column+1):
+                temp = data_file_temp_ws.cell(1, i).value
+                if temp == "시간":
+                    TEST_TIME_COLUMN = i
+                elif temp == "요일":
+                    DATE_COLUMN = i
+                elif temp == "반":
+                    CLASS_NAME_COLUMN = i
+                elif temp == "담당":
+                    TEACHER_COLUMN = i
+                elif temp == "이름":
+                    STUDENT_NAME_COLUMN = i
+                elif temp == "학생 평균":
+                    AVERAGE_SCORE_COLUMN = i
+            
+            for row in range(2, data_file_temp_ws.max_row+1):
+                if data_file_temp_ws.cell(row, CLASS_NAME_COLUMN).value in delete_class:
+                    # data_file_ws.delete_rows(row)
+                    write_row = post_data_ws.max_row+1
+                    copy_cell(post_data_ws.cell(write_row, DataFile.TEST_TIME_COLUMN), data_file_temp_ws.cell(row, TEST_TIME_COLUMN))
+                    copy_cell(post_data_ws.cell(write_row, DataFile.DATE_COLUMN), data_file_temp_ws.cell(row, DATE_COLUMN))
+                    copy_cell(post_data_ws.cell(write_row, DataFile.CLASS_NAME_COLUMN), data_file_temp_ws.cell(row, CLASS_NAME_COLUMN))
+                    copy_cell(post_data_ws.cell(write_row, DataFile.TEACHER_COLUMN), data_file_temp_ws.cell(row, TEACHER_COLUMN))
+                    copy_cell(post_data_ws.cell(write_row, DataFile.STUDENT_NAME_COLUMN), data_file_temp_ws.cell(row, STUDENT_NAME_COLUMN))
+                    copy_cell(post_data_ws.cell(write_row, DataFile.AVERAGE_SCORE_COLUMN), data_file_temp_ws.cell(row, AVERAGE_SCORE_COLUMN))
+                    write_column = DataFile.MAX+1
+                    for col in range(AVERAGE_SCORE_COLUMN+1, data_file_temp_ws.max_column):
+                        copy_cell(post_data_ws.cell(write_row, write_column), data_file_temp_ws.cell(row, col))
+                        write_column += 1
+    
+        post_data_wb.save("./data/지난 데이터.xlsx")
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+    class_wb_temp.save("./반 정보.xlsx")
+    os.remove("./temp.xlsx")
+    gui.q.put("반 업데이트를 완료하였습니다.")
 
 def make_data_form(gui:GUI):
     gui.q.put("데일리테스트 기록 양식 생성 중...")
@@ -1085,12 +1204,12 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     gui.q.put("데이터 저장을 완료했습니다.")
 
 def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
-    form_object = DataForm(filepath)
-    form_ws = form_object.open_worksheet()
+    form_wb = xl.load_workbook(filepath, data_only=True)
+    form_ws = form_wb["데일리테스트 기록 양식"]
 
     # 올바른 양식이 아닙니다.
-    if not form_object.form_validation():
-        gui.q.put("메세지 전송이 중단되었습니다.")
+    if not data_validation(gui, form_ws):
+        gui.q.put("데이터 저장이 중단되었습니다.")
         return
 
     gui.q.put("크롬을 실행시키는 중...")
@@ -1347,7 +1466,7 @@ def delete_student(gui:GUI, student:str):
         gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
         return
     try:
-        student_ws.save("./학생 정보.xlsx")
+        student_wb.save("./학생 정보.xlsx")
     except:
         gui.q.put("학생 정보 파일 창을 끄고 다시 실행해 주세요.")
         return
@@ -1399,6 +1518,14 @@ def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
     if not form_checked: return False # 오류
 
     return True # 이상 없음
+
+def copy_cell(destination:Cell, source:Cell):
+    destination.value = source.value
+    destination.font = copy(source.font)
+    destination.fill = copy(source.fill)
+    destination.border = copy(source.border)
+    destination.alignment = copy(source.alignment)
+    destination.number_format = copy(source.number_format)
 
 ui = tk.Tk()
 gui = GUI(ui)
