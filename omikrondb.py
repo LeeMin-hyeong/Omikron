@@ -131,6 +131,12 @@ class GUI():
             self.send_message_button["state"] = tk.DISABLED
             self.apply_color_button["state"] = tk.DISABLED
             self.delete_student_button["state"] = tk.DISABLED
+
+        if os.path.isfile("temp.xlsx"):
+            self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
+        else:
+            self.update_class_button["text"] = "반 업데이트"
+        
         self.ui.after(100, self.check_files)
 
     def holiday_dialog(self) -> dict:
@@ -300,7 +306,6 @@ class GUI():
             thread.daemon = True
             thread.start()
             del ret
-            self.update_class_button["text"] = "반 업데이트"
         self.update_class_button["state"] = tk.NORMAL
         self.ui.wm_attributes("-topmost", 1)
         self.ui.wm_attributes("-topmost", 0)
@@ -641,8 +646,8 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                     AVERAGE_SCORE_COLUMN = i
             
             for i in range(2, data_file_ws.max_row+2):
-                if data_file_ws.cell(i, DataFile.CLASS_NAME_COLUMN).value is None:
-                    write_location = i
+                if data_file_ws.cell(i, CLASS_NAME_COLUMN).value is None:
+                    write_location = i-1
                     break
             
             for new_class, new_class_index in unregistered_class.items():
@@ -662,7 +667,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                         is_class_exist = True
                 if not is_class_exist:
                     continue
-                
+                write_location += 1
                 # 시험명
                 data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
                 data_file_ws.cell(write_location, DATE_COLUMN).value = date
@@ -764,7 +769,8 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
             
             for row in range(2, data_file_temp_ws.max_row+1):
                 if data_file_temp_ws.cell(row, CLASS_NAME_COLUMN).value in delete_class:
-                    # data_file_ws.delete_rows(row)
+                    # 지난 행 제거 (숨기기)
+                    data_file_ws.row_dimensions.group(row, hidden=True)
                     write_row = post_data_ws.max_row+1
                     copy_cell(post_data_ws.cell(write_row, DataFile.TEST_TIME_COLUMN), data_file_temp_ws.cell(row, TEST_TIME_COLUMN))
                     copy_cell(post_data_ws.cell(write_row, DataFile.DATE_COLUMN), data_file_temp_ws.cell(row, DATE_COLUMN))
@@ -819,6 +825,7 @@ def make_data_form(gui:GUI):
     driver = webdriver.Chrome(service = service, options = options)
 
     # 아이소식 접속
+    gui.q.put("아이소식 접속 중")
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
     #반 루프
@@ -837,6 +844,7 @@ def make_data_form(gui:GUI):
                 teacher = class_ws.cell(j, ClassInfo.TEACHER_COLUMN).value
                 date = class_ws.cell(j, ClassInfo.DATE_COLUMN).value
                 time = class_ws.cell(j, ClassInfo.TEST_TIME_COLUMN).value
+                is_class_exist = True
         if not is_class_exist:
             continue
         ini_ws.cell(write_location, DataForm.CLASS_NAME_COLUMN).value = class_name
@@ -861,7 +869,7 @@ def make_data_form(gui:GUI):
         
         # 정렬 및 테두리
         for j in range(1, ini_ws.max_row + 1):
-            for k in range(1, ini_ws.max_column + 1):
+            for k in range(1, DataForm.MAX+1):
                 ini_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
                 ini_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
         
