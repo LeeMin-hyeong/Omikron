@@ -35,7 +35,7 @@ if not os.path.exists("./data/backup"):
     os.makedirs("./data/backup")
 
 class GUI():
-    def __init__(self, ui):
+    def __init__(self, ui:tk.Tk):
         self.q = queue.Queue()
         self.ui = ui
         self.width = 320
@@ -283,12 +283,13 @@ class GUI():
             excel = win32com.client.Dispatch("Excel.Application")
             excel.Visible = True
             wb = excel.Workbooks.Open(f"{os.getcwd()}\\temp.xlsx")
+            self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
             if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
+                self.update_class_button["text"] == "반 업데이트"
                 wb.Close()
                 if os.path.isfile("./temp.xlsx"):
                     os.remove("./temp.xlsx")
                     self.q.put(r"반 업데이트를 중단합니다.")
-            else: self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
         else:
             if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 업데이트를 계속하시겠습니까?"):
                 wb.Close()
@@ -1514,10 +1515,8 @@ def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
             gui.q.put(f"{class_name}의 모의고사명이 작성되지 않았습니다.")
             mocktest_checked = True
             form_checked = False
-    
-    if not form_checked: return False # 오류
 
-    return True # 이상 없음
+    return form_checked
 
 def copy_cell(destination:Cell, source:Cell):
     destination.value = source.value
