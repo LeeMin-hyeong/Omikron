@@ -2,11 +2,12 @@
 import json
 import queue
 import os.path
+import pythoncom # only works in Windows
 import threading
 import tkinter as tk
 import tkinter.messagebox
 import openpyxl as xl
-import win32com.client # only works in popups
+import win32com.client # only works in Windows
 
 from copy import copy
 from omikronconst import *
@@ -21,7 +22,7 @@ from openpyxl.styles import Alignment, Border, Color, PatternFill, Side, Font
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
-from win32process import CREATE_NO_WINDOW
+from win32process import CREATE_NO_WINDOW # only works in Windows
 from webdriver_manager.chrome import ChromeDriverManager
 
 config = json.load(open("./config.json", encoding="UTF8"))
@@ -735,7 +736,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
             copy_ws.auto_filter.ref = "A:" + gcl(DataFile.STUDENT_NAME_COLUMN)
 
             ini_wb.save("./data/지난 데이터.xlsx")
-        
+        pythoncom.CoInitialize()
         excel = win32com.client.Dispatch("Excel.Application")
         excel.Visible = False
         try:
@@ -788,6 +789,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
     class_wb_temp.save("./반 정보.xlsx")
     os.remove("./temp.xlsx")
     gui.q.put("반 업데이트를 완료하였습니다.")
+    pythoncom.CoUninitialize()
 
 def make_data_form(gui:GUI):
     gui.q.put("데일리테스트 기록 양식 생성 중...")
@@ -1348,6 +1350,7 @@ def apply_color(gui:GUI):
             gui.q.put(r"'학생 정보'로 변경해 주세요.")
             return
         
+        pythoncom.CoInitialize()
         excel = win32com.client.Dispatch("Excel.Application")
         excel.Visible = False
         try:
@@ -1437,6 +1440,7 @@ def apply_color(gui:GUI):
         gui.q.put("조건부 서식 지정을 완료했습니다.")
         excel.Visible = True
         wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+        pythoncom.CoUninitialize()
     except:
         gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
         return

@@ -16,3 +16,6 @@ student_ws = student_wb["재시험 정보"]
 student_ws.title = "학생 정보"
 student_wb.save("./학생 정보.xlsx")
 os.remove("./재시험 정보.xlsx")
+
+print("patch complete")
+input("Press Enter to continue")
