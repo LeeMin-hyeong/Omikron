@@ -884,15 +884,15 @@ def make_data_form(gui:GUI):
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
         
-    if os.path.isfile("./데일리테스트 기록 양식.xlsx"):
+    if os.path.isfile(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}.xlsx"):
         i = 1
         while True:
-            if not os.path.isfile(f"./데일리테스트 기록 양식({str(i)}).xlsx"):
-                ini_wb.save(f"./데일리테스트 기록 양식({str(i)}).xlsx")
+            if not os.path.isfile(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}({str(i)}).xlsx"):
+                ini_wb.save(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}({str(i)}).xlsx")
                 break
             i += 1
     else:
-        ini_wb.save("./데일리테스트 기록 양식.xlsx")
+        ini_wb.save(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}.xlsx")
     gui.q.put("데일리테스트 기록 양식 생성을 완료했습니다.")
 
 def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
@@ -1045,19 +1045,23 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                     break
                 check -= 1
             if duplicated: continue
+            
+            dates = None
+            time = None
+            new_student = None
 
             for j in range(2, student_ws.max_row+1):
                 if student_ws.cell(j, StudentInfo.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                     dates = student_ws.cell(j, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
                     time = student_ws.cell(j, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
-                    new_studnet = student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+                    new_student = student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
                     break
 
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
-            if (new_studnet is not None) and (new_studnet == "N"):
+            if (new_student is not None) and (new_student == "N"):
                 makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
@@ -1157,17 +1161,21 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 check -= 1
             if duplicated: continue
 
+            dates = None
+            time = None
+            new_student = None
+
             for j in range(2, student_ws.max_row+1):
                 if student_ws.cell(j, StudentInfo.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                     dates = student_ws.cell(j, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
                     time = student_ws.cell(j, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
-                    new_studnet = student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+                    new_student = student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
                     break
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
-            if (new_studnet is not None) and (new_studnet == "N"):
+            if (new_student is not None) and (new_student == "N"):
                 makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
             makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
