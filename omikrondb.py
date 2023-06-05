@@ -884,15 +884,15 @@ def make_data_form(gui:GUI):
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
         
-    if os.path.isfile(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}.xlsx"):
+    if os.path.isfile(f"./데일리테스트 기록 양식(({datetime.today().strftime('%m.%d')})).xlsx"):
         i = 1
         while True:
-            if not os.path.isfile(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}({str(i)}).xlsx"):
-                ini_wb.save(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}({str(i)}).xlsx")
+            if not os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')})({str(i)}).xlsx"):
+                ini_wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')})({str(i)}).xlsx")
                 break
             i += 1
     else:
-        ini_wb.save(f"./데일리테스트 기록 양식{datetime.today().strftime('%m.%d')}.xlsx")
+        ini_wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx")
     gui.q.put("데일리테스트 기록 양식 생성을 완료했습니다.")
 
 def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
