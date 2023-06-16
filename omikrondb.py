@@ -38,6 +38,7 @@ if not os.path.exists("./data/backup"):
 class GUI():
     def __init__(self, ui:tk.Tk):
         self.q = queue.Queue()
+        self.thread_end_flag = False
         self.ui = ui
         self.width = 320
         self.height = 460 # button +25
@@ -132,13 +133,15 @@ class GUI():
             self.send_message_button["state"] = tk.DISABLED
             self.apply_color_button["state"] = tk.DISABLED
             self.delete_student_button["state"] = tk.DISABLED
-
-        if os.path.isfile("temp.xlsx"):
-            self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
-        else:
-            self.update_class_button["text"] = "반 업데이트"
         
         self.ui.after(100, self.check_files)
+
+    def check_thread_end(self):
+        if self.thread_end_flag:
+            self.thread_end_flag = False
+            self.ui.wm_attributes("-topmost", 1)
+            self.ui.wm_attributes("-topmost", 0)
+        self.ui.after(100, self.check_thread_end)
 
     def holiday_dialog(self) -> dict:
         def quitEvent():
@@ -265,25 +268,21 @@ class GUI():
         thread = threading.Thread(target=lambda: make_class_info_file(self))
         thread.daemon = True
         thread.start()
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
 
     def make_student_info_file_thread(self):
         thread = threading.Thread(target=lambda: make_student_info_file(self))
         thread.daemon = True
         thread.start()
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
     
     def make_data_file_thread(self):
         thread = threading.Thread(target=lambda: make_data_file(self))
         thread.daemon = True
         thread.start()
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
 
     def update_class_thread(self):
         if self.update_class_button["text"] == "반 업데이트":
+            if os.path.isfile("./temp.xlsx"):
+                os.remove("./temp.xlsx")
             self.update_class_button["state"] = tk.DISABLED
             global ret
             ret = check_update_class(self)
@@ -292,7 +291,7 @@ class GUI():
             wb = excel.Workbooks.Open(f"{os.getcwd()}\\temp.xlsx")
             self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
             if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
-                self.update_class_button["text"] == "반 업데이트"
+                self.update_class_button["text"] = "반 업데이트"
                 wb.Close()
                 if os.path.isfile("./temp.xlsx"):
                     os.remove("./temp.xlsx")
@@ -307,9 +306,8 @@ class GUI():
             thread.daemon = True
             thread.start()
             del ret
+            self.update_class_button["text"] = "반 업데이트"
         self.update_class_button["state"] = tk.NORMAL
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
     
     def make_data_form_thread(self):
         self.make_data_form_button['state'] = tk.DISABLED
@@ -317,8 +315,6 @@ class GUI():
         thread.daemon = True
         thread.start()
         self.make_data_form_button['state'] = tk.NORMAL
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
 
     def save_data_thread(self):
         self.save_data_button["state"] = tk.DISABLED
@@ -329,8 +325,6 @@ class GUI():
         thread.daemon = True
         thread.start()
         self.save_data_button["state"] = tk.NORMAL
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
 
     def send_message_thread(self):
         self.send_message_button["state"] = tk.DISABLED
@@ -341,8 +335,6 @@ class GUI():
         thread.daemon = True
         thread.start()
         self.send_message_button["state"] = tk.NORMAL
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
 
     def delete_student_thread(self):
         self.delete_student_button["state"] = tk.DISABLED
@@ -355,8 +347,6 @@ class GUI():
             thread.daemon = True
             thread.start()
         self.delete_student_button["state"] = tk.NORMAL
-        self.ui.wm_attributes("-topmost", 1)
-        self.ui.wm_attributes("-topmost", 0)
 
 def make_class_info_file(gui:GUI):
     gui.q.put("반 정보 입력 파일 생성 중...")
@@ -391,6 +381,7 @@ def make_class_info_file(gui:GUI):
     ini_wb.save("./반 정보.xlsx")
     gui.q.put("반 정보 입력 파일 생성을 완료했습니다.")
     gui.q.put("반 정보를 입력해 주세요.")
+    gui.thread_end_flag = True
 
 def make_student_info_file(gui:GUI):
     gui.q.put("학생 정보 파일 생성 중...")
@@ -458,6 +449,7 @@ def make_student_info_file(gui:GUI):
     
     ini_wb.save("./학생 정보.xlsx")
     gui.q.put("학생 정보 파일을 생성했습니다.")
+    gui.thread_end_flag = True
 
 def make_data_file(gui:GUI):
     gui.q.put("데이터파일 생성 중...")
@@ -563,6 +555,7 @@ def make_data_file(gui:GUI):
 
     ini_wb.save(f"./data/{config['dataFileName']}.xlsx")
     gui.q.put("데이터 파일을 생성했습니다.")
+    gui.thread_end_flag = True
 
 def check_update_class(gui:GUI):
     # 반 정보 확인
@@ -789,6 +782,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
     class_wb_temp.save("./반 정보.xlsx")
     os.remove("./temp.xlsx")
     gui.q.put("반 업데이트를 완료하였습니다.")
+    gui.thread_end_flag = True
     pythoncom.CoUninitialize()
 
 def make_data_form(gui:GUI):
@@ -894,6 +888,7 @@ def make_data_form(gui:GUI):
     else:
         ini_wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx")
     gui.q.put("데일리테스트 기록 양식 생성을 완료했습니다.")
+    gui.thread_end_flag = True
 
 def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     form_wb = xl.load_workbook(filepath, data_only=True)
@@ -1037,11 +1032,15 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
             check = makeup_list_ws.max_row
             duplicated = False
-            while makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                check -= 1
-            while makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
-                if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                    duplicated = True
+            while check >= 1:
+                if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
+                    check -= 1
+                    continue
+                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == DATE.today().strftime("%y.%m.%d"):
+                    if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
+                        duplicated = True
+                        break
+                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
                     break
                 check -= 1
             if duplicated: continue
@@ -1152,11 +1151,15 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
             check = makeup_list_ws.max_row
             duplicated = False
-            while makeup_list_ws.cell(check, MakeupTestList.TEST_NAME_COLUMN).value is None:
-                check -= 1
-            while makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
-                if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                    duplicated = True
+            while check >= 1:
+                if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
+                    check -= 1
+                    continue
+                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == DATE.today().strftime("%y.%m.%d"):
+                    if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
+                        duplicated = True
+                        break
+                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
                     break
                 check -= 1
             if duplicated: continue
@@ -1221,6 +1224,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     apply_color(gui)
 
     gui.q.put("데이터 저장을 완료했습니다.")
+    gui.thread_end_flag = True
 
 def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
     form_wb = xl.load_workbook(filepath, data_only=True)
@@ -1243,110 +1247,113 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put("[오류] \"학생 정보.xlsx\"의 시트명을")
         gui.q.put("\"학생 정보\"로 변경해 주세요.")
         return
-    try:
+    # try:
         
-        # 아이소식 접속
-        driver.get(config["url"])
-        driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["dailyTest"])
+    # 아이소식 접속
+    driver.get(config["url"])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["dailyTest"])
+    
+    driver.execute_script("window.open("");")
+    driver.switch_to.window(driver.window_handles[1])
+    driver.get(config["url"])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTest"])
+
+    driver.execute_script("window.open("");")
+    driver.switch_to.window(driver.window_handles[2])
+    driver.get(config["url"])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTestDate"])
+
+    gui.q.put("메시지 작성 중...")
+    for i in range(2, form_ws.max_row+1):
+        driver.switch_to.window(driver.window_handles[0])
+        name = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
+        daily_test_score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value
+        mock_test_score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
+        if form_ws.cell(i, 3).value is not None:
+            class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
+            daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
+            mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
+            daily_test_average = form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value
+            mock_test_average = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
+
+        # 시험 미응시시 건너뛰기
+        if daily_test_score is not None:
+            test_name = daily_test_name
+            score = daily_test_score
+            average = daily_test_average
+        elif mock_test_score is not None:
+            test_name = mock_test_name
+            score = mock_test_score
+            average = mock_test_average
+        else:
+            continue
+
+        if type(score) != int:
+            continue
         
-        driver.execute_script("window.open("");")
-        driver.switch_to.window(driver.window_handles[1])
-        driver.get(config["url"])
-        driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTest"])
+        table_names = driver.find_elements(By.CLASS_NAME, "style1")
+        for j in range(len(table_names)):
+            if class_name in table_names[j].text:
+                index = j
+                break
+        else:
+            continue
 
-        driver.execute_script("window.open("");")
-        driver.switch_to.window(driver.window_handles[2])
-        driver.get(config["url"])
-        driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTestDate"])
-
-        gui.q.put("메시지 작성 중...")
-        for i in range(2, form_ws.max_row+1):
-            driver.switch_to.window(driver.window_handles[0])
-            name = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
-            daily_test_score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value
-            mock_test_score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
-            if form_ws.cell(i, 3).value is not None:
-                class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-                daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
-                mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
-                daily_test_average = form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value
-                mock_test_average = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
-
-            # 시험 미응시시 건너뛰기
-            if daily_test_score is not None:
-                test_name = daily_test_name
-                score = daily_test_score
-                average = daily_test_average
-            elif mock_test_score is not None:
-                test_name = mock_test_name
-                score = mock_test_score
-                average = mock_test_average
+        trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
+        for tr in trs:
+            if tr.find_element(By.CLASS_NAME, "style9").text == name:
+                tds = tr.find_elements(By.TAG_NAME, "td")
+                tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
+                tds[1].find_element(By.TAG_NAME, "input").send_keys(score)
+                tds[2].find_element(By.TAG_NAME, "input").send_keys(average)
+                break
+        
+        if (type(score) == int) and (score < 80) and (form_ws.cell(i, 12).value != "x") and (form_ws.cell(i, 12).value != "X"):
+            for j in range(2, student_ws.max_row+1):
+                if student_ws.cell(j, 1).value == name:
+                    date = student_ws.cell(j, 4).value
+                    time = student_ws.cell(j, 5).value
+                    break
+            if date is None:
+                driver.switch_to.window(driver.window_handles[1])
+                trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
+                for tr in trs:
+                    if tr.find_element(By.CLASS_NAME, "style9").text == name:
+                        tds = tr.find_elements(By.TAG_NAME, "td")
+                        tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
             else:
-                continue
+                date_list = date.split("/")
+                result = makeup_test_date[date_list[0].replace(" ", "")]
+                timeIndex = 0
+                for i in range(len(date_list)):
+                    if result > makeup_test_date[date_list[i].replace(" ", "")]:
+                        result = makeup_test_date[date_list[i].replace(" ", "")]
+                        timeIndex = i
+                driver.switch_to.window(driver.window_handles[2])
+                trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
+                for tr in trs:
+                    if tr.find_element(By.CLASS_NAME, "style9").text == name:
+                        tds = tr.find_elements(By.TAG_NAME, "td")
+                        tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
+                        try:
+                            if time is not None:
+                                if "/" in str(time):
+                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[timeIndex] + "시")
+                                else:
+                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
+                        except:
+                            gui.q.put(name + "의 재시험 일정을 요일별 시간으로 설정하거나")
+                            gui.q.put("한 시간으로 통일해 주세요.")
+                            gui.q.put("중단되었습니다.")
+                            driver.quit()
+                            return
 
-            if type(score) != int:
-                continue
-            
-            table_names = driver.find_elements(By.CLASS_NAME, "style1")
-            for j in range(len(table_names)):
-                if class_name in table_names[j].text:
-                    index = j
-                    break
-
-            trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
-            for tr in trs:
-                if tr.find_element(By.CLASS_NAME, "style9").text == name:
-                    tds = tr.find_elements(By.TAG_NAME, "td")
-                    tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
-                    tds[1].find_element(By.TAG_NAME, "input").send_keys(score)
-                    tds[2].find_element(By.TAG_NAME, "input").send_keys(average)
-                    break
-            
-            if (type(score) == int) and (score < 80) and (form_ws.cell(i, 12).value != "x") and (form_ws.cell(i, 12).value != "X"):
-                for j in range(2, student_ws.max_row+1):
-                    if student_ws.cell(j, 1).value == name:
-                        date = student_ws.cell(j, 4).value
-                        time = student_ws.cell(j, 5).value
-                        break
-                if date is None:
-                    driver.switch_to.window(driver.window_handles[1])
-                    trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
-                    for tr in trs:
-                        if tr.find_element(By.CLASS_NAME, "style9").text == name:
-                            tds = tr.find_elements(By.TAG_NAME, "td")
-                            tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
-                else:
-                    date_list = date.split("/")
-                    result = makeup_test_date[date_list[0].replace(" ", "")]
-                    timeIndex = 0
-                    for i in range(len(date_list)):
-                        if result > makeup_test_date[date_list[i].replace(" ", "")]:
-                            result = makeup_test_date[date_list[i].replace(" ", "")]
-                            timeIndex = i
-                    driver.switch_to.window(driver.window_handles[2])
-                    trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
-                    for tr in trs:
-                        if tr.find_element(By.CLASS_NAME, "style9").text == name:
-                            tds = tr.find_elements(By.TAG_NAME, "td")
-                            tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
-                            try:
-                                if time is not None:
-                                    if "/" in str(time):
-                                        tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[timeIndex] + "시")
-                                    else:
-                                        tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
-                            except:
-                                gui.q.put(name + "의 재시험 일정을 요일별 시간으로 설정하거나")
-                                gui.q.put("한 시간으로 통일해 주세요.")
-                                gui.q.put("중단되었습니다.")
-                                driver.quit()
-                                return
-
-        gui.q.put("메시지 입력을 완료했습니다.")
-        gui.q.put("메시지 확인 후 전송해주세요.")
-    except:
-        gui.q.put("중단되었습니다.")
-        return
+    gui.q.put("메시지 입력을 완료했습니다.")
+    gui.q.put("메시지 확인 후 전송해주세요.")
+    gui.thread_end_flag = True
+    # except:
+    #     gui.q.put("중단되었습니다.")
+    #     return
 
 def apply_color(gui:GUI):
     try:
@@ -1493,6 +1500,7 @@ def delete_student(gui:GUI, student:str):
         return
     
     gui.q.put(f"{student} 학생을 퇴원 처리하였습니다.")
+    gui.thread_end_flag = True
     return
 
 def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
@@ -1550,4 +1558,5 @@ ui = tk.Tk()
 gui = GUI(ui)
 ui.after(100, gui.thread_log)
 ui.after(100, gui.check_files)
+ui.after(100, gui.check_thread_end)
 ui.mainloop()
