@@ -297,6 +297,9 @@ class GUI():
                     os.remove("./temp.xlsx")
                     self.q.put(r"반 업데이트를 중단합니다.")
         else:
+            if os.path.isfile("./~$temp.xlsx"):
+                self.q.put(r"임시 파일을 닫은 뒤 다시 시도해 주세요.")
+                return
             if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 업데이트를 계속하시겠습니까?"):
                 wb.Close()
                 if os.path.isfile("./temp.xlsx"):
@@ -317,6 +320,12 @@ class GUI():
         self.make_data_form_button['state'] = tk.NORMAL
 
     def save_data_thread(self):
+        if os.path.isfile("./data/~$재시험 명단.xlsx"):
+            self.q.put(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+        if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
+            self.q.put(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
         self.save_data_button["state"] = tk.DISABLED
         makeup_test_date = self.holiday_dialog()
         filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
@@ -778,6 +787,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                         write_column += 1
     
         post_data_wb.save("./data/지난 데이터.xlsx")
+    
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
     class_wb_temp.save("./반 정보.xlsx")
     os.remove("./temp.xlsx")
@@ -977,7 +987,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     
     for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
         # 파일 끝 검사
-        if form_ws.cell(i, 4).value is None:
+        if form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value is None:
             break
         
         # 반 필터링
@@ -1033,16 +1043,20 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             check = makeup_list_ws.max_row
             duplicated = False
             while check >= 1:
-                if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                    check -= 1
-                    continue
-                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == DATE.today().strftime("%y.%m.%d"):
-                    if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                        duplicated = True
+                try:
+                    if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
+                        check -= 1
+                        continue
+                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
+                        if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
+                            duplicated = True
+                            break
+                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
                         break
-                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
-                    break
+                except:
+                    pass
                 check -= 1
+                
             if duplicated: continue
             
             dates = None
@@ -1152,15 +1166,18 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             check = makeup_list_ws.max_row
             duplicated = False
             while check >= 1:
-                if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                    check -= 1
-                    continue
-                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == DATE.today().strftime("%y.%m.%d"):
-                    if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                        duplicated = True
+                try:
+                    if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
+                        check -= 1
+                        continue
+                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
+                        if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
+                            duplicated = True
+                            break
+                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
                         break
-                elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
-                    break
+                except:
+                    pass
                 check -= 1
             if duplicated: continue
 
@@ -1201,24 +1218,18 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         for k in range(1, makeup_list_ws.max_column + 1):
             makeup_list_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
             makeup_list_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-
-    # 데일리테스트 기록 양식 백업 생성
-    # gui.q.put("백업 파일 생성중...")
-    # form_wb.save(f"./data/backup/데일리테스트 기록 양식({datetime.today().strftime("%Y%m%d")}).xlsx")
     
     try:
         data_file_ws = data_file_wb["데일리테스트"]
         data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
     except:
         gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-        gui.save_data_button["state"] = tk.NORMAL
         return
 
     try:
         makeup_list_wb.save("./data/재시험 명단.xlsx")
     except:
         gui.q.put("재시험 명단 파일 창을 끄고 다시 실행해 주세요.")
-        gui.save_data_button["state"] = tk.NORMAL
         return
     
     apply_color(gui)
@@ -1248,7 +1259,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put("\"학생 정보\"로 변경해 주세요.")
         return
     # try:
-        
+    
     # 아이소식 접속
     driver.get(config["url"])
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["dailyTest"])
@@ -1508,17 +1519,17 @@ def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
     # 올바른 양식이 아닙니다.
     if (form_ws.title != "데일리테스트 기록 양식") or \
         (form_ws[gcl(DataForm.DATE_COLUMN)+"1"].value != "요일") or \
-            (form_ws[gcl(DataForm.TEST_TIME_COLUMN)+"1"].value != "시간") or \
-                (form_ws[gcl(DataForm.CLASS_NAME_COLUMN)+"1"].value != "반") or \
-                    (form_ws[gcl(DataForm.STUDENT_NAME_COLUMN)+"1"].value != "이름") or \
-                        (form_ws[gcl(DataForm.TEACHER_COLUMN)+"1"].value != "담당T") or \
-                            (form_ws[gcl(DataForm.DAILYTEST_TEST_NAME_COLUMN)+"1"].value != "시험명") or \
-                                (form_ws[gcl(DataForm.DAILYTEST_SCORE_COLUMN)+"1"].value != "점수") or \
-                                    (form_ws[gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+"1"].value != "평균") or \
-                                        (form_ws[gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+"1"].value != "시험대비 모의고사명") or \
-                                            (form_ws[gcl(DataForm.MOCKTEST_SCORE_COLUMN)+"1"].value != "모의고사 점수") or \
-                                                (form_ws[gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+"1"].value != "모의고사 평균") or \
-                                                    (form_ws[gcl(DataForm.MAKEUP_TEST_CHECK_COLUMN)+"1"].value != "재시문자 X"):
+        (form_ws[gcl(DataForm.TEST_TIME_COLUMN)+"1"].value != "시간") or \
+        (form_ws[gcl(DataForm.CLASS_NAME_COLUMN)+"1"].value != "반") or \
+        (form_ws[gcl(DataForm.STUDENT_NAME_COLUMN)+"1"].value != "이름") or \
+        (form_ws[gcl(DataForm.TEACHER_COLUMN)+"1"].value != "담당T") or \
+        (form_ws[gcl(DataForm.DAILYTEST_TEST_NAME_COLUMN)+"1"].value != "시험명") or \
+        (form_ws[gcl(DataForm.DAILYTEST_SCORE_COLUMN)+"1"].value != "점수") or \
+        (form_ws[gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+"1"].value != "평균") or \
+        (form_ws[gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+"1"].value != "시험대비 모의고사명") or \
+        (form_ws[gcl(DataForm.MOCKTEST_SCORE_COLUMN)+"1"].value != "모의고사 점수") or \
+        (form_ws[gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+"1"].value != "모의고사 평균") or \
+        (form_ws[gcl(DataForm.MAKEUP_TEST_CHECK_COLUMN)+"1"].value != "재시문자 X"):
         gui.q.put("올바른 기록 양식이 아닙니다.")
         return False
     
