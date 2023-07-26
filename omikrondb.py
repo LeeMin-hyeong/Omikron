@@ -1729,19 +1729,57 @@ def delete_student(gui:GUI, student:str):
 def add_student(gui:GUI, student:str, target_class:str):
     if check_student_exists(student, target_class):
         #학생 추가
-        print(1)
+        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        for sheetName in data_file_wb.sheetnames:
+            data_file_ws = data_file_wb[sheetName]
+            for i in range(1, data_file_ws.max_column+1):
+                temp = data_file_ws.cell(1, i).value
+                if temp == "시간":
+                    TEST_TIME_COLUMN = i
+                elif temp == "요일":
+                    DATE_COLUMN = i
+                elif temp == "반":
+                    CLASS_NAME_COLUMN = i
+                elif temp == "담당":
+                    TEACHER_COLUMN = i
+                elif temp == "이름":
+                    STUDENT_NAME_COLUMN = i
+                elif temp == "학생 평균":
+                    AVERAGE_SCORE_COLUMN = i
+            for row in range(2, data_file_ws.max_row+1):
+                if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
+                    class_index = row+2
+                    break
+            while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
+                if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
+                    break
+                else: class_index += 1
+            data_file_ws.insert_rows(class_index)
+            copy_cell(data_file_ws.cell(class_index, TEST_TIME_COLUMN), data_file_ws.cell(class_index-1, TEST_TIME_COLUMN))
+            copy_cell(data_file_ws.cell(class_index, DATE_COLUMN), data_file_ws.cell(class_index-1, DATE_COLUMN))
+            copy_cell(data_file_ws.cell(class_index, CLASS_NAME_COLUMN), data_file_ws.cell(class_index-1, CLASS_NAME_COLUMN))
+            copy_cell(data_file_ws.cell(class_index, TEACHER_COLUMN), data_file_ws.cell(class_index-1, TEACHER_COLUMN))
+
+            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value = student
+            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+
+        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+
+        rescoping_formula()
+        gui.q.put(f"{student} 학생을 {target_class} 반에 추가하였습니다.")
     else:
         gui.q.put(r"아이소식 해당 반에 학생이 업데이트되지 않아")
-        gui.q.put(r"학생 이동을 취소합니다.")
-        return
-    gui.q.put(f"{student} 학생을 {target_class} 반에 추가하였습니다.")
+        gui.q.put(r"신규생 추가를 취소합니다.")
+    
     gui.thread_end_flag = True
     return
 
 def move_student(gui:GUI, student:str, target_class:str, current_class:str):
     if check_student_exists(student, target_class):
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
         # 데이터 파일 취소선
+        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
         for sheetName in data_file_wb.sheetnames:
             data_file_ws = data_file_wb[sheetName]
 
@@ -1758,10 +1796,49 @@ def move_student(gui:GUI, student:str, target_class:str, current_class:str):
                     for col in range(1, data_file_ws.max_column+1):
                         data_file_ws.cell(row, col).font = Font(strike=True)
         # 학생 추가
+        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        for sheetName in data_file_wb.sheetnames:
+            data_file_ws = data_file_wb[sheetName]
+            for i in range(1, data_file_ws.max_column+1):
+                temp = data_file_ws.cell(1, i).value
+                if temp == "시간":
+                    TEST_TIME_COLUMN = i
+                elif temp == "요일":
+                    DATE_COLUMN = i
+                elif temp == "반":
+                    CLASS_NAME_COLUMN = i
+                elif temp == "담당":
+                    TEACHER_COLUMN = i
+                elif temp == "이름":
+                    STUDENT_NAME_COLUMN = i
+                elif temp == "학생 평균":
+                    AVERAGE_SCORE_COLUMN = i
+            for row in range(2, data_file_ws.max_row+1):
+                if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
+                    class_index = row+2
+                    break
+            while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
+                if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
+                    break
+                else: class_index += 1
+            data_file_ws.insert_rows(class_index)
+            copy_cell(data_file_ws.cell(class_index, TEST_TIME_COLUMN), data_file_ws.cell(class_index-1, TEST_TIME_COLUMN))
+            copy_cell(data_file_ws.cell(class_index, DATE_COLUMN), data_file_ws.cell(class_index-1, DATE_COLUMN))
+            copy_cell(data_file_ws.cell(class_index, CLASS_NAME_COLUMN), data_file_ws.cell(class_index-1, CLASS_NAME_COLUMN))
+            copy_cell(data_file_ws.cell(class_index, TEACHER_COLUMN), data_file_ws.cell(class_index-1, TEACHER_COLUMN))
+
+            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value = student
+            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+
+        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+
+        rescoping_formula()
     else:
         gui.q.put(r"아이소식 해당 반에 학생이 업데이트되지 않아")
         gui.q.put(r"학생 이동을 취소합니다.")
-        return
+    
     gui.thread_end_flag = True
     return
 
