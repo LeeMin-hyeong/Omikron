@@ -1,4 +1,4 @@
-# Omikron v1.2.0-alpha
+# Omikron v1.2.0-beta4
 class DataFile:
     TEST_TIME_COLUMN = 1
     DATE_COLUMN = 2
