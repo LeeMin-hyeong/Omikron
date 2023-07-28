@@ -1,4 +1,4 @@
-# Omikron v1.2.0-beta4
+# Omikron v1.2.0-beta5
 import json
 import queue
 import os.path
