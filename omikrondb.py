@@ -18,7 +18,7 @@ from openpyxl.cell import Cell
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.styles import Alignment, Border, Color, PatternFill, Side, Font
+from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Protection, Side
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -27,7 +27,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 config = json.load(open("./config.json", encoding="UTF8"))
 os.environ["WDM_PROGRESS_BAR"] = "0"
-service = Service(ChromeDriverManager().install())
+try:
+    service = Service(ChromeDriverManager().install())
+except:
+    service = Service(ChromeDriverManager(version=config["webDriverManagerVersion"]).install())
 service.creation_flags = CREATE_NO_WINDOW
 
 if not os.path.exists("./data"):
@@ -132,14 +135,18 @@ class GUI():
             self.save_data_button["state"] = tk.NORMAL
             self.send_message_button["state"] = tk.NORMAL
             self.apply_color_button["state"] = tk.NORMAL
+            self.add_student_button["state"] = tk.NORMAL
             self.delete_student_button["state"] = tk.NORMAL
+            self.move_student_button["state"] = tk.NORMAL
         else:
             self.update_class_button["state"] = tk.DISABLED
             self.make_data_form_button["state"] = tk.DISABLED
             self.save_data_button["state"] = tk.DISABLED
             self.send_message_button["state"] = tk.DISABLED
             self.apply_color_button["state"] = tk.DISABLED
+            self.add_student_button["state"] = tk.DISABLED
             self.delete_student_button["state"] = tk.DISABLED
+            self.move_student_button["state"] = tk.DISABLED
         
         self.ui.after(100, self.check_files)
 
@@ -226,22 +233,22 @@ class GUI():
         data_file_ws = data_file_wb.worksheets[0]
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "이름":
-                NAME_COLUMN = i
+                STUDENT_NAME_COLUMN = i
                 break
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "반":
-                CLASS_COLUMN = i
+                CLASS_NAME_COLUMN = i
                 break
 
         class_dict = {}
         for i in range(2, class_ws.max_row + 1):
             class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
-            student_list = [data_file_ws.cell(j, NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
-                            if data_file_ws.cell(j, CLASS_COLUMN).value == class_name and\
-                                data_file_ws.cell(j, NAME_COLUMN).value != "날짜" and\
-                                    data_file_ws.cell(j, NAME_COLUMN).value != "시험명" and\
-                                        data_file_ws.cell(j, NAME_COLUMN).value != "시험 평균" and\
-                                            not data_file_ws.cell(j, NAME_COLUMN).font.strike]
+            student_list = [data_file_ws.cell(j, STUDENT_NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
+                            if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name and\
+                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
+                                    data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
+                                        data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
+                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike]
             class_dict[class_name] = student_list
 
             
@@ -302,22 +309,22 @@ class GUI():
         data_file_ws = data_file_wb.worksheets[0]
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "이름":
-                NAME_COLUMN = i
+                STUDENT_NAME_COLUMN = i
                 break
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "반":
-                CLASS_COLUMN = i
+                CLASS_NAME_COLUMN = i
                 break
 
         class_dict = {}
         for i in range(2, class_ws.max_row + 1):
             class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
-            student_list = [data_file_ws.cell(j, NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
-                            if data_file_ws.cell(j, CLASS_COLUMN).value == class_name and\
-                                data_file_ws.cell(j, NAME_COLUMN).value != "날짜" and\
-                                    data_file_ws.cell(j, NAME_COLUMN).value != "시험명" and\
-                                        data_file_ws.cell(j, NAME_COLUMN).value != "시험 평균" and\
-                                            not data_file_ws.cell(j, NAME_COLUMN).font.strike]
+            student_list = [data_file_ws.cell(j, STUDENT_NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
+                            if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name and\
+                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
+                                    data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
+                                        data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
+                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike]
             class_dict[class_name] = student_list
 
         tk.Label(popup).pack()
@@ -572,8 +579,8 @@ def make_class_info_file(gui:GUI):
 
     # 반 루프
     for tableName in table_names:
-        write_location = ini_ws.max_row + 1
-        ini_ws.cell(write_location, 1).value = tableName.text.rstrip()
+        WRITE_LOCATION = ini_ws.max_row + 1
+        ini_ws.cell(WRITE_LOCATION, 1).value = tableName.text.rstrip()
 
     # 정렬 및 테두리
     for j in range(1, ini_ws.max_row + 1):
@@ -587,21 +594,33 @@ def make_class_info_file(gui:GUI):
     gui.thread_end_flag = True
 
 def make_student_info_file(gui:GUI):
-    gui.q.put("학생 정보 파일 생성 중...")
+    if not os.path.isfile("./학생 정보.xlsx"):
+        gui.q.put("학생 정보 파일 생성 중...")
 
-    ini_wb = xl.Workbook()
-    ini_ws = ini_wb.active
-    ini_ws.title = "학생 정보"
-    ini_ws[gcl(StudentInfo.STUDENT_NAME_COLUMN)+"1"] = "이름"
-    ini_ws[gcl(StudentInfo.CLASS_NAME_COLUMN)+"1"] = "반명"
-    ini_ws[gcl(StudentInfo.TEACHER_COLUMN)+"1"] = "담당"
-    ini_ws[gcl(StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN)+"1"] = "재시험 응시 요일"
-    ini_ws[gcl(StudentInfo.MAKEUP_TEST_TIME_COLUMN)+"1"] = "재시험 응시 시간"
-    ini_ws[gcl(StudentInfo.NEW_STUDENT_CHECK_COLUMN)+"1"] = "기수 신규생"
-    ini_ws["Z1"] = "N"
-    ini_ws.auto_filter.ref = "A:"+gcl(StudentInfo.MAX)
-    ini_ws.column_dimensions.group("Z", hidden=True)
-
+        ini_wb = xl.Workbook()
+        ini_ws = ini_wb.active
+        ini_ws.title = "학생 정보"
+        ini_ws[gcl(StudentInfo.STUDENT_NAME_COLUMN)+"1"] = "이름"
+        ini_ws[gcl(StudentInfo.CLASS_NAME_COLUMN)+"1"] = "반명"
+        ini_ws[gcl(StudentInfo.TEACHER_COLUMN)+"1"] = "담당"
+        ini_ws[gcl(StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN)+"1"] = "재시험 응시 요일"
+        ini_ws[gcl(StudentInfo.MAKEUP_TEST_TIME_COLUMN)+"1"] = "재시험 응시 시간"
+        ini_ws[gcl(StudentInfo.NEW_STUDENT_CHECK_COLUMN)+"1"] = "기수 신규생"
+        ini_ws["Z1"] = "N"
+        ini_ws.auto_filter.ref = "A:"+gcl(StudentInfo.MAX)
+        ini_ws.column_dimensions.group("Z", hidden=True)
+        ini_wb.save("./학생 정보.xlsx")
+    else:
+        gui.q.put("학생 정보 파일 업데이트 중...")
+    
+    student_wb = xl.load_workbook("./학생 정보.xlsx")
+    try:
+        student_ws = student_wb["학생 정보"]
+    except:
+        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보'로 변경해 주세요.")
+        return
+    
     # 반 정보 확인
     class_wb = xl.load_workbook("./반 정보.xlsx")
     try:
@@ -615,6 +634,9 @@ def make_student_info_file(gui:GUI):
     options.add_argument("headless")
     driver = webdriver.Chrome(service = service, options = options)
 
+    dv = DataValidation(type="list", formula1="=Z1",  allow_blank=True, errorStyle="stop", showErrorMessage=True)
+    student_ws.add_data_validation(dv)
+
     # 아이소식 접속
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
@@ -622,11 +644,10 @@ def make_student_info_file(gui:GUI):
     # 반 루프
     for i in range(3, len(table_names)):
         trs = driver.find_element(By.ID, "table_" + str(i)).find_elements(By.CLASS_NAME, "style12")
-        write_location = ini_ws.max_row + 1
+        WRITE_LOCATION = student_ws.max_row + 1
         teacher = ""
 
         class_name = table_names[i].text.rstrip()
-        is_class_exist = False
         for j in range(2, class_ws.max_row + 1):
             if class_ws.cell(j, 1).value == class_name:
                 teacher = class_ws.cell(j, 2).value
@@ -636,13 +657,11 @@ def make_student_info_file(gui:GUI):
 
         # 학생 루프
         for tr in trs:
-            write_location = ini_ws.max_row + 1
-            ini_ws.cell(write_location, StudentInfo.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
-            ini_ws.cell(write_location, StudentInfo.CLASS_NAME_COLUMN).value = class_name
-            ini_ws.cell(write_location, StudentInfo.TEACHER_COLUMN).value = teacher
-            dv = DataValidation(type="list", formula1="=Z1",  allow_blank=True, errorStyle="stop", showErrorMessage=True)
-            ini_ws.add_data_validation(dv)
-            dv.add(ini_ws.cell(write_location, StudentInfo.NEW_STUDENT_CHECK_COLUMN))
+            WRITE_LOCATION = ini_ws.max_row + 1
+            ini_ws.cell(WRITE_LOCATION, StudentInfo.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+            ini_ws.cell(WRITE_LOCATION, StudentInfo.CLASS_NAME_COLUMN).value = class_name
+            ini_ws.cell(WRITE_LOCATION, StudentInfo.TEACHER_COLUMN).value = teacher
+            dv.add(ini_ws.cell(WRITE_LOCATION, StudentInfo.NEW_STUDENT_CHECK_COLUMN))
 
     # 정렬 및 테두리
     for j in range(1, ini_ws.max_row + 1):
@@ -689,7 +708,7 @@ def make_data_file(gui:GUI):
     # 반 루프
     for i in range(3, len(table_names)):
         trs = driver.find_element(By.ID, "table_" + str(i)).find_elements(By.CLASS_NAME, "style12")
-        write_location = ini_ws.max_row + 1
+        WRITE_LOCATION = ini_ws.max_row + 1
 
         class_name = table_names[i].text.rstrip()
         time = ""
@@ -706,44 +725,44 @@ def make_data_file(gui:GUI):
             continue
         
         # 시험명
-        ini_ws.cell(write_location, DataFile.TEST_TIME_COLUMN).value = time
-        ini_ws.cell(write_location, DataFile.DATE_COLUMN).value = date
-        ini_ws.cell(write_location, DataFile.CLASS_NAME_COLUMN).value = class_name
-        ini_ws.cell(write_location, DataFile.TEACHER_COLUMN).value = teacher
-        ini_ws.cell(write_location, DataFile.STUDENT_NAME_COLUMN).value = "날짜"
+        ini_ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value = time
+        ini_ws.cell(WRITE_LOCATION, DataFile.DATE_COLUMN).value = date
+        ini_ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value = class_name
+        ini_ws.cell(WRITE_LOCATION, DataFile.TEACHER_COLUMN).value = teacher
+        ini_ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value = "날짜"
         
-        write_location = ini_ws.max_row + 1
-        ini_ws.cell(write_location, DataFile.TEST_TIME_COLUMN).value = time
-        ini_ws.cell(write_location, DataFile.DATE_COLUMN).value = date
-        ini_ws.cell(write_location, DataFile.CLASS_NAME_COLUMN).value = class_name
-        ini_ws.cell(write_location, DataFile.TEACHER_COLUMN).value = teacher
-        ini_ws.cell(write_location, DataFile.STUDENT_NAME_COLUMN).value = "시험명"
-        start = write_location + 1
+        WRITE_LOCATION = ini_ws.max_row + 1
+        ini_ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value = time
+        ini_ws.cell(WRITE_LOCATION, DataFile.DATE_COLUMN).value = date
+        ini_ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value = class_name
+        ini_ws.cell(WRITE_LOCATION, DataFile.TEACHER_COLUMN).value = teacher
+        ini_ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value = "시험명"
+        start = WRITE_LOCATION + 1
 
         # 학생 루프
         for tr in trs:
-            write_location = ini_ws.max_row + 1
-            ini_ws.cell(write_location, DataFile.TEST_TIME_COLUMN).value = time
-            ini_ws.cell(write_location, DataFile.DATE_COLUMN).value = date
-            ini_ws.cell(write_location, DataFile.CLASS_NAME_COLUMN).value = class_name
-            ini_ws.cell(write_location, DataFile.TEACHER_COLUMN).value = teacher
-            ini_ws.cell(write_location, DataFile.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
-            ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(G{str(write_location)}:XFD{str(write_location)}), 0)"
-            ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            WRITE_LOCATION = ini_ws.max_row + 1
+            ini_ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value = time
+            ini_ws.cell(WRITE_LOCATION, DataFile.DATE_COLUMN).value = date
+            ini_ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value = class_name
+            ini_ws.cell(WRITE_LOCATION, DataFile.TEACHER_COLUMN).value = teacher
+            ini_ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+            ini_ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(G{str(WRITE_LOCATION)}:XFD{str(WRITE_LOCATION)}), 0)"
+            ini_ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
         
         # 시험별 평균
-        write_location = ini_ws.max_row + 1
-        end = write_location - 1
-        ini_ws.cell(write_location, DataFile.TEST_TIME_COLUMN).value = time
-        ini_ws.cell(write_location, DataFile.DATE_COLUMN).value = date
-        ini_ws.cell(write_location, DataFile.CLASS_NAME_COLUMN).value = class_name
-        ini_ws.cell(write_location, DataFile.TEACHER_COLUMN).value = teacher
-        ini_ws.cell(write_location, DataFile.STUDENT_NAME_COLUMN).value = "시험 평균"
-        ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(F{str(start)}:F{str(end)}), 0)"
-        ini_ws.cell(write_location, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+        WRITE_LOCATION = ini_ws.max_row + 1
+        end = WRITE_LOCATION - 1
+        ini_ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value = time
+        ini_ws.cell(WRITE_LOCATION, DataFile.DATE_COLUMN).value = date
+        ini_ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value = class_name
+        ini_ws.cell(WRITE_LOCATION, DataFile.TEACHER_COLUMN).value = teacher
+        ini_ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value = "시험 평균"
+        ini_ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(F{str(start)}:F{str(end)}), 0)"
+        ini_ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
         for j in range(1, DataFile.DATA_COLUMN):
-            ini_ws.cell(write_location, j).border = Border(bottom = Side(border_style="medium", color="000000"))
+            ini_ws.cell(WRITE_LOCATION, j).border = Border(bottom = Side(border_style="medium", color="000000"))
 
     # 정렬
     for i in range(1, ini_ws.max_row + 1):
@@ -784,17 +803,19 @@ def check_update_class(gui:GUI):
 
     for i in range(2, class_ws.max_row+2):
         if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is None:
-            write_row = i
+            WRITE_LOCATION = i
             break
     
     for new_class_name in list(unregistered_class.keys()):
-        class_ws.cell(write_row, ClassInfo.CLASS_NAME_COLUMN).value = new_class_name
-        write_row += 1
+        class_ws.cell(WRITE_LOCATION, ClassInfo.CLASS_NAME_COLUMN).value = new_class_name
+        WRITE_LOCATION += 1
+    
     # 정렬 및 테두리
     for j in range(1, class_ws.max_row + 1):
         for k in range(1, class_ws.max_column + 1):
             class_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
             class_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    
     class_wb.save("./temp.xlsx")
     return current_class, unregistered_class
 
@@ -863,10 +884,10 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
         
         post_data_wb = xl.load_workbook("./data/지난 데이터.xlsx")
         data_file_temp_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
-        for sheetName in data_file_temp_wb.sheetnames:
-            data_file_temp_ws = data_file_temp_wb[sheetName]
-            post_data_ws = post_data_wb[sheetName]
-            data_file_ws = data_file_wb[sheetName]
+        for sheet_name in data_file_temp_wb.sheetnames:
+            data_file_temp_ws = data_file_temp_wb[sheet_name]
+            post_data_ws = post_data_wb[sheet_name]
+            data_file_ws = data_file_wb[sheet_name]
             
             # 동적 열 탐색
             for i in range(1, data_file_temp_ws.max_column+1):
@@ -917,8 +938,8 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
     if len(check_list) != 0:
         gui.q.put("신규 반 추가중...")
         data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-        for sheetName in data_file_wb.sheetnames:
-            data_file_ws = data_file_wb[sheetName]
+        for sheet_name in data_file_wb.sheetnames:
+            data_file_ws = data_file_wb[sheet_name]
             for i in range(1, data_file_ws.max_column+1):
                 temp = data_file_ws.cell(1, i).value
                 if temp == "시간":
@@ -936,7 +957,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
             
             for i in range(2, data_file_ws.max_row+2):
                 if data_file_ws.cell(i, CLASS_NAME_COLUMN).value is None:
-                    write_location = i-1
+                    WRITE_LOCATION = i-1
                     break
             
             for new_class, new_class_index in unregistered_class.items():
@@ -956,46 +977,46 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                         is_class_exist = True
                 if not is_class_exist or len(trs) == 0:
                     continue
-                write_location += 1
+                WRITE_LOCATION += 1
                 # 시험명
-                data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
-                data_file_ws.cell(write_location, DATE_COLUMN).value = date
-                data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
-                data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
-                data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = "날짜"
+                data_file_ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value = time
+                data_file_ws.cell(WRITE_LOCATION, DATE_COLUMN).value = date
+                data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
+                data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
+                data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = "날짜"
                 
-                write_location += 1
-                data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
-                data_file_ws.cell(write_location, DATE_COLUMN).value = date
-                data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
-                data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
-                data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = "시험명"
-                start = write_location + 1
+                WRITE_LOCATION += 1
+                data_file_ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value = time
+                data_file_ws.cell(WRITE_LOCATION, DATE_COLUMN).value = date
+                data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
+                data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
+                data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = "시험명"
+                start = WRITE_LOCATION + 1
 
                 # 학생 루프
                 for tr in trs:
-                    write_location += 1
-                    data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
-                    data_file_ws.cell(write_location, DATE_COLUMN).value = date
-                    data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
-                    data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
-                    data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
-                    data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{str(write_location)}:XFD{str(write_location)}), 0)"
-                    data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+                    WRITE_LOCATION += 1
+                    data_file_ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value = time
+                    data_file_ws.cell(WRITE_LOCATION, DATE_COLUMN).value = date
+                    data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
+                    data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
+                    data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+                    data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{str(WRITE_LOCATION)}:XFD{str(WRITE_LOCATION)}), 0)"
+                    data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
                 
                 # 시험별 평균
-                write_location += 1
-                end = write_location - 1
-                data_file_ws.cell(write_location, TEST_TIME_COLUMN).value = time
-                data_file_ws.cell(write_location, DATE_COLUMN).value = date
-                data_file_ws.cell(write_location, CLASS_NAME_COLUMN).value = class_name
-                data_file_ws.cell(write_location, TEACHER_COLUMN).value = teacher
-                data_file_ws.cell(write_location, STUDENT_NAME_COLUMN).value = "시험 평균"
-                data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN)}{str(start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(end)}), 0)"
-                data_file_ws.cell(write_location, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+                WRITE_LOCATION += 1
+                end = WRITE_LOCATION - 1
+                data_file_ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value = time
+                data_file_ws.cell(WRITE_LOCATION, DATE_COLUMN).value = date
+                data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
+                data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
+                data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = "시험 평균"
+                data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN)}{str(start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(end)}), 0)"
+                data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
                 for j in range(1, AVERAGE_SCORE_COLUMN+1):
-                    data_file_ws.cell(write_location, j).border = Border(bottom = Side(border_style="medium", color="000000"))
+                    data_file_ws.cell(WRITE_LOCATION, j).border = Border(bottom = Side(border_style="medium", color="000000"))
 
             # 정렬
             for i in range(1, data_file_ws.max_row + 1):
@@ -1053,10 +1074,14 @@ def make_data_form(gui:GUI):
     gui.q.put("아이소식 접속 중")
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
+
+    dv = DataValidation(type="list", formula1="=Y1:Z1", showDropDown=True, allow_blank=True, showErrorMessage=True)
+    ini_ws.add_data_validation(dv)
+
     #반 루프
     for i in range(3, len(table_names)):
         trs = driver.find_element(By.ID, "table_" + str(i)).find_elements(By.CLASS_NAME, "style12")
-        write_location = start = ini_ws.max_row + 1
+        WRITE_LOCATION = start = ini_ws.max_row + 1
 
         class_name = table_names[i].text.rstrip()
         teacher = ""
@@ -1064,28 +1089,26 @@ def make_data_form(gui:GUI):
         time = ""
         is_class_exist = False
 
-        for j in range(2, class_ws.max_row + 1):
-            if class_ws.cell(j, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
-                teacher = class_ws.cell(j, ClassInfo.TEACHER_COLUMN).value
-                date = class_ws.cell(j, ClassInfo.DATE_COLUMN).value
-                time = class_ws.cell(j, ClassInfo.TEST_TIME_COLUMN).value
+        for row in range(2, class_ws.max_row + 1):
+            if class_ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
+                teacher = class_ws.cell(row, ClassInfo.TEACHER_COLUMN).value
+                date = class_ws.cell(row, ClassInfo.DATE_COLUMN).value
+                time = class_ws.cell(row, ClassInfo.TEST_TIME_COLUMN).value
                 is_class_exist = True
         if not is_class_exist or len(trs) == 0:
             continue
-        ini_ws.cell(write_location, DataForm.CLASS_NAME_COLUMN).value = class_name
-        ini_ws.cell(write_location, DataForm.TEACHER_COLUMN).value = teacher
+        ini_ws.cell(WRITE_LOCATION, DataForm.CLASS_NAME_COLUMN).value = class_name
+        ini_ws.cell(WRITE_LOCATION, DataForm.TEACHER_COLUMN).value = teacher
 
         #학생 루프
         for tr in trs:
-            ini_ws.cell(write_location, DataForm.DATE_COLUMN).value = date
-            ini_ws.cell(write_location, DataForm.TEST_TIME_COLUMN).value = time
-            ini_ws.cell(write_location, DataForm.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
-            dv = DataValidation(type="list", formula1="=Y1:Z1", showDropDown=True, allow_blank=True, showErrorMessage=True)
-            ini_ws.add_data_validation(dv)
-            dv.add(ini_ws.cell(write_location,DataForm.MAKEUP_TEST_CHECK_COLUMN))
-            write_location = ini_ws.max_row + 1
+            ini_ws.cell(WRITE_LOCATION, DataForm.DATE_COLUMN).value = date
+            ini_ws.cell(WRITE_LOCATION, DataForm.TEST_TIME_COLUMN).value = time
+            ini_ws.cell(WRITE_LOCATION, DataForm.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+            dv.add(ini_ws.cell(WRITE_LOCATION,DataForm.MAKEUP_TEST_CHECK_COLUMN))
+            WRITE_LOCATION = ini_ws.max_row + 1
         
-        end = write_location - 1
+        end = WRITE_LOCATION - 1
 
         # 시험 평균
         ini_ws.cell(start, DataForm.DAILYTEST_AVERAGE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataForm.DAILYTEST_SCORE_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_SCORE_COLUMN)+str(end)}), 0)"
@@ -1107,6 +1130,17 @@ def make_data_form(gui:GUI):
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
         
+    ini_ws.protection.sheet = True
+    ini_ws.protection.selectLockedCells = True
+    ini_ws.protection.autoFilter = False
+    ini_ws.protection.formatColumns = False
+    for row in range(2, ini_ws.max_row + 1):
+        ini_ws.cell(row, DataForm.DAILYTEST_TEST_NAME_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.DAILYTEST_SCORE_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.MOCKTEST_TEST_NAME_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.MOCKTEST_SCORE_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.MAKEUP_TEST_CHECK_COLUMN).protection = Protection(locked=False)
+
     if os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx"):
         i = 1
         while True:
@@ -1165,6 +1199,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put(r"'재시험 명단'으로 변경해 주세요.")
         return
     
+    pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
     excel.Visible = False
     try:
@@ -1184,262 +1219,173 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     # 재시험 명단 작성 시작 위치
     for i in range(2, makeup_list_ws.max_row + 2):
         if makeup_list_ws.cell(i, MakeupTestList.TEST_DATE_COLUMN).value is None:
-            MAKEUP_TEST_WRITE_ROW = i
+            MAKEUP_TEST_RANGE = MAKEUP_TEST_WRITE_ROW = i
             break
     
-    # 데일리 테스트 작성
-    data_file_ws = data_file_wb["데일리테스트"]
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
+        if sheet_name == "데일리테스트":
+            TEST_NAME_COLUMN = DataForm.DAILYTEST_TEST_NAME_COLUMN
+            SCORE_COLUMN = DataForm.DAILYTEST_SCORE_COLUMN
+        else:
+            TEST_NAME_COLUMN = DataForm.MOCKTEST_TEST_NAME_COLUMN
+            SCORE_COLUMN = DataForm.MOCKTEST_SCORE_COLUMN
 
-    # 동적 열 탐색
-    for i in range(1, data_file_ws.max_column+1):
-        if data_file_ws.cell(1, i).value == "반":
-            CLASS_COLUMN = i
-            break
-    for i in range(1, data_file_ws.max_column+1):
-        if data_file_ws.cell(1, i).value == "이름":
-            NAME_COLUMN = i
-            break
-    for i in range(1, data_file_ws.max_column+1):
-        if data_file_ws.cell(1, i).value == "학생 평균":
-            SCORE_COLUMN = i
-            break
-    
-    for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
-        # 파일 끝 검사
-        if form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value is None:
-            break
-        
-        # 반 필터링
-        if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value is not None):
-            class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-            test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
-            teacher = form_ws.cell(i, DataForm.TEACHER_COLUMN).value
-
-            #반 시작 찾기
-            for j in range(2, data_file_ws.max_row+1):
-                if data_file_ws.cell(j, CLASS_COLUMN).value == class_name: # data class_name == form class_name
-                    start = j # 데이터파일에서 반이 시작하는 행 번호
-                    break
-            # 반 끝 찾기
-            for j in range(start, data_file_ws.max_row+1):
-                if data_file_ws.cell(j, NAME_COLUMN).value == "시험 평균": # data name is 시험 평균
-                    end = j # 데이터파일에서 반이 끝나는 행 번호
-                    break
-            
-            # 데일리테스트 작성 열 위치 찾기
-            for j in range(SCORE_COLUMN+1, data_file_ws.max_column+2):
-                if data_file_ws.cell(start, j).value is None:
-                    WRITE_COLUMN = j
-                    break
-                if data_file_ws.cell(start, j).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
-                    WRITE_COLUMN = j
-                    break
-            # 입력 틀 작성
-            average = f"=ROUND(AVERAGE({gcl(WRITE_COLUMN)+str(start + 2)}:{gcl(WRITE_COLUMN)+str(end - 1)}), 0)"
-            data_file_ws.cell(start, WRITE_COLUMN).value = DATE.today()
-            data_file_ws.cell(start, WRITE_COLUMN).number_format = "yyyy.mm.dd(aaa)"
-            data_file_ws.cell(start, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-
-            data_file_ws.cell(start + 1, WRITE_COLUMN).value = test_name
-            data_file_ws.cell(start + 1, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-            data_file_ws.cell(end, WRITE_COLUMN).value = average
-            data_file_ws.cell(end, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-            data_file_ws.cell(end, WRITE_COLUMN).border = Border(bottom=Side(border_style="medium", color="000000"))
-            
-        score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value
-        if score is None:
-            continue # 점수 없으면 미응시 처리
-        
-        for j in range(start + 2, end):
-            if data_file_ws.cell(j, NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value: # data name == form name
-                data_file_ws.cell(j, WRITE_COLUMN).value = score
-                data_file_ws.cell(j, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+        # 동적 열 탐색
+        for i in range(1, data_file_ws.max_column+1):
+            if data_file_ws.cell(1, i).value == "반":
+                CLASS_NAME_COLUMN = i
                 break
+        for i in range(1, data_file_ws.max_column+1):
+            if data_file_ws.cell(1, i).value == "이름":
+                STUDENT_NAME_COLUMN = i
+                break
+        for i in range(1, data_file_ws.max_column+1):
+            if data_file_ws.cell(1, i).value == "학생 평균":
+                AVERAGE_SCORE_COLUMN = i
+                break
+        
+        for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
+            # 파일 끝 검사
+            if form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value is None:
+                break
+            
+            # 반 필터링
+            if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, TEST_NAME_COLUMN).value is not None):
+                class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
+                test_name = form_ws.cell(i, TEST_NAME_COLUMN).value
+                teacher = form_ws.cell(i, DataForm.TEACHER_COLUMN).value
 
-        # 재시험 작성
-        if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
-            check = makeup_list_ws.max_row
-            duplicated = False
-            while check >= 1:
-                try:
-                    if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                        check -= 1
-                        continue
-                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
-                        if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                            if makeup_list_ws.cell(check, MakeupTestList.CLASS_NAME_COLUMN).value == class_name:
-                                duplicated = True
-                                break
-                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
+                #반 시작 찾기
+                for row in range(2, data_file_ws.max_row+1):
+                    if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == class_name:
+                        CLASS_START = row
                         break
-                except:
-                    pass
-                check -= 1
+                # 반 끝 찾기
+                for row in range(CLASS_START, data_file_ws.max_row+1):
+                    if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
+                        CLASS_END = row
+                        break
                 
-            if duplicated: continue
-            
-            dates = None
-            time = None
-            new_student = None
-
-            for j in range(2, student_ws.max_row+1):
-                if student_ws.cell(j, StudentInfo.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                    dates = student_ws.cell(j, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
-                    time = student_ws.cell(j, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
-                    new_student = student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
-                    break
-
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
-            if (new_student is not None) and (new_student == "N"):
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
-            if dates is not None:
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
-                date_list = dates.split("/")
-                result = makeup_test_date[date_list[0].replace(" ", "")]
-                for d in date_list:
-                    if result > makeup_test_date[d.replace(" ", "")]:
-                        result = makeup_test_date[d.replace(" ", "")]
-                if time is not None:
-                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
-            MAKEUP_TEST_WRITE_ROW += 1
-        
-    # 모의고사 작성
-    data_file_ws = data_file_wb["모의고사"]
-
-    # 동적 열 탐색
-    for i in range(1, data_file_ws.max_column+1):
-        if data_file_ws.cell(1, i).value == "반":
-            CLASS_COLUMN = i
-            break
-    for i in range(1, data_file_ws.max_column+1):
-        if data_file_ws.cell(1, i).value == "이름":
-            NAME_COLUMN = i
-            break
-    for i in range(1, data_file_ws.max_column+1):
-        if data_file_ws.cell(1, i).value == "학생 평균":
-            SCORE_COLUMN = i
-            break
-    
-    for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
-        # 파일 끝 검사
-        if form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value is None:
-            break
-        
-        # 반 필터링
-        if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value is not None): # form class_name is not None and form mock_test_name is not None
-            class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-            test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
-            teacher = form_ws.cell(i, DataForm.TEACHER_COLUMN).value
-
-            #반 시작 찾기
-            for j in range(2, data_file_ws.max_row+1):
-                if data_file_ws.cell(j, CLASS_COLUMN).value == class_name: # data class_name == form class_name
-                    start = j # 데이터파일에서 반이 시작하는 행 번호
-                    break
-            # 반 끝 찾기
-            for j in range(start, data_file_ws.max_row+1):
-                if data_file_ws.cell(j, NAME_COLUMN).value == "시험 평균": # data name is 시험 평균
-                    end = j # 데이터파일에서 반이 끝나는 행 번호
-                    break
-            
-            # 데일리테스트 작성 열 위치 찾기
-            for j in range(SCORE_COLUMN+1, data_file_ws.max_column+2):
-                if data_file_ws.cell(start, j).value is None:
-                    WRITE_COLUMN = j
-                    break
-                if data_file_ws.cell(start, j).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
-                    WRITE_COLUMN = j
-                    break
-            # 입력 틀 작성
-            average = f"=ROUND(AVERAGE({gcl(WRITE_COLUMN)+str(start + 2)}:{gcl(WRITE_COLUMN)+str(end - 1)}), 0)"
-            data_file_ws.cell(start, WRITE_COLUMN).value = DATE.today()
-            data_file_ws.cell(start, WRITE_COLUMN).number_format = "yyyy.mm.dd(aaa)"
-            data_file_ws.cell(start, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-
-            data_file_ws.cell(start + 1, WRITE_COLUMN).value = test_name
-            data_file_ws.cell(start + 1, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-            data_file_ws.cell(end, WRITE_COLUMN).value = average
-            data_file_ws.cell(end, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-            data_file_ws.cell(end, WRITE_COLUMN).border = Border(bottom=Side(border_style="medium", color="000000"))
-            
-        score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
-        if score is None:
-            continue # 점수 없으면 미응시 처리
-        
-        for j in range(start + 2, end):
-            if data_file_ws.cell(j, NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value: # data name == form name
-                data_file_ws.cell(j, WRITE_COLUMN).value = score
-                data_file_ws.cell(j, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-                break
-        
-        # 재시험 작성
-        if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
-            check = makeup_list_ws.max_row
-            duplicated = False
-            while check >= 1:
-                try:
-                    if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
-                        check -= 1
-                        continue
-                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
-                        if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                            if makeup_list_ws.cell(check, MakeupTestList.CLASS_NAME_COLUMN).value == class_name:
-                                duplicated = True
-                                break
-                    elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
+                # 데일리테스트 작성 열 위치 찾기
+                for col in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_column+2):
+                    if data_file_ws.cell(CLASS_START, col).value is None:
+                        WRITE_COLUMN = col
                         break
-                except:
-                    pass
-                check -= 1
-            if duplicated: continue
+                    if data_file_ws.cell(CLASS_START, col).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
+                        WRITE_COLUMN = col
+                        break
+                
+                # 입력 틀 작성
+                AVERAGE_FORMULA = f"=ROUND(AVERAGE({gcl(WRITE_COLUMN)+str(CLASS_START + 2)}:{gcl(WRITE_COLUMN)+str(CLASS_END - 1)}), 0)"
+                data_file_ws.column_dimensions[gcl(WRITE_COLUMN)].width = 14
+                data_file_ws.cell(CLASS_START, WRITE_COLUMN).value = DATE.today()
+                data_file_ws.cell(CLASS_START, WRITE_COLUMN).number_format = "yyyy.mm.dd(aaa)"
+                data_file_ws.cell(CLASS_START, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
 
-            dates = None
-            time = None
-            new_student = None
+                data_file_ws.cell(CLASS_START + 1, WRITE_COLUMN).value = test_name
+                data_file_ws.cell(CLASS_START + 1, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-            for j in range(2, student_ws.max_row+1):
-                if student_ws.cell(j, StudentInfo.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
-                    dates = student_ws.cell(j, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
-                    time = student_ws.cell(j, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
-                    new_student = student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).value = AVERAGE_FORMULA
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).font = Font(bold=True)
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).border = Border(bottom=Side(border_style="medium", color="000000"))
+                
+                # 평균 계산 초기화
+                score_sum = score_cnt = 0
+            
+            score = form_ws.cell(i, SCORE_COLUMN).value
+            if score is None:
+                continue # 점수 없으면 미응시 처리
+
+            for row in range(CLASS_START + 2, CLASS_END):
+                if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value: # data name == form name
+                    data_file_ws.cell(row, WRITE_COLUMN).value = score
+                    if type(score) == int:
+                        if score < 60:
+                            data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+                        elif score < 70:
+                            data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+                        elif score < 80:
+                            data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+                        score_sum += score
+                        score_cnt += 1
+                    data_file_ws.cell(row, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
                     break
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
-            if (new_student is not None) and (new_student == "N"):
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
-            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
-            if dates is not None:
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
-                date_list = dates.split("/")
-                result = makeup_test_date[date_list[0].replace(" ", "")]
-                for d in date_list:
-                    if result > makeup_test_date[d.replace(" ", "")]:
-                        result = makeup_test_date[d.replace(" ", "")]
-                if time is not None:
-                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
-                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
-            MAKEUP_TEST_WRITE_ROW += 1
+            
+            score_avg = score_sum/score_cnt
+            if score_avg < 60:
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+            elif score_avg < 70:
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+            elif score_avg < 80:
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+            else:
+                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+
+            # 재시험 작성
+            if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
+                check = makeup_list_ws.max_row
+                # 재시험 중복 작성 검사
+                duplicated = False
+                while check >= 1:
+                    try:
+                        if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
+                            check -= 1
+                            continue
+                        elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
+                            if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
+                                if makeup_list_ws.cell(check, MakeupTestList.CLASS_NAME_COLUMN).value == class_name:
+                                    duplicated = True
+                                    break
+                        elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
+                            break
+                    except:
+                        pass
+                    check -= 1
+                    
+                if duplicated: continue
+                
+                dates = None
+                time = None
+                new_student = None
+
+                for row in range(2, student_ws.max_row+1):
+                    if student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
+                        dates = student_ws.cell(row, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
+                        time = student_ws.cell(row, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
+                        new_student = student_ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+                        break
+
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
+                if (new_student is not None) and (new_student == "N"):
+                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
+                if dates is not None:
+                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
+                    date_list = dates.split("/")
+                    result = makeup_test_date[date_list[0].replace(" ", "")]
+                    for d in date_list:
+                        if result > makeup_test_date[d.replace(" ", "")]:
+                            result = makeup_test_date[d.replace(" ", "")]
+                    if time is not None:
+                        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
+                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
+                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
+                MAKEUP_TEST_WRITE_ROW += 1
 
     gui.q.put("재시험 명단 작성 중...")
-    for j in range(1, makeup_list_ws.max_row + 1):
-        if makeup_list_ws.cell(j, 1).value is None: break
-        for k in range(1, makeup_list_ws.max_column + 1):
-            makeup_list_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
-            makeup_list_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-    
+    # 정렬 및 테두리
+    for row in range(MAKEUP_TEST_RANGE, makeup_list_ws.max_row+1):
+        if makeup_list_ws.cell(row, 1).value is None: break
+        for col in range(1, makeup_list_ws.max_column + 1):
+            makeup_list_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+            makeup_list_ws.cell(row, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+
     try:
         data_file_ws = data_file_wb["데일리테스트"]
         data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
@@ -1453,9 +1399,65 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put("재시험 명단 파일 창을 끄고 다시 실행해 주세요.")
         return
     
-    apply_color(gui)
+    gui.q.put("조건부 서식 적용중...")
+    try:
+        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    except:
+        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
+        return
+    wb.Save()
+    wb.Close()
+
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_color_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
+
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
+        data_file_color_ws = data_file_color_wb[sheet_name]
+
+        for col in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, col).value == "이름":
+                STUDENT_NAME_COLUMN = col
+                break
+        for col in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, col).value == "학생 평균":
+                AVERAGE_SCORE_COLUMN = col
+                break
+        for row in range(2, data_file_color_ws.max_row+1):
+            # 학생 별 평균 점수에 대한 조건부 서식
+            average_score_data = data_file_color_ws.cell(row, AVERAGE_SCORE_COLUMN).value
+            average_score_cell = data_file_ws.cell(row, AVERAGE_SCORE_COLUMN)
+            student_name_cell = data_file_ws.cell(row, STUDENT_NAME_COLUMN)
+            if type(average_score_data) == int:
+                if average_score_data < 60:
+                    average_score_cell.fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+                elif average_score_data < 70:
+                    average_score_cell.fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+                elif average_score_data < 80:
+                    average_score_cell.fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+                elif student_name_cell.value == "시험 평균":
+                    average_score_cell.fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+                else:
+                    average_score_cell.fill = PatternFill(fill_type="solid", fgColor=Color("E2EFDA"))
+            # 신규생 하이라이트
+            student_name_cell.fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
+            if (student_name_cell.value is not None) or (student_name_cell.value != "날짜") or (student_name_cell.value != "시험명") or (student_name_cell.value != "시험 평균"):
+                for j in range(2, student_ws.max_row+1):
+                    if (student_name_cell.value == student_ws.cell(j, 1).value) and (student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value == "N"):
+                        student_name_cell.fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+                        break
+    try:
+        data_file_ws = data_file_wb["데일리테스트"]
+        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+    except:
+        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
+        return
+    
 
     gui.q.put("데이터 저장을 완료했습니다.")
+    excel.Visible = True
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    pythoncom.CoUninitialize()
     gui.thread_end_flag = True
 
 def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
@@ -1479,20 +1481,17 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put("[오류] \"학생 정보.xlsx\"의 시트명을")
         gui.q.put("\"학생 정보\"로 변경해 주세요.")
         return
-    # try:
     
     # 아이소식 접속
     driver.get(config["url"])
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["dailyTest"])
     
-    driver.execute_script("window.open("");")
+    driver.execute_script("window.open(\"" + config["url"] + "\");")
     driver.switch_to.window(driver.window_handles[1])
-    driver.get(config["url"])
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTest"])
 
-    driver.execute_script("window.open("");")
+    driver.execute_script("window.open(\"" + config["url"] + "\");")
     driver.switch_to.window(driver.window_handles[2])
-    driver.get(config["url"])
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTestDate"])
 
     gui.q.put("메시지 작성 중...")
@@ -1501,7 +1500,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         name = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
         daily_test_score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value
         mock_test_score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
-        if form_ws.cell(i, 3).value is not None:
+        if form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None:
             class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
             daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
             mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
@@ -1575,112 +1574,100 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                                     tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
                         except:
                             gui.q.put(name + "의 재시험 일정을 요일별 시간으로 설정하거나")
-                            gui.q.put("한 시간으로 통일해 주세요.")
+                            gui.q.put("하나의 시간으로 통일해 주세요.")
                             gui.q.put("중단되었습니다.")
                             driver.quit()
+                            gui.thread_end_flag = True
                             return
 
     gui.q.put("메시지 입력을 완료했습니다.")
     gui.q.put("메시지 확인 후 전송해주세요.")
     gui.thread_end_flag = True
-    # except:
-    #     gui.q.put("중단되었습니다.")
-    #     return
 
 def apply_color(gui:GUI):
+    student_wb = xl.load_workbook("./학생 정보.xlsx")
     try:
-        student_wb = xl.load_workbook("./학생 정보.xlsx")
-        try:
-            student_ws = student_wb["학생 정보"]
-        except:
-            gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
-            gui.q.put(r"'학생 정보'로 변경해 주세요.")
-            return
-        
-        pythoncom.CoInitialize()
-        excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = False
-        try:
-            wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
-        except:
-            gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-            return
-        wb.Save()
-        wb.Close()
-
-        gui.q.put("조건부 서식 적용중...")
-
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-        dataFileColorWb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
+        student_ws = student_wb["학생 정보"]
+    except:
+        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보'로 변경해 주세요.")
+        return
+    
+    pythoncom.CoInitialize()
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = False
+    try:
+        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     except:
         gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
         return
-    
-    try:
-        for sheetName in data_file_wb.sheetnames:
-            data_file_ws = data_file_wb[sheetName]
-            dataFileColorWs = dataFileColorWb[sheetName]
+    wb.Save()
+    wb.Close()
 
-            for i in range(1, data_file_ws.max_column):
-                if data_file_ws.cell(1, i).value == "이름":
-                    NAME_COLUMN = i
-                    break
-            for i in range(1, data_file_ws.max_column):
-                if data_file_ws.cell(1, i).value == "학생 평균":
-                    SCORE_COLUMN = i
-                    break
-            
-            for i in range(2, dataFileColorWs.max_row+1):
-                if dataFileColorWs.cell(i, NAME_COLUMN).value is None:
-                    break
-                for j in range(1, dataFileColorWs.max_column+1):
-                    data_file_ws.column_dimensions[gcl(j)].width = 14
-                    if data_file_ws.cell(i, NAME_COLUMN).value == "시험 평균" and data_file_ws.cell(i, j).value is not None:
-                        data_file_ws.cell(i, j).border = Border(bottom=Side(border_style="medium", color="000000"))
-                    if j > SCORE_COLUMN:    
-                        if data_file_ws.cell(i, NAME_COLUMN).value == "날짜" and data_file_ws.cell(i, j).value is not None:
-                            data_file_ws.cell(i, j).border = Border(top=Side(border_style="medium", color="000000"))
-                        if type(dataFileColorWs.cell(i, j).value) == int:
-                            if dataFileColorWs.cell(i, j).value < 60:
-                                data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
-                            elif dataFileColorWs.cell(i, j).value < 70:
-                                data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
-                            elif dataFileColorWs.cell(i, j).value < 80:
-                                data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
-                            elif dataFileColorWs.cell(i, NAME_COLUMN).value == "시험 평균":
-                                data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
-                            else:
-                                data_file_ws.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
+    gui.q.put("조건부 서식 적용중...")
+
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_color_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
+    
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
+        data_file_color_ws = data_file_color_wb[sheet_name]
+
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "이름":
+                STUDENT_NAME_COLUMN = i
+                break
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "학생 평균":
+                AVERAGE_SCORE_COLUMN = i
+                break
+        
+        for i in range(2, data_file_color_ws.max_row+1):
+            if data_file_color_ws.cell(i, STUDENT_NAME_COLUMN).value is None:
+                break
+            for j in range(1, data_file_color_ws.max_column+1):
+                data_file_ws.column_dimensions[gcl(j)].width = 14
+                if data_file_ws.cell(i, STUDENT_NAME_COLUMN).value == "시험 평균" and data_file_ws.cell(i, j).value is not None:
+                    data_file_ws.cell(i, j).border = Border(bottom=Side(border_style="medium", color="000000"))
+                if j > AVERAGE_SCORE_COLUMN:    
+                    if data_file_ws.cell(i, STUDENT_NAME_COLUMN).value == "날짜" and data_file_ws.cell(i, j).value is not None:
+                        data_file_ws.cell(i, j).border = Border(top=Side(border_style="medium", color="000000"))
+                    if type(data_file_color_ws.cell(i, j).value) == int:
+                        if data_file_color_ws.cell(i, j).value < 60:
+                            data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+                        elif data_file_color_ws.cell(i, j).value < 70:
+                            data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+                        elif data_file_color_ws.cell(i, j).value < 80:
+                            data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+                        elif data_file_color_ws.cell(i, STUDENT_NAME_COLUMN).value == "시험 평균":
+                            data_file_ws.cell(i, j).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
                         else:
                             data_file_ws.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
-                        if dataFileColorWs.cell(i, NAME_COLUMN).value == "시험 평균":
-                            data_file_ws.cell(i, j).font = Font(bold=True)
-
-                # 학생별 평균 조건부 서식
-                data_file_ws.cell(i, SCORE_COLUMN).font = Font(bold=True)
-                if type(dataFileColorWs.cell(i, SCORE_COLUMN).value) == int:
-                    if dataFileColorWs.cell(i, SCORE_COLUMN).value < 60:
-                        data_file_ws.cell(i, SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
-                    elif dataFileColorWs.cell(i, SCORE_COLUMN).value < 70:
-                        data_file_ws.cell(i, SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
-                    elif dataFileColorWs.cell(i, SCORE_COLUMN).value < 80:
-                        data_file_ws.cell(i, SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
-                    elif dataFileColorWs.cell(i, NAME_COLUMN).value == "시험 평균":
-                        data_file_ws.cell(i, SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
                     else:
-                        data_file_ws.cell(i, SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("E2EFDA"))
-                name = data_file_ws.cell(i, NAME_COLUMN)
-                if (name.value is not None) or (name.value != "날짜") or (name.value != "시험명") or (name.value != "시험 평균"):
-                    for j in range(2, student_ws.max_row+1):
-                        if (name.value == student_ws.cell(j, 1).value) and (student_ws.cell(j, 6).value == "N"):
-                            name.fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
-                            break
-                        else:
-                            name.fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
+                        data_file_ws.cell(i, j).fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
+                    if data_file_color_ws.cell(i, STUDENT_NAME_COLUMN).value == "시험 평균":
+                        data_file_ws.cell(i, j).font = Font(bold=True)
 
-    except:
-        gui.q.put("이 데이터 양식에는 조건부 서식을 지정할 수 없습니다.")
-        return
+            # 학생별 평균 조건부 서식
+            data_file_ws.cell(i, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            if type(data_file_color_ws.cell(i, AVERAGE_SCORE_COLUMN).value) == int:
+                if data_file_color_ws.cell(i, AVERAGE_SCORE_COLUMN).value < 60:
+                    data_file_ws.cell(i, AVERAGE_SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+                elif data_file_color_ws.cell(i, AVERAGE_SCORE_COLUMN).value < 70:
+                    data_file_ws.cell(i, AVERAGE_SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+                elif data_file_color_ws.cell(i, AVERAGE_SCORE_COLUMN).value < 80:
+                    data_file_ws.cell(i, AVERAGE_SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+                elif data_file_color_ws.cell(i, STUDENT_NAME_COLUMN).value == "시험 평균":
+                    data_file_ws.cell(i, AVERAGE_SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+                else:
+                    data_file_ws.cell(i, AVERAGE_SCORE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("E2EFDA"))
+            name = data_file_ws.cell(i, STUDENT_NAME_COLUMN)
+            name.fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
+            if (name.value is not None) or (name.value != "날짜") or (name.value != "시험명") or (name.value != "시험 평균"):
+                for j in range(2, student_ws.max_row+1):
+                    if (name.value == student_ws.cell(j, 1).value) and (student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value == "N"):
+                        name.fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+                        break
     
     try:
         data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
@@ -1695,15 +1682,15 @@ def apply_color(gui:GUI):
 def delete_student(gui:GUI, student:str):
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     # 데이터 파일 취소선
-    for sheetName in data_file_wb.sheetnames:
-        data_file_ws = data_file_wb[sheetName]
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
 
         for col in range(1, data_file_ws.max_column+1):
             if data_file_ws.cell(1, col).value == "이름":
-                NAME_COLUMN = col
+                STUDENT_NAME_COLUMN = col
                 break
         for row in range(2, data_file_ws.max_row+1):
-            if data_file_ws.cell(row, NAME_COLUMN).value == student:
+            if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == student:
                 for col in range(1, data_file_ws.max_column+1):
                     data_file_ws.cell(row, col).font = Font(strike=True)
     
@@ -1727,137 +1714,152 @@ def delete_student(gui:GUI, student:str):
     return
 
 def add_student(gui:GUI, student:str, target_class:str):
-    if check_student_exists(student, target_class):
-        #학생 추가
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-        for sheetName in data_file_wb.sheetnames:
-            data_file_ws = data_file_wb[sheetName]
-            for i in range(1, data_file_ws.max_column+1):
-                temp = data_file_ws.cell(1, i).value
-                if temp == "시간":
-                    TEST_TIME_COLUMN = i
-                elif temp == "요일":
-                    DATE_COLUMN = i
-                elif temp == "반":
-                    CLASS_NAME_COLUMN = i
-                elif temp == "담당":
-                    TEACHER_COLUMN = i
-                elif temp == "이름":
-                    STUDENT_NAME_COLUMN = i
-                elif temp == "학생 평균":
-                    AVERAGE_SCORE_COLUMN = i
-            for row in range(2, data_file_ws.max_row+1):
-                if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
-                    class_index = row+2
-                    break
-            while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
-                if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
-                    break
-                else: class_index += 1
-            data_file_ws.insert_rows(class_index)
-            copy_cell(data_file_ws.cell(class_index, TEST_TIME_COLUMN), data_file_ws.cell(class_index-1, TEST_TIME_COLUMN))
-            copy_cell(data_file_ws.cell(class_index, DATE_COLUMN), data_file_ws.cell(class_index-1, DATE_COLUMN))
-            copy_cell(data_file_ws.cell(class_index, CLASS_NAME_COLUMN), data_file_ws.cell(class_index-1, CLASS_NAME_COLUMN))
-            copy_cell(data_file_ws.cell(class_index, TEACHER_COLUMN), data_file_ws.cell(class_index-1, TEACHER_COLUMN))
-
-            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value = student
-            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
-
-        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
-
-        rescoping_formula()
-        gui.q.put(f"{student} 학생을 {target_class} 반에 추가하였습니다.")
-    else:
+    if not check_student_exists(student, target_class):
         gui.q.put(r"아이소식 해당 반에 학생이 업데이트되지 않아")
-        gui.q.put(r"신규생 추가를 취소합니다.")
+        gui.q.put(r"신규생 추가를 중단합니다.")
+        gui.thread_end_flag = True
+        return
     
+    # 학생 정보 파일에 학생 추가
+    gui.q.put(r"학생 정보 파일에 학생 추가 중...")
+    student_wb = xl.load_workbook("./학생 정보.xlsx")
+    try:
+        student_ws = student_wb["학생 정보"]
+    except:
+        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보'로 변경해 주세요.")
+        return
+    for row in range(2, student_ws.max_row+2):
+        if student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value is None:
+            student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value = student
+            student_ws.cell(row, StudentInfo.CLASS_NAME_COLUMN).value = target_class
+            student_ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value = "N"
+            for col in range(1, StudentInfo.MAX+1):
+                student_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+                student_ws.cell(row, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+            break
+    student_wb.save("./학생 정보.xlsx")
+
+    # 데이터파일에 학생 추가
+    gui.q.put(r"데이터 파일에 학생 추가 중...")
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
+        for i in range(1, data_file_ws.max_column+1):
+            temp = data_file_ws.cell(1, i).value
+            if temp == "시간":
+                TEST_TIME_COLUMN = i
+            elif temp == "요일":
+                DATE_COLUMN = i
+            elif temp == "반":
+                CLASS_NAME_COLUMN = i
+            elif temp == "담당":
+                TEACHER_COLUMN = i
+            elif temp == "이름":
+                STUDENT_NAME_COLUMN = i
+            elif temp == "학생 평균":
+                AVERAGE_SCORE_COLUMN = i
+        for row in range(2, data_file_ws.max_row+1):
+            if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
+                class_index = row+2
+                break
+        while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
+            if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
+                break
+            elif data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value == student:
+                gui.q.put(f"{student} 학생이 이미 존재합니다.")
+                gui.q.put(r"신규생 추가를 중단합니다.")
+                gui.thread_end_flag = True
+                return
+            else: class_index += 1
+        data_file_ws.insert_rows(class_index)
+        copy_cell(data_file_ws.cell(class_index, TEST_TIME_COLUMN), data_file_ws.cell(class_index-1, TEST_TIME_COLUMN))
+        copy_cell(data_file_ws.cell(class_index, DATE_COLUMN), data_file_ws.cell(class_index-1, DATE_COLUMN))
+        copy_cell(data_file_ws.cell(class_index, CLASS_NAME_COLUMN), data_file_ws.cell(class_index-1, CLASS_NAME_COLUMN))
+        copy_cell(data_file_ws.cell(class_index, TEACHER_COLUMN), data_file_ws.cell(class_index-1, TEACHER_COLUMN))
+
+        data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value = student
+        data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+        data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+        data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+
+    rescoping_formula()
+
+    gui.q.put(f"{student} 학생을 {target_class} 반에 추가하였습니다.")
+
     gui.thread_end_flag = True
     return
 
 def move_student(gui:GUI, student:str, target_class:str, current_class:str):
-    if check_student_exists(student, target_class):
-        # 데이터 파일 취소선
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-        for sheetName in data_file_wb.sheetnames:
-            data_file_ws = data_file_wb[sheetName]
-
-            for col in range(1, data_file_ws.max_column+1):
-                if data_file_ws.cell(1, col).value == "이름":
-                    NAME_COLUMN = col
-                    break
-            for col in range(1, data_file_ws.max_column):
-                if data_file_ws.cell(1, col).value == "반":
-                    CLASS_COLUMN = col
-                    break
-            for row in range(2, data_file_ws.max_row+1):
-                if data_file_ws.cell(row, NAME_COLUMN).value == student and data_file_ws.cell(row, CLASS_COLUMN).value == current_class:
-                    for col in range(1, data_file_ws.max_column+1):
-                        data_file_ws.cell(row, col).font = Font(strike=True)
-        # 학생 추가
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-        for sheetName in data_file_wb.sheetnames:
-            data_file_ws = data_file_wb[sheetName]
-            for i in range(1, data_file_ws.max_column+1):
-                temp = data_file_ws.cell(1, i).value
-                if temp == "시간":
-                    TEST_TIME_COLUMN = i
-                elif temp == "요일":
-                    DATE_COLUMN = i
-                elif temp == "반":
-                    CLASS_NAME_COLUMN = i
-                elif temp == "담당":
-                    TEACHER_COLUMN = i
-                elif temp == "이름":
-                    STUDENT_NAME_COLUMN = i
-                elif temp == "학생 평균":
-                    AVERAGE_SCORE_COLUMN = i
-            for row in range(2, data_file_ws.max_row+1):
-                if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
-                    class_index = row+2
-                    break
-            while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
-                if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
-                    break
-                else: class_index += 1
-            data_file_ws.insert_rows(class_index)
-            copy_cell(data_file_ws.cell(class_index, TEST_TIME_COLUMN), data_file_ws.cell(class_index-1, TEST_TIME_COLUMN))
-            copy_cell(data_file_ws.cell(class_index, DATE_COLUMN), data_file_ws.cell(class_index-1, DATE_COLUMN))
-            copy_cell(data_file_ws.cell(class_index, CLASS_NAME_COLUMN), data_file_ws.cell(class_index-1, CLASS_NAME_COLUMN))
-            copy_cell(data_file_ws.cell(class_index, TEACHER_COLUMN), data_file_ws.cell(class_index-1, TEACHER_COLUMN))
-
-            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value = student
-            data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-            data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
-
-        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
-
-        rescoping_formula()
-    else:
+    if not check_student_exists(student, target_class):
         gui.q.put(r"아이소식 해당 반에 학생이 업데이트되지 않아")
-        gui.q.put(r"학생 이동을 취소합니다.")
+        gui.q.put(r"학생 반 이동을 중단합니다.")
+        gui.thread_end_flag = True
+        return
     
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
+        for i in range(1, data_file_ws.max_column+1):
+            temp = data_file_ws.cell(1, i).value
+            if temp == "시간":
+                TEST_TIME_COLUMN = i
+            elif temp == "요일":
+                DATE_COLUMN = i
+            elif temp == "반":
+                CLASS_NAME_COLUMN = i
+            elif temp == "담당":
+                TEACHER_COLUMN = i
+            elif temp == "이름":
+                STUDENT_NAME_COLUMN = i
+            elif temp == "학생 평균":
+                AVERAGE_SCORE_COLUMN = i
+        
+        # 기존 반 데이터 흐리게 처리
+        for row in range(2, data_file_ws.max_row+1):
+            if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == student and data_file_ws.cell(row, CLASS_NAME_COLUMN).value == current_class:
+                for col in range(1, data_file_ws.max_column+1):
+                    data_file_ws.cell(row, col).font = Font(color="666666")
+        
+        # 목표 반에 학생 추가
+        for row in range(2, data_file_ws.max_row+1):
+            if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
+                class_index = row+2
+                break
+        while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
+            if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
+                break
+            elif data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value == student:
+                gui.q.put(f"{student} 학생이 이미 존재합니다.")
+                gui.q.put(r"학생 반 이동을 중단합니다.")
+                gui.thread_end_flag = True
+                return
+            else: class_index += 1
+        data_file_ws.insert_rows(class_index)
+        copy_cell(data_file_ws.cell(class_index, TEST_TIME_COLUMN), data_file_ws.cell(class_index-1, TEST_TIME_COLUMN))
+        copy_cell(data_file_ws.cell(class_index, DATE_COLUMN), data_file_ws.cell(class_index-1, DATE_COLUMN))
+        copy_cell(data_file_ws.cell(class_index, CLASS_NAME_COLUMN), data_file_ws.cell(class_index-1, CLASS_NAME_COLUMN))
+        copy_cell(data_file_ws.cell(class_index, TEACHER_COLUMN), data_file_ws.cell(class_index-1, TEACHER_COLUMN))
+
+        data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value = student
+        data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+        data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+        data_file_ws.cell(class_index, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+
+    rescoping_formula()
+
+    gui.q.put(f"{student} 학생을 {current_class} 반에서")
+    gui.q.put(f"{target_class} 반으로 이동하였습니다.")
     gui.thread_end_flag = True
     return
 
 def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
     gui.q.put("양식이 올바른지 확인 중...")
-    # 올바른 양식이 아닙니다.
-    if (form_ws.title != "데일리테스트 기록 양식") or \
-        (form_ws[gcl(DataForm.DATE_COLUMN)+"1"].value != "요일") or \
-        (form_ws[gcl(DataForm.TEST_TIME_COLUMN)+"1"].value != "시간") or \
-        (form_ws[gcl(DataForm.CLASS_NAME_COLUMN)+"1"].value != "반") or \
-        (form_ws[gcl(DataForm.STUDENT_NAME_COLUMN)+"1"].value != "이름") or \
-        (form_ws[gcl(DataForm.TEACHER_COLUMN)+"1"].value != "담당T") or \
-        (form_ws[gcl(DataForm.DAILYTEST_TEST_NAME_COLUMN)+"1"].value != "시험명") or \
-        (form_ws[gcl(DataForm.DAILYTEST_SCORE_COLUMN)+"1"].value != "점수") or \
-        (form_ws[gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+"1"].value != "평균") or \
-        (form_ws[gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+"1"].value != "시험대비 모의고사명") or \
-        (form_ws[gcl(DataForm.MOCKTEST_SCORE_COLUMN)+"1"].value != "모의고사 점수") or \
-        (form_ws[gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+"1"].value != "모의고사 평균") or \
-        (form_ws[gcl(DataForm.MAKEUP_TEST_CHECK_COLUMN)+"1"].value != "재시문자 X"):
+    if (form_ws.title != "데일리테스트 기록 양식"):
         gui.q.put("올바른 기록 양식이 아닙니다.")
         return False
     
@@ -1895,8 +1897,8 @@ def copy_cell(destination:Cell, source:Cell):
 
 def rescoping_formula():
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
-    for sheetName in data_file_wb.sheetnames:
-        data_file_ws = data_file_wb[sheetName]
+    for sheet_name in data_file_wb.sheetnames:
+        data_file_ws = data_file_wb[sheet_name]
         for i in range(1, data_file_ws.max_column+1):
             temp = data_file_ws.cell(1, i).value
             if temp == "이름":
@@ -1921,7 +1923,7 @@ def rescoping_formula():
 
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
-def check_student_exists(target_student_name, target_class_name):
+def check_student_exists(target_student_name:str, target_class_name:str):
     gui.q.put(r"아이소식으로부터 정보 받아오는 중...")
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
