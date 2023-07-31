@@ -1,4 +1,4 @@
-# Omikron v1.2.0-beta5
+# Omikron v1.2.0-beta6
 import json
 import queue
 import os.path
@@ -635,8 +635,6 @@ def make_student_info_file(gui:GUI):
     options.add_argument("headless")
     driver = webdriver.Chrome(service = service, options = options)
 
-    dv = DataValidation(type="list", formula1="=Z1",  allow_blank=True, errorStyle="stop", showErrorMessage=True)
-    student_ws.add_data_validation(dv)
 
     # 아이소식 접속
     driver.get(config["url"])
@@ -662,6 +660,8 @@ def make_student_info_file(gui:GUI):
             ini_ws.cell(WRITE_LOCATION, StudentInfo.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
             ini_ws.cell(WRITE_LOCATION, StudentInfo.CLASS_NAME_COLUMN).value = class_name
             ini_ws.cell(WRITE_LOCATION, StudentInfo.TEACHER_COLUMN).value = teacher
+            dv = DataValidation(type="list", formula1="=Z1",  allow_blank=True, errorStyle="stop", showErrorMessage=True)
+            student_ws.add_data_validation(dv)
             dv.add(ini_ws.cell(WRITE_LOCATION, StudentInfo.NEW_STUDENT_CHECK_COLUMN))
 
     # 정렬 및 테두리
@@ -1076,8 +1076,6 @@ def make_data_form(gui:GUI):
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
 
-    dv = DataValidation(type="list", formula1="=Y1:Z1", showDropDown=True, allow_blank=True, showErrorMessage=True)
-    ini_ws.add_data_validation(dv)
 
     #반 루프
     for i in range(3, len(table_names)):
@@ -1106,6 +1104,8 @@ def make_data_form(gui:GUI):
             ini_ws.cell(WRITE_LOCATION, DataForm.DATE_COLUMN).value = date
             ini_ws.cell(WRITE_LOCATION, DataForm.TEST_TIME_COLUMN).value = time
             ini_ws.cell(WRITE_LOCATION, DataForm.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+            dv = DataValidation(type="list", formula1="=Y1:Z1", showDropDown=True, allow_blank=True, showErrorMessage=True)
+            ini_ws.add_data_validation(dv)
             dv.add(ini_ws.cell(WRITE_LOCATION,DataForm.MAKEUP_TEST_CHECK_COLUMN))
             WRITE_LOCATION = ini_ws.max_row + 1
         
