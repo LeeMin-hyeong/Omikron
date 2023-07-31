@@ -16,6 +16,7 @@ from datetime import date as DATE, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from openpyxl.cell import Cell
 from openpyxl.utils.cell import get_column_letter as gcl
+from openpyxl.worksheet.formula import ArrayFormula
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Protection, Side
@@ -225,8 +226,8 @@ class GUI():
         try:
             class_ws = class_wb["반 정보"]
         except:
-            gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
-            gui.q.put(r"'반 정보'로 변경해 주세요.")
+            self.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
         data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
@@ -301,8 +302,8 @@ class GUI():
         try:
             class_ws = class_wb["반 정보"]
         except:
-            gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
-            gui.q.put(r"'반 정보'로 변경해 주세요.")
+            self.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
         data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
@@ -384,8 +385,8 @@ class GUI():
         try:
             class_ws = class_wb["반 정보"]
         except:
-            gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
-            gui.q.put(r"'반 정보'로 변경해 주세요.")
+            self.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
         class_names = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row + 1)]
@@ -737,7 +738,7 @@ def make_data_file(gui:GUI):
         ini_ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value = class_name
         ini_ws.cell(WRITE_LOCATION, DataFile.TEACHER_COLUMN).value = teacher
         ini_ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value = "시험명"
-        start = WRITE_LOCATION + 1
+        class_start = WRITE_LOCATION + 1
 
         # 학생 루프
         for tr in trs:
@@ -752,13 +753,13 @@ def make_data_file(gui:GUI):
         
         # 시험별 평균
         WRITE_LOCATION = ini_ws.max_row + 1
-        end = WRITE_LOCATION - 1
+        class_end = WRITE_LOCATION - 1
         ini_ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value = time
         ini_ws.cell(WRITE_LOCATION, DataFile.DATE_COLUMN).value = date
         ini_ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value = class_name
         ini_ws.cell(WRITE_LOCATION, DataFile.TEACHER_COLUMN).value = teacher
         ini_ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value = "시험 평균"
-        ini_ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(F{str(start)}:F{str(end)}), 0)"
+        ini_ws[f"F{str(WRITE_LOCATION)}"] = ArrayFormula(f"F{str(WRITE_LOCATION)}", f"=ROUND(AVERAGE(IFERROR(F{str(class_start)}:F{str(class_end)}, \"\")), 0)")
         ini_ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
         for j in range(1, DataFile.DATA_COLUMN):
@@ -1714,7 +1715,7 @@ def delete_student(gui:GUI, student:str):
     return
 
 def add_student(gui:GUI, student:str, target_class:str):
-    if not check_student_exists(student, target_class):
+    if not check_student_exists(gui, student, target_class):
         gui.q.put(r"아이소식 해당 반에 학생이 업데이트되지 않아")
         gui.q.put(r"신규생 추가를 중단합니다.")
         gui.thread_end_flag = True
@@ -1759,10 +1760,13 @@ def add_student(gui:GUI, student:str, target_class:str):
                 STUDENT_NAME_COLUMN = i
             elif temp == "학생 평균":
                 AVERAGE_SCORE_COLUMN = i
+        
         for row in range(2, data_file_ws.max_row+1):
             if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
                 class_index = row+2
                 break
+        else: continue # 목표 반이 없으면 건너뛰기
+
         while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
             if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
                 break
@@ -1793,7 +1797,7 @@ def add_student(gui:GUI, student:str, target_class:str):
     return
 
 def move_student(gui:GUI, student:str, target_class:str, current_class:str):
-    if not check_student_exists(student, target_class):
+    if not check_student_exists(gui, student, target_class):
         gui.q.put(r"아이소식 해당 반에 학생이 업데이트되지 않아")
         gui.q.put(r"학생 반 이동을 중단합니다.")
         gui.thread_end_flag = True
@@ -1817,17 +1821,19 @@ def move_student(gui:GUI, student:str, target_class:str, current_class:str):
             elif temp == "학생 평균":
                 AVERAGE_SCORE_COLUMN = i
         
-        # 기존 반 데이터 흐리게 처리
+        # 기존 반 데이터 빨간색 처리
         for row in range(2, data_file_ws.max_row+1):
             if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == student and data_file_ws.cell(row, CLASS_NAME_COLUMN).value == current_class:
                 for col in range(1, data_file_ws.max_column+1):
-                    data_file_ws.cell(row, col).font = Font(color="666666")
+                    data_file_ws.cell(row, col).font = Font(color="FF0000")
         
         # 목표 반에 학생 추가
         for row in range(2, data_file_ws.max_row+1):
             if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == target_class:
                 class_index = row+2
                 break
+        else: continue # 목표 반이 없으면 건너뛰기
+
         while data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
             if data_file_ws.cell(class_index, STUDENT_NAME_COLUMN).value > student:
                 break
@@ -1912,7 +1918,7 @@ def rescoping_formula():
                 class_start = row+2
             elif data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
                 class_end = row-1
-                data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN)}{str(class_start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(class_end)}), 0)"
+                data_file_ws[f"{gcl(AVERAGE_SCORE_COLUMN)}{str(row)}"] = ArrayFormula(f"{gcl(AVERAGE_SCORE_COLUMN)}{str(row)}", f"=ROUND(AVERAGE(IFERROR({gcl(AVERAGE_SCORE_COLUMN)}{str(class_start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(class_end)}, \"\")), 0)")
                 if class_start >= class_end: continue
                 for col in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_column+1):
                     if data_file_ws.cell(class_start-2, col).value is None: break
@@ -1923,7 +1929,7 @@ def rescoping_formula():
 
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
-def check_student_exists(target_student_name:str, target_class_name:str):
+def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str):
     gui.q.put(r"아이소식으로부터 정보 받아오는 중...")
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
