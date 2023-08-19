@@ -1,9 +1,10 @@
-# Omikron v1.2.0-beta5
+# Omikron v1.2.0-beta7
 import json
 import queue
 import os.path
 import pythoncom # only works in Windows
 import threading
+import webbrowser
 import tkinter as tk
 import tkinter.messagebox
 import openpyxl as xl
@@ -45,7 +46,7 @@ class GUI():
         self.thread_end_flag = False
         self.ui = ui
         self.width = 320
-        self.height = 515 # button +25
+        self.height = 535 # button +25
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
         self.ui.geometry(f"{self.width}x{self.height}+{self.x}+{self.y}")
@@ -53,6 +54,13 @@ class GUI():
         self.ui.resizable(False, False)
 
         tk.Label(self.ui, text="Omikron 데이터 프로그램").pack()
+        
+        def callback(url:str):
+            webbrowser.open_new(url)
+        link = tk.Label(self.ui, text="사용법 및 도움말", cursor="hand2")
+        link.pack()
+        link.bind("<Button-1>", lambda e: callback("https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"))
+
         self.scroll = tk.Scrollbar(self.ui, orient="vertical")
         self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=51, height=5)
         self.scroll.config(command=self.log.yview)
@@ -204,7 +212,7 @@ class GUI():
         
         return makeup_test_date
 
-    def select_student_name_dialog(self) -> str:
+    def delete_student_name_dialog(self) -> str:
         def quitEvent():
             self.ui.wm_attributes("-disabled", False)
             popup.quit()
@@ -249,7 +257,8 @@ class GUI():
                                 data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
                                     data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
                                         data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
-                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike]
+                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike and\
+                                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb != "00FF0000"]
             class_dict[class_name] = student_list
 
             
@@ -270,7 +279,7 @@ class GUI():
         student_combo.pack()
 
         tk.Label(popup).pack()
-        tk.Button(popup, text="삭제", width=10 , command=quitEvent).pack()
+        tk.Button(popup, text="퇴원", width=10 , command=quitEvent).pack()
         
         popup.mainloop()
         
@@ -325,7 +334,8 @@ class GUI():
                                 data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
                                     data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
                                         data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
-                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike]
+                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike and\
+                                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb != "00FF0000"]
             class_dict[class_name] = student_list
 
         tk.Label(popup).pack()
@@ -430,6 +440,9 @@ class GUI():
         thread.start()
 
     def update_class_thread(self):
+        if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
+            self.q.put(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
         if self.update_class_button["text"] == "반 업데이트":
             if os.path.isfile("./temp.xlsx"):
                 os.remove("./temp.xlsx")
@@ -524,7 +537,7 @@ class GUI():
             self.q.put(r"학생 정보 파일을 닫은 뒤 다시 시도해 주세요.")
             return
         self.delete_student_button["state"] = tk.DISABLED
-        student = self.select_student_name_dialog()
+        student = self.delete_student_name_dialog()
         if student is not None:
             # 퇴원 처리 확인
             if not tkinter.messagebox.askyesno("퇴원 확인", f"{student} 학생을 퇴원 처리하시겠습니까?"):
@@ -905,6 +918,9 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                     STUDENT_NAME_COLUMN = i
                 elif temp == "학생 평균":
                     AVERAGE_SCORE_COLUMN = i
+
+            for row in range(2, data_file_ws.max_row+1):
+                data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).value = ""
             
             # 지난 데이터 행 삭제
             for row in range(2, data_file_ws.max_row+1):
@@ -925,9 +941,6 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                     for col in range(AVERAGE_SCORE_COLUMN+1, data_file_temp_ws.max_column):
                         copy_cell(post_data_ws.cell(write_row, write_column), data_file_temp_ws.cell(row, col))
                         write_column += 1
-
-            # 평균 범위 재지정
-            rescoping_formula()
 
             # 필터 범위 재조정
             data_file_ws.auto_filter.ref = "A:" + gcl(AVERAGE_SCORE_COLUMN)
@@ -992,7 +1005,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                 data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
                 data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
                 data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = "시험명"
-                start = WRITE_LOCATION + 1
+                class_start = WRITE_LOCATION + 1
 
                 # 학생 루프
                 for tr in trs:
@@ -1002,19 +1015,15 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                     data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
                     data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
                     data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
-                    data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{str(WRITE_LOCATION)}:XFD{str(WRITE_LOCATION)}), 0)"
-                    data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
                 
                 # 시험별 평균
                 WRITE_LOCATION += 1
-                end = WRITE_LOCATION - 1
+                class_end = WRITE_LOCATION - 1
                 data_file_ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value = time
                 data_file_ws.cell(WRITE_LOCATION, DATE_COLUMN).value = date
                 data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
                 data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
                 data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = "시험 평균"
-                data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN)}{str(start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(end)}), 0)"
-                data_file_ws.cell(WRITE_LOCATION, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
                 for j in range(1, AVERAGE_SCORE_COLUMN+1):
                     data_file_ws.cell(WRITE_LOCATION, j).border = Border(bottom = Side(border_style="medium", color="000000"))
@@ -1029,6 +1038,9 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
     
     # 변경 사항 저장
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+    
+    rescoping_formula()
+
     class_wb_temp.save("./반 정보.xlsx")
     os.remove("./temp.xlsx")
 
@@ -1905,15 +1917,23 @@ def rescoping_formula():
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     for sheet_name in data_file_wb.sheetnames:
         data_file_ws = data_file_wb[sheet_name]
-        for i in range(1, data_file_ws.max_column+1):
-            temp = data_file_ws.cell(1, i).value
+        for col in range(1, data_file_ws.max_column+1):
+            temp = data_file_ws.cell(1, col).value
             if temp == "이름":
-                STUDENT_NAME_COLUMN = i
+                STUDENT_NAME_COLUMN = col
             elif temp == "학생 평균":
-                AVERAGE_SCORE_COLUMN = i
+                AVERAGE_SCORE_COLUMN = col
 
         # 평균 범위 재지정
         for row in range(2, data_file_ws.max_row+1):
+            striked = False
+            colored = False
+            if data_file_ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
+                striked = True
+            if data_file_ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None:
+                if data_file_ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "00FF0000":
+                    colored = True
+            
             if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
                 class_start = row+2
             elif data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
@@ -1923,9 +1943,16 @@ def rescoping_formula():
                 for col in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_column+1):
                     if data_file_ws.cell(class_start-2, col).value is None: break
                     data_file_ws.cell(row, col).value = f"=ROUND(AVERAGE({gcl(col)}{str(class_start)}:{gcl(col)}{str(class_end)}), 0)"
+                    data_file_ws.cell(row, col).font = Font(bold=True)
             elif data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명": continue
             else:
                 data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{str(row)}:XFD{str(row)}), 0)"
+                data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            
+            if striked:
+                data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(strike=True)
+            if colored:
+                data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(color="00FF0000")
 
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
