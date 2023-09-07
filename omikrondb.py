@@ -1,4 +1,4 @@
-# Omikron v1.2.0-beta7
+VERSION = "Omikron v.1.2.0"
 import json
 import queue
 import os.path
@@ -43,6 +43,7 @@ if not os.path.exists("./data/backup"):
 class GUI():
     def __init__(self, ui:tk.Tk):
         self.q = queue.Queue()
+        self.q.put(VERSION)
         self.thread_end_flag = False
         self.ui = ui
         self.width = 320
@@ -57,7 +58,7 @@ class GUI():
         
         def callback(url:str):
             webbrowser.open_new(url)
-        link = tk.Label(self.ui, text="사용법 및 도움말", cursor="hand2")
+        link = tk.Label(self.ui, text="[ 사용법 및 도움말 ]", cursor="hand2")
         link.pack()
         link.bind("<Button-1>", lambda e: callback("https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"))
 
@@ -68,42 +69,42 @@ class GUI():
         
         tk.Label(self.ui, text="< 기수 변경 관련 >").pack()
 
-        self.make_class_info_file_button = tk.Button(self.ui, text="반 정보 기록 양식 생성", width=40, command=lambda: self.make_class_info_file_thread())
+        self.make_class_info_file_button = tk.Button(self.ui, cursor="hand2", text="반 정보 기록 양식 생성", width=40, command=lambda: self.make_class_info_file_thread())
         self.make_class_info_file_button.pack()
 
-        self.make_student_info_file_button = tk.Button(self.ui, text="학생 정보 기록 양식 생성", width=40, command=lambda: self.make_student_info_file_thread())
+        self.make_student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=lambda: self.make_student_info_file_thread())
         self.make_student_info_file_button.pack()
 
-        self.make_data_file_button = tk.Button(self.ui, text="데이터 파일 생성", width=40, command=lambda: self.make_data_file_thread())
+        self.make_data_file_button = tk.Button(self.ui, cursor="hand2", text="데이터 파일 생성", width=40, command=lambda: self.make_data_file_thread())
         self.make_data_file_button.pack()
 
-        self.update_class_button = tk.Button(self.ui, text="반 업데이트", width=40, command=lambda: self.update_class_thread())
+        self.update_class_button = tk.Button(self.ui, cursor="hand2", text="반 업데이트", width=40, command=lambda: self.update_class_thread())
         self.update_class_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 저장 및 문자 전송 >").pack()
 
-        self.make_data_form_button = tk.Button(self.ui, text="데일리 테스트 기록 양식 생성", width=40, command=lambda: self.make_data_form_thread())
+        self.make_data_form_button = tk.Button(self.ui, cursor="hand2", text="데일리 테스트 기록 양식 생성", width=40, command=lambda: self.make_data_form_thread())
         self.make_data_form_button.pack()
 
-        self.save_data_button = tk.Button(self.ui, text="데이터 엑셀 파일에 저장", width=40, command=lambda: self.save_data_thread())
+        self.save_data_button = tk.Button(self.ui, cursor="hand2", text="데이터 엑셀 파일에 저장", width=40, command=lambda: self.save_data_thread())
         self.save_data_button.pack()
 
-        self.send_message_button = tk.Button(self.ui, text="시험 결과 전송", width=40, command=lambda: self.send_message_thread())
+        self.send_message_button = tk.Button(self.ui, cursor="hand2", text="시험 결과 전송", width=40, command=lambda: self.send_message_thread())
         self.send_message_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
-        self.apply_color_button = tk.Button(self.ui, text="데이터 엑셀 파일 조건부 서식 재지정", width=40, command=lambda: apply_color(self))
+        self.apply_color_button = tk.Button(self.ui, cursor="hand2", text="데이터 엑셀 파일 조건부 서식 재지정", width=40, command=lambda: apply_color(self))
         self.apply_color_button.pack()
 
         tk.Label(self.ui, text="< 학생 관리 >").pack()
-        self.add_student_button = tk.Button(self.ui, text="신규생 추가", width=40, command=lambda: self.add_student_thread())
+        self.add_student_button = tk.Button(self.ui, cursor="hand2", text="신규생 추가", width=40, command=lambda: self.add_student_thread())
         self.add_student_button.pack()
 
-        self.delete_student_button = tk.Button(self.ui, text="퇴원 처리", width=40, command=lambda: self.delete_student_thread())
+        self.delete_student_button = tk.Button(self.ui, cursor="hand2", text="퇴원 처리", width=40, command=lambda: self.delete_student_thread())
         self.delete_student_button.pack()
 
-        self.move_student_button = tk.Button(self.ui, text="학생 반 이동", width=40, command=lambda: self.move_student_thread())
+        self.move_student_button = tk.Button(self.ui, cursor="hand2", text="학생 반 이동", width=40, command=lambda: self.move_student_thread())
         self.move_student_button.pack()
 
     # ui
@@ -234,7 +235,7 @@ class GUI():
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보.xlsx'의 시트명을")
             self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
@@ -311,7 +312,7 @@ class GUI():
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보.xlsx'의 시트명을")
             self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
@@ -395,7 +396,7 @@ class GUI():
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보.xlsx'의 시트명을")
             self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
@@ -624,14 +625,12 @@ def make_student_info_file(gui:GUI):
         ini_ws.auto_filter.ref = "A:"+gcl(StudentInfo.MAX)
         ini_ws.column_dimensions.group("Z", hidden=True)
         ini_wb.save("./학생 정보.xlsx")
-    else:
-        gui.q.put("학생 정보 파일 업데이트 중...")
     
     student_wb = xl.load_workbook("./학생 정보.xlsx")
     try:
         student_ws = student_wb["학생 정보"]
     except:
-        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보.xlsx'의 시트명을")
         gui.q.put(r"'학생 정보'로 변경해 주세요.")
         return
     
@@ -640,14 +639,13 @@ def make_student_info_file(gui:GUI):
     try:
         class_ws = class_wb["반 정보"]
     except:
-        gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+        gui.q.put(r"'반 정보.xlsx'의 시트명을")
         gui.q.put(r"'반 정보'로 변경해 주세요.")
         return
 
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
     driver = webdriver.Chrome(service = service, options = options)
-
 
     # 아이소식 접속
     driver.get(config["url"])
@@ -707,7 +705,7 @@ def make_data_file(gui:GUI):
     try:
         class_ws = class_wb["반 정보"]
     except:
-        gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+        gui.q.put(r"'반 정보.xlsx'의 시트명을")
         gui.q.put(r"'반 정보'로 변경해 주세요.")
         return
 
@@ -799,7 +797,7 @@ def check_update_class(gui:GUI):
     try:
         class_ws = class_wb["반 정보"]
     except:
-        gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+        gui.q.put(r"'반 정보.xlsx'의 시트명을")
         gui.q.put(r"'반 정보'로 변경해 주세요.")
         return
 
@@ -819,7 +817,6 @@ def check_update_class(gui:GUI):
         if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is None:
             WRITE_LOCATION = i
             break
-    
     for new_class_name in list(unregistered_class.keys()):
         class_ws.cell(WRITE_LOCATION, ClassInfo.CLASS_NAME_COLUMN).value = new_class_name
         WRITE_LOCATION += 1
@@ -829,6 +826,11 @@ def check_update_class(gui:GUI):
         for k in range(1, class_ws.max_column + 1):
             class_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
             class_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    
+    for row in range(class_ws.max_row, 1, -1):
+        if class_ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is None:
+            class_ws.delete_rows(row)
+        else: break
     
     class_wb.save("./temp.xlsx")
     return current_class, unregistered_class
@@ -1005,7 +1007,6 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                 data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
                 data_file_ws.cell(WRITE_LOCATION, TEACHER_COLUMN).value = teacher
                 data_file_ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value = "시험명"
-                class_start = WRITE_LOCATION + 1
 
                 # 학생 루프
                 for tr in trs:
@@ -1018,7 +1019,6 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
                 
                 # 시험별 평균
                 WRITE_LOCATION += 1
-                class_end = WRITE_LOCATION - 1
                 data_file_ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value = time
                 data_file_ws.cell(WRITE_LOCATION, DATE_COLUMN).value = date
                 data_file_ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value = class_name
@@ -1075,7 +1075,7 @@ def make_data_form(gui:GUI):
     try:
         class_ws = class_wb["반 정보"]
     except:
-        gui.q.put(r"[오류] '반 정보.xlsx'의 시트명을")
+        gui.q.put(r"'반 정보.xlsx'의 시트명을")
         gui.q.put(r"'반 정보'로 변경해 주세요.")
         return
 
@@ -1117,6 +1117,7 @@ def make_data_form(gui:GUI):
             ini_ws.cell(WRITE_LOCATION, DataForm.TEST_TIME_COLUMN).value = time
             ini_ws.cell(WRITE_LOCATION, DataForm.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
             dv = DataValidation(type="list", formula1="=Y1:Z1", showDropDown=True, allow_blank=True, showErrorMessage=True)
+            dv.error = "이 셀의 값은 'x' 또는 'X'이어야 합니다."
             ini_ws.add_data_validation(dv)
             dv.add(ini_ws.cell(WRITE_LOCATION,DataForm.MAKEUP_TEST_CHECK_COLUMN))
             WRITE_LOCATION = ini_ws.max_row + 1
@@ -1144,7 +1145,6 @@ def make_data_form(gui:GUI):
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
         
     ini_ws.protection.sheet = True
-    ini_ws.protection.selectLockedCells = True
     ini_ws.protection.autoFilter = False
     ini_ws.protection.formatColumns = False
     for row in range(2, ini_ws.max_row + 1):
@@ -1180,7 +1180,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     try:
         student_ws = student_wb["학생 정보"]
     except:
-        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보.xlsx'의 시트명을")
         gui.q.put(r"'학생 정보'로 변경해 주세요.")
         return
 
@@ -1208,7 +1208,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     try:
         makeup_list_ws = makeup_list_wb["재시험 명단"]
     except:
-        gui.q.put(r"[오류] '재시험 명단.xlsx'의 시트명을")
+        gui.q.put(r"'재시험 명단.xlsx'의 시트명을")
         gui.q.put(r"'재시험 명단'으로 변경해 주세요.")
         return
     
@@ -1240,23 +1240,35 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         if sheet_name == "데일리테스트":
             TEST_NAME_COLUMN = DataForm.DAILYTEST_TEST_NAME_COLUMN
             SCORE_COLUMN = DataForm.DAILYTEST_SCORE_COLUMN
-        else:
+        elif sheet_name == "모의고사":
             TEST_NAME_COLUMN = DataForm.MOCKTEST_TEST_NAME_COLUMN
             SCORE_COLUMN = DataForm.MOCKTEST_SCORE_COLUMN
+        else:
+            # error
+            return
 
         # 동적 열 탐색
         for i in range(1, data_file_ws.max_column+1):
             if data_file_ws.cell(1, i).value == "반":
                 CLASS_NAME_COLUMN = i
                 break
+        else:
+            # error
+            return
         for i in range(1, data_file_ws.max_column+1):
             if data_file_ws.cell(1, i).value == "이름":
                 STUDENT_NAME_COLUMN = i
                 break
+        else:
+            # error
+            return
         for i in range(1, data_file_ws.max_column+1):
             if data_file_ws.cell(1, i).value == "학생 평균":
                 AVERAGE_SCORE_COLUMN = i
                 break
+        else:
+            # error
+            return
         
         for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
             # 파일 끝 검사
@@ -1274,6 +1286,9 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                     if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == class_name:
                         CLASS_START = row
                         break
+                else:
+                    # error
+                    return
                 # 반 끝 찾기
                 for row in range(CLASS_START, data_file_ws.max_row+1):
                     if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
@@ -1310,7 +1325,12 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             score = form_ws.cell(i, SCORE_COLUMN).value
             if score is None:
                 continue # 점수 없으면 미응시 처리
+            
+            if type(score) == int:
+                score_sum += score
+                score_cnt += 1
 
+            # 학생 찾기
             for row in range(CLASS_START + 2, CLASS_END):
                 if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value: # data name == form name
                     data_file_ws.cell(row, WRITE_COLUMN).value = score
@@ -1321,20 +1341,22 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                             data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
                         elif score < 80:
                             data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
-                        score_sum += score
-                        score_cnt += 1
                     data_file_ws.cell(row, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
                     break
-            
-            score_avg = score_sum/score_cnt
-            if score_avg < 60:
-                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
-            elif score_avg < 70:
-                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
-            elif score_avg < 80:
-                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
             else:
-                data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+                gui.q.put(f"{class_name} 반에 {form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value} 학생이 존재하지 않습니다.")
+            
+            # 평균 자체 계산
+            if form_ws.cell(i+1, DataForm.CLASS_NAME_COLUMN).value is not None:
+                score_avg = score_sum/score_cnt
+                if score_avg < 60:
+                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+                elif score_avg < 70:
+                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+                elif score_avg < 80:
+                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+                else:
+                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
 
             # 재시험 작성
             if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
@@ -1399,25 +1421,14 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             makeup_list_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             makeup_list_ws.cell(row, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    try:
-        data_file_ws = data_file_wb["데일리테스트"]
-        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
-    except:
-        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-        return
 
-    try:
-        makeup_list_wb.save("./data/재시험 명단.xlsx")
-    except:
-        gui.q.put("재시험 명단 파일 창을 끄고 다시 실행해 주세요.")
-        return
-    
+    data_file_ws = data_file_wb["데일리테스트"]
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+    makeup_list_wb.save("./data/재시험 명단.xlsx")
+
     gui.q.put("조건부 서식 적용중...")
-    try:
-        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
-    except:
-        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-        return
+
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     wb.Save()
     wb.Close()
 
@@ -1459,13 +1470,9 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                     if (student_name_cell.value == student_ws.cell(j, 1).value) and (student_ws.cell(j, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value == "N"):
                         student_name_cell.fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
                         break
-    try:
-        data_file_ws = data_file_wb["데일리테스트"]
-        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
-    except:
-        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-        return
     
+    data_file_ws = data_file_wb["데일리테스트"]
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
     gui.q.put("데이터 저장을 완료했습니다.")
     excel.Visible = True
@@ -1491,7 +1498,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
     try:
         student_ws = student_wb["학생 정보"]
     except:
-        gui.q.put("[오류] \"학생 정보.xlsx\"의 시트명을")
+        gui.q.put("\"학생 정보.xlsx\"의 시트명을")
         gui.q.put("\"학생 정보\"로 변경해 주세요.")
         return
     
@@ -1568,11 +1575,11 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
             else:
                 date_list = date.split("/")
                 result = makeup_test_date[date_list[0].replace(" ", "")]
-                timeIndex = 0
+                time_index = 0
                 for i in range(len(date_list)):
                     if result > makeup_test_date[date_list[i].replace(" ", "")]:
                         result = makeup_test_date[date_list[i].replace(" ", "")]
-                        timeIndex = i
+                        time_index = i
                 driver.switch_to.window(driver.window_handles[2])
                 trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
                 for tr in trs:
@@ -1582,7 +1589,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                         try:
                             if time is not None:
                                 if "/" in str(time):
-                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[timeIndex] + "시")
+                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[time_index] + "시")
                                 else:
                                     tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
                         except:
@@ -1602,7 +1609,7 @@ def apply_color(gui:GUI):
     try:
         student_ws = student_wb["학생 정보"]
     except:
-        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보.xlsx'의 시트명을")
         gui.q.put(r"'학생 정보'로 변경해 주세요.")
         return
     
@@ -1682,15 +1689,11 @@ def apply_color(gui:GUI):
                         name.fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
                         break
     
-    try:
-        data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
-        gui.q.put("조건부 서식 지정을 완료했습니다.")
-        excel.Visible = True
-        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
-        pythoncom.CoUninitialize()
-    except:
-        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-        return
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+    gui.q.put("조건부 서식 지정을 완료했습니다.")
+    excel.Visible = True
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    pythoncom.CoUninitialize()
 
 def delete_student(gui:GUI, student:str):
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
@@ -1711,7 +1714,7 @@ def delete_student(gui:GUI, student:str):
     try:
         student_ws = student_wb["학생 정보"]
     except:
-        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보.xlsx'의 시트명을")
         gui.q.put(r"'학생 정보'로 변경해 주세요.")
         return
     # 학생 정보 삭제
@@ -1739,7 +1742,7 @@ def add_student(gui:GUI, student:str, target_class:str):
     try:
         student_ws = student_wb["학생 정보"]
     except:
-        gui.q.put(r"[오류] '학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보.xlsx'의 시트명을")
         gui.q.put(r"'학생 정보'로 변경해 주세요.")
         return
     for row in range(2, student_ws.max_row+2):
@@ -1939,6 +1942,7 @@ def rescoping_formula():
             elif data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
                 class_end = row-1
                 data_file_ws[f"{gcl(AVERAGE_SCORE_COLUMN)}{str(row)}"] = ArrayFormula(f"{gcl(AVERAGE_SCORE_COLUMN)}{str(row)}", f"=ROUND(AVERAGE(IFERROR({gcl(AVERAGE_SCORE_COLUMN)}{str(class_start)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(class_end)}, \"\")), 0)")
+                data_file_ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
                 if class_start >= class_end: continue
                 for col in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_column+1):
                     if data_file_ws.cell(class_start-2, col).value is None: break
