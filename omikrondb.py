@@ -1,4 +1,3 @@
-VERSION = "Omikron v.1.2.0"
 import json
 import queue
 import os.path
@@ -47,7 +46,7 @@ class GUI():
         self.thread_end_flag = False
         self.ui = ui
         self.width = 320
-        self.height = 535 # button +25
+        self.height = 560 # button +25
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
         self.ui.geometry(f"{self.width}x{self.height}+{self.x}+{self.y}")
@@ -91,6 +90,10 @@ class GUI():
 
         self.send_message_button = tk.Button(self.ui, cursor="hand2", text="시험 결과 전송", width=40, command=lambda: self.send_message_thread())
         self.send_message_button.pack()
+        self.send_message_button["state"] = tk.DISABLED
+
+        self.individual_record_button = tk.Button(self.ui, cursor="hand2", text="개별 시험 기록", width=40, command=lambda: self.individual_record_thread())
+        self.individual_record_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
@@ -424,6 +427,102 @@ class GUI():
         else:
             return target_student_name, target_class_name
 
+    def individual_record_dialog(self):
+        def quitEvent():
+            self.ui.wm_attributes("-disabled", False)
+            popup.quit()
+            popup.destroy()
+
+        self.ui.wm_attributes("-disabled", True)
+        popup = tk.Toplevel()
+        width = 250
+        height = 160
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.title("개별 점수 기록")
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+
+        # 반 정보 확인
+        class_wb = xl.load_workbook("./반 정보.xlsx")
+        try:
+            class_ws = class_wb["반 정보"]
+        except:
+            self.q.put(r"'반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보'로 변경해 주세요.")
+            return
+        
+        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        data_file_ws = data_file_wb.worksheets[0]
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "이름":
+                STUDENT_NAME_COLUMN = i
+                break
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "반":
+                CLASS_NAME_COLUMN = i
+                break
+        for i in range(1, data_file_ws.max_column+1):
+            if data_file_ws.cell(1, i).value == "학생 평균":
+                AVERAGE_SCORE_COLUMN = i
+                break
+
+        class_dict1 = {}
+        class_dict2 = {}
+        for i in range(2, class_ws.max_row + 1):
+            student_dict = {}
+            class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
+            for j in range(2, data_file_ws.max_row):
+                if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name:
+                    if data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "날짜":
+                        test_name_dict = {data_file_ws.cell(j, k).value.strftime("%y/%m/%d ")+str(data_file_ws.cell(j+1, k).value) : k for k in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_row+1) if data_file_ws.cell(j, k).value is not None and data_file_ws.cell(j+1, k).value is not None}
+                    elif data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "시험명" or data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "시험 평균" or data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike or data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "00FF0000":
+                        continue
+                    else: student_dict[data_file_ws.cell(j, STUDENT_NAME_COLUMN).value] = j
+            test_name_dict = dict(sorted(test_name_dict.items(), reverse=True))
+            class_dict1[class_name] = student_dict
+            class_dict2[class_name] = test_name_dict
+
+        tk.Label(popup).pack()
+        def class_call_back(event):
+            class_name = event.widget.get()
+            student_combo.set("학생 선택")
+            student_combo["values"] = list(class_dict1[class_name].keys())
+            test_list_combo["values"] = list(class_dict2[class_name].keys())
+        target_class_var = tk.StringVar()
+        target_class_combo = ttk.Combobox(popup, values=list(class_dict1.keys()), state="readonly", textvariable=target_class_var, width=100)
+        target_class_combo.set("반 선택")
+        target_class_combo.bind("<<ComboboxSelected>>", class_call_back)
+        target_class_combo.pack()
+
+        target_studnet_var = tk.StringVar()
+        student_combo = ttk.Combobox(popup, values=None, state="readonly", textvariable=target_studnet_var, width=100)
+        student_combo.set("학생 선택")
+        student_combo.pack()
+
+        test_name_var = tk.StringVar()
+        test_list_combo = ttk.Combobox(popup, values=list(class_dict2.keys()), state="readonly", textvariable=test_name_var, width=100)
+        test_list_combo.set("시험 선택")
+        test_list_combo.pack()
+
+        score_var = tk.IntVar()
+        tk.Entry(popup, textvariable=score_var, width=28).pack()
+
+        tk.Label(popup).pack()
+        tk.Button(popup, text="메세지 전송 및 저장", width=20 , command=quitEvent).pack()
+        
+        popup.mainloop()
+        
+        target_class_name = target_class_var.get()
+        target_student_name = target_studnet_var.get()
+        test_name = test_name_var.get()
+        score = score_var.get()
+        
+        row = class_dict1[target_class_name][target_student_name]
+        col = class_dict2[target_class_name][test_name]
+        return target_student_name, test_name, row, col, score, data_file_ws.cell(row, col).value
+
     # threads
     def make_class_info_file_thread(self):
         thread = threading.Thread(target=lambda: make_class_info_file(self))
@@ -499,6 +598,9 @@ class GUI():
         thread = threading.Thread(target=lambda: save_data(self, filepath, makeup_test_date))
         thread.daemon = True
         thread.start()
+        thread = threading.Thread(target=lambda: send_message(self, filepath, makeup_test_date))
+        thread.daemon = True
+        thread.start()
         self.save_data_button["state"] = tk.NORMAL
 
     def send_message_thread(self):
@@ -510,6 +612,25 @@ class GUI():
         thread.daemon = True
         thread.start()
         self.send_message_button["state"] = tk.NORMAL
+
+    def individual_record_thread(self):
+        if os.path.isfile("./data/~$재시험 명단.xlsx"):
+            self.q.put(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+        if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
+            self.q.put(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+        self.individual_record_button["state"] = tk.DISABLED
+        student, test_name, row, col, score, cell_value = self.individual_record_dialog()
+        if cell_value is not None:
+            if not tkinter.messagebox.askyesno("데이터 중복 확인", f"{student} 학생의 {test_name} 시험에 대한 점수({cell_value}점)가 이미 존재합니다.\n덮어쓰시겠습니까?"):
+                self.q.put(r"개별 데이터 저장을 취소하였습니다.")
+                self.individual_record_button["state"] = tk.NORMAL
+                return
+        thread = threading.Thread(target=lambda: individual_record(self, row, col, score))
+        thread.daemon = True
+        thread.start()
+        self.individual_record_button["state"] = tk.NORMAL
 
     def add_student_thread(self):
         if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
@@ -1223,11 +1344,11 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     wb.Save()
     wb.Close()
 
-    gui.q.put("백업 파일 생성중...")
+    # gui.q.put("백업 파일 생성중...")
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     data_file_wb.save(f"./data/backup/{config['dataFileName']}({datetime.today().strftime('%Y%m%d')}).xlsx")
     
-    gui.q.put("데이터 저장 중...")
+    # gui.q.put("데이터 저장 중...")
 
     # 재시험 명단 작성 시작 위치
     for i in range(2, makeup_list_ws.max_row + 2):
@@ -1413,7 +1534,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                     makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
                 MAKEUP_TEST_WRITE_ROW += 1
 
-    gui.q.put("재시험 명단 작성 중...")
+    # gui.q.put("재시험 명단 작성 중...")
     # 정렬 및 테두리
     for row in range(MAKEUP_TEST_RANGE, makeup_list_ws.max_row+1):
         if makeup_list_ws.cell(row, 1).value is None: break
@@ -1426,7 +1547,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
     makeup_list_wb.save("./data/재시험 명단.xlsx")
 
-    gui.q.put("조건부 서식 적용중...")
+    # gui.q.put("조건부 서식 적용중...")
 
     wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     wb.Save()
@@ -1489,7 +1610,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put("데이터 저장이 중단되었습니다.")
         return
 
-    gui.q.put("크롬을 실행시키는 중...")
+    # gui.q.put("크롬을 실행시키는 중...")
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
     driver = webdriver.Chrome(service=service, options=options)
@@ -1978,6 +2099,10 @@ def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str
                 if target_student_name == tr.find_element(By.CLASS_NAME, "style9").text:
                     return True
     return False
+
+def individual_record(gui:GUI, row:int, col:int, score:int):
+    
+    gui.thread_end_flag = True
 
 ui = tk.Tk()
 gui = GUI(ui)
