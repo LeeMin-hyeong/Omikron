@@ -53,6 +53,8 @@ class GUI():
         self.ui.title("Omikron")
         self.ui.resizable(False, False)
 
+        self.makeup_test_date = None
+
         tk.Label(self.ui, text="Omikron 데이터 프로그램").pack()
         
         def callback(url:str):
@@ -147,6 +149,7 @@ class GUI():
             self.make_data_form_button["state"] = tk.NORMAL
             self.save_data_button["state"] = tk.NORMAL
             self.send_message_button["state"] = tk.NORMAL
+            self.individual_record_button["state"] = tk.NORMAL
             self.apply_color_button["state"] = tk.NORMAL
             self.add_student_button["state"] = tk.NORMAL
             self.delete_student_button["state"] = tk.NORMAL
@@ -156,6 +159,7 @@ class GUI():
             self.make_data_form_button["state"] = tk.DISABLED
             self.save_data_button["state"] = tk.DISABLED
             self.send_message_button["state"] = tk.DISABLED
+            self.individual_record_button["state"] = tk.DISABLED
             self.apply_color_button["state"] = tk.DISABLED
             self.add_student_button["state"] = tk.DISABLED
             self.delete_student_button["state"] = tk.DISABLED
@@ -519,9 +523,12 @@ class GUI():
         test_name = test_name_var.get()
         score = score_var.get()
         
+        if target_class_name == "반 선택" or target_student_name == "학생 선택" or test_name == "시험 선택":
+            return None
+
         row = class_dict1[target_class_name][target_student_name]
         col = class_dict2[target_class_name][test_name]
-        return target_student_name, test_name, row, col, score, data_file_ws.cell(row, col).value
+        return target_student_name, target_class_name, test_name, row, col, score, data_file_ws.cell(row, col).value
 
     # threads
     def make_class_info_file_thread(self):
@@ -592,23 +599,22 @@ class GUI():
             self.q.put(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
             return
         self.save_data_button["state"] = tk.DISABLED
-        makeup_test_date = self.holiday_dialog()
+        if self.makeup_test_date is None:
+            self.makeup_test_date = self.holiday_dialog()
         filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
         if filepath == "": return
-        thread = threading.Thread(target=lambda: save_data(self, filepath, makeup_test_date))
-        thread.daemon = True
-        thread.start()
-        thread = threading.Thread(target=lambda: send_message(self, filepath, makeup_test_date))
+        thread = threading.Thread(target=lambda: save_data(self, filepath, self.makeup_test_date))
         thread.daemon = True
         thread.start()
         self.save_data_button["state"] = tk.NORMAL
 
     def send_message_thread(self):
         self.send_message_button["state"] = tk.DISABLED
-        makeup_test_date = self.holiday_dialog()
+        if self.makeup_test_date is None:
+            self.makeup_test_date = self.holiday_dialog()
         filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
         if filepath == "": return
-        thread = threading.Thread(target=lambda: send_message(self, filepath, makeup_test_date))
+        thread = threading.Thread(target=lambda: send_message(self, filepath, self.makeup_test_date))
         thread.daemon = True
         thread.start()
         self.send_message_button["state"] = tk.NORMAL
@@ -621,13 +627,19 @@ class GUI():
             self.q.put(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
             return
         self.individual_record_button["state"] = tk.DISABLED
-        student, test_name, row, col, score, cell_value = self.individual_record_dialog()
+        if self.makeup_test_date is None:
+            self.makeup_test_date = self.holiday_dialog()
+        ret = self.individual_record_dialog()
+        if ret is None:
+            self.individual_record_button["state"] = tk.NORMAL
+            return
+        student, class_name, test_name, row, col, score, cell_value = ret
         if cell_value is not None:
             if not tkinter.messagebox.askyesno("데이터 중복 확인", f"{student} 학생의 {test_name} 시험에 대한 점수({cell_value}점)가 이미 존재합니다.\n덮어쓰시겠습니까?"):
                 self.q.put(r"개별 데이터 저장을 취소하였습니다.")
                 self.individual_record_button["state"] = tk.NORMAL
                 return
-        thread = threading.Thread(target=lambda: individual_record(self, row, col, score))
+        thread = threading.Thread(target=lambda: individual_record(self, student, class_name, test_name, row, col, score, self.makeup_test_date))
         thread.daemon = True
         thread.start()
         self.individual_record_button["state"] = tk.NORMAL
@@ -698,7 +710,7 @@ def make_class_info_file(gui:GUI):
     gui.q.put("반 정보 입력 파일 생성 중...")
 
     ini_wb = xl.Workbook()
-    ini_ws = ini_wb.active
+    ini_ws = ini_wb[ini_wb.sheetnames[0]]
     ini_ws.title = "반 정보"
     ini_ws[gcl(ClassInfo.CLASS_NAME_COLUMN)+"1"] = "반명"
     ini_ws[gcl(ClassInfo.TEACHER_COLUMN)+"1"] = "선생님명"
@@ -734,7 +746,7 @@ def make_student_info_file(gui:GUI):
         gui.q.put("학생 정보 파일 생성 중...")
 
         ini_wb = xl.Workbook()
-        ini_ws = ini_wb.active
+        ini_ws = ini_wb[ini_wb.sheetnames[0]]
         ini_ws.title = "학생 정보"
         ini_ws[gcl(StudentInfo.STUDENT_NAME_COLUMN)+"1"] = "이름"
         ini_ws[gcl(StudentInfo.CLASS_NAME_COLUMN)+"1"] = "반명"
@@ -810,7 +822,7 @@ def make_data_file(gui:GUI):
     gui.q.put("데이터파일 생성 중...")
 
     ini_wb = xl.Workbook()
-    ini_ws = ini_wb.active
+    ini_ws = ini_wb[ini_wb.sheetnames[0]]
     ini_ws.title = "데일리테스트"
     ini_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"] = "시간"
     ini_ws[gcl(DataFile.DATE_COLUMN)+"1"] = "요일"
@@ -854,6 +866,7 @@ def make_data_file(gui:GUI):
                 date = class_ws.cell(j, ClassInfo.DATE_COLUMN).value
                 time = class_ws.cell(j, ClassInfo.TEST_TIME_COLUMN).value
                 is_class_exist = True
+                break
         if not is_class_exist or len(trs) == 0:
             continue
         
@@ -991,7 +1004,7 @@ def update_class(gui:GUI, current_class:list, unregistered_class:dict):
         gui.q.put("이전 데이터 제거 중...")
         if not os.path.isfile("./data/지난 데이터.xlsx"):
             ini_wb = xl.Workbook()
-            ini_ws = ini_wb.active
+            ini_ws = ini_wb[ini_wb.sheetnames[0]]
             ini_ws.title = "데일리테스트"
             ini_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"] = "시간"
             ini_ws[gcl(DataFile.DATE_COLUMN)+"1"] = "요일"
@@ -1173,24 +1186,28 @@ def make_data_form(gui:GUI):
     gui.q.put("데일리테스트 기록 양식 생성 중...")
 
     ini_wb = xl.Workbook()
-    ini_ws = ini_wb.active
+    ini_ws = ini_wb[ini_wb.sheetnames[0]]
     ini_ws.title = "데일리테스트 기록 양식"
     ini_ws[gcl(DataForm.DATE_COLUMN)+"1"] = "요일"
     ini_ws[gcl(DataForm.TEST_TIME_COLUMN)+"1"] = "시간"
     ini_ws[gcl(DataForm.CLASS_NAME_COLUMN)+"1"] = "반"
     ini_ws[gcl(DataForm.STUDENT_NAME_COLUMN)+"1"] = "이름"
     ini_ws[gcl(DataForm.TEACHER_COLUMN)+"1"] = "담당T"
-    ini_ws[gcl(DataForm.DAILYTEST_TEST_NAME_COLUMN)+"1"] = "시험명"
+    ini_ws[gcl(DataForm.DAILYTEST_NAME_COLUMN)+"1"] = "시험명"
     ini_ws[gcl(DataForm.DAILYTEST_SCORE_COLUMN)+"1"] = "점수"
     ini_ws[gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+"1"] = "평균"
-    ini_ws[gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+"1"] = "시험대비 모의고사명"
+    ini_ws[gcl(DataForm.MOCKTEST_NAME_COLUMN)+"1"] = "모의고사 시험명"
     ini_ws[gcl(DataForm.MOCKTEST_SCORE_COLUMN)+"1"] = "모의고사 점수"
     ini_ws[gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+"1"] = "모의고사 평균"
-    ini_ws[gcl(DataForm.MAKEUP_TEST_CHECK_COLUMN)+"1"] = "재시문자 X"
+    ini_ws[gcl(DataForm.MAKEUP_TEST_CHECK_COLUMN)+"1"] = "재시험 응시 여부"
     ini_ws["Y1"] = "X"
     ini_ws["Z1"] = "x"
     ini_ws.column_dimensions.group("Y", "Z", hidden=True)
     ini_ws.auto_filter.ref = "A:"+gcl(DataForm.TEST_TIME_COLUMN)
+    
+    for col in range(1, DataForm.MAX+1):
+        ini_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(1, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
     
     class_wb = xl.load_workbook("./반 정보.xlsx")
     try:
@@ -1205,10 +1222,8 @@ def make_data_form(gui:GUI):
     driver = webdriver.Chrome(service = service, options = options)
 
     # 아이소식 접속
-    gui.q.put("아이소식 접속 중")
     driver.get(config["url"])
     table_names = driver.find_elements(By.CLASS_NAME, "style1")
-
 
     #반 루프
     for i in range(3, len(table_names)):
@@ -1251,27 +1266,30 @@ def make_data_form(gui:GUI):
         ini_ws.cell(start, DataForm.MOCKTEST_AVERAGE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataForm.MOCKTEST_SCORE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_SCORE_COLUMN)+str(end)}), 0)"
         
         # 정렬 및 테두리
-        for j in range(1, ini_ws.max_row + 1):
-            for k in range(1, DataForm.MAX+1):
-                ini_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
-                ini_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        for row in range(start, end + 1):
+            for col in range(1, DataForm.MAX+1):
+                ini_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+                ini_ws.cell(row, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
         
         # 셀 병합
         if start < end:
             ini_ws.merge_cells(f"{gcl(DataForm.CLASS_NAME_COLUMN)+str(start)}:{gcl(DataForm.CLASS_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.TEACHER_COLUMN)+str(start)}:{gcl(DataForm.TEACHER_COLUMN)+str(end)}")
-            ini_ws.merge_cells(f"{gcl(DataForm.DAILYTEST_TEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_TEST_NAME_COLUMN)+str(end)}")
+            ini_ws.merge_cells(f"{gcl(DataForm.DAILYTEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+str(end)}")
-            ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_TEST_NAME_COLUMN)+str(end)}")
+            ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
         
     ini_ws.protection.sheet = True
     ini_ws.protection.autoFilter = False
     ini_ws.protection.formatColumns = False
     for row in range(2, ini_ws.max_row + 1):
-        ini_ws.cell(row, DataForm.DAILYTEST_TEST_NAME_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.CLASS_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).protection = Protection(locked=False)
         ini_ws.cell(row, DataForm.DAILYTEST_SCORE_COLUMN).protection = Protection(locked=False)
-        ini_ws.cell(row, DataForm.MOCKTEST_TEST_NAME_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).protection = Protection(locked=False)
         ini_ws.cell(row, DataForm.MOCKTEST_SCORE_COLUMN).protection = Protection(locked=False)
         ini_ws.cell(row, DataForm.MAKEUP_TEST_CHECK_COLUMN).protection = Protection(locked=False)
 
@@ -1310,7 +1328,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put("재시험 명단 파일 생성 중...")
 
         ini_wb = xl.Workbook()
-        ini_ws = ini_wb.active
+        ini_ws = ini_wb[ini_wb.sheetnames[0]]
         ini_ws.title = "재시험 명단"
         ini_ws[gcl(MakeupTestList.TEST_DATE_COLUMN)+"1"] = "응시일"
         ini_ws[gcl(MakeupTestList.CLASS_NAME_COLUMN)+"1"] = "반"
@@ -1348,7 +1366,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     data_file_wb.save(f"./data/backup/{config['dataFileName']}({datetime.today().strftime('%Y%m%d')}).xlsx")
     
-    # gui.q.put("데이터 저장 중...")
+    gui.q.put("데이터 저장 중...")
 
     # 재시험 명단 작성 시작 위치
     for i in range(2, makeup_list_ws.max_row + 2):
@@ -1359,10 +1377,10 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     for sheet_name in data_file_wb.sheetnames:
         data_file_ws = data_file_wb[sheet_name]
         if sheet_name == "데일리테스트":
-            TEST_NAME_COLUMN = DataForm.DAILYTEST_TEST_NAME_COLUMN
+            TEST_NAME_COLUMN = DataForm.DAILYTEST_NAME_COLUMN
             SCORE_COLUMN = DataForm.DAILYTEST_SCORE_COLUMN
         elif sheet_name == "모의고사":
-            TEST_NAME_COLUMN = DataForm.MOCKTEST_TEST_NAME_COLUMN
+            TEST_NAME_COLUMN = DataForm.MOCKTEST_NAME_COLUMN
             SCORE_COLUMN = DataForm.MOCKTEST_SCORE_COLUMN
         else:
             # error
@@ -1433,7 +1451,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 data_file_ws.cell(CLASS_START, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
 
                 data_file_ws.cell(CLASS_START + 1, WRITE_COLUMN).value = test_name
-                data_file_ws.cell(CLASS_START + 1, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                data_file_ws.cell(CLASS_START + 1, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
 
                 data_file_ws.cell(CLASS_END, WRITE_COLUMN).value = AVERAGE_FORMULA
                 data_file_ws.cell(CLASS_END, WRITE_COLUMN).font = Font(bold=True)
@@ -1542,7 +1560,6 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             makeup_list_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             makeup_list_ws.cell(row, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-
     data_file_ws = data_file_wb["데일리테스트"]
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
     makeup_list_wb.save("./data/재시험 명단.xlsx")
@@ -1643,8 +1660,8 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         mock_test_score = form_ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value
         if form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None:
             class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-            daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
-            mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
+            daily_test_name = form_ws.cell(i, DataForm.DAILYTEST_NAME_COLUMN).value
+            mock_test_name = form_ws.cell(i, DataForm.MOCKTEST_NAME_COLUMN).value
             daily_test_average = form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value
             mock_test_average = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
 
@@ -1680,11 +1697,11 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                 tds[2].find_element(By.TAG_NAME, "input").send_keys(average)
                 break
         
-        if (type(score) == int) and (score < 80) and (form_ws.cell(i, 12).value != "x") and (form_ws.cell(i, 12).value != "X"):
+        if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
             for j in range(2, student_ws.max_row+1):
-                if student_ws.cell(j, 1).value == name:
-                    date = student_ws.cell(j, 4).value
-                    time = student_ws.cell(j, 5).value
+                if student_ws.cell(j, StudentInfo.STUDENT_NAME_COLUMN).value == name:
+                    date = student_ws.cell(j, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
+                    time = student_ws.cell(j, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
                     break
             if date is None:
                 driver.switch_to.window(driver.window_handles[1])
@@ -1693,6 +1710,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                     if tr.find_element(By.CLASS_NAME, "style9").text == name:
                         tds = tr.find_elements(By.TAG_NAME, "td")
                         tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
+                        break
             else:
                 date_list = date.split("/")
                 result = makeup_test_date[date_list[0].replace(" ", "")]
@@ -1713,6 +1731,8 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                                     tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[time_index] + "시")
                                 else:
                                     tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
+                            else:
+                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일"))
                         except:
                             gui.q.put(name + "의 재시험 일정을 요일별 시간으로 설정하거나")
                             gui.q.put("하나의 시간으로 통일해 주세요.")
@@ -1720,6 +1740,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                             driver.quit()
                             gui.thread_end_flag = True
                             return
+                        break
 
     gui.q.put("메시지 입력을 완료했습니다.")
     gui.q.put("메시지 확인 후 전송해주세요.")
@@ -2013,8 +2034,8 @@ def data_validation(gui:GUI, form_ws:Worksheet) -> bool:
             class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
             dailytest_checked = False
             mocktest_checked = False
-            dailytest_name = form_ws.cell(i, DataForm.DAILYTEST_TEST_NAME_COLUMN).value
-            mocktest_name = form_ws.cell(i, DataForm.MOCKTEST_TEST_NAME_COLUMN).value
+            dailytest_name = form_ws.cell(i, DataForm.DAILYTEST_NAME_COLUMN).value
+            mocktest_name = form_ws.cell(i, DataForm.MOCKTEST_NAME_COLUMN).value
         
         if dailytest_checked and mocktest_checked: continue
         
@@ -2100,8 +2121,236 @@ def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str
                     return True
     return False
 
-def individual_record(gui:GUI, row:int, col:int, score:int):
+def individual_record(gui:GUI, student:str, class_name:int, test_name:int, row:int, col:int, score:int, makeup_test_date:dict):
+    gui.q.put("데이터 저장 중...")
+    test_name = test_name[9:]
     
+    # 학생 정보 열기
+    student_wb = xl.load_workbook("./학생 정보.xlsx")
+    try:
+        student_ws = student_wb["학생 정보"]
+    except:
+        gui.q.put(r"'학생 정보.xlsx'의 시트명을")
+        gui.q.put(r"'학생 정보'로 변경해 주세요.")
+        return
+    
+    for r in range(2, student_ws.max_row+1):
+        if student_ws.cell(r, StudentInfo.STUDENT_NAME_COLUMN).value == student:
+            dates = student_ws.cell(r, StudentInfo.MAKEUP_TEST_WEEK_DATE_COLUMN).value
+            time = student_ws.cell(r, StudentInfo.MAKEUP_TEST_TIME_COLUMN).value
+            new_student = student_ws.cell(r, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+            break
+    else:
+        dates = None
+        time = None
+        new_student = None
+
+    if dates is not None:
+        date_list = dates.split("/")
+        result = makeup_test_date[date_list[0].replace(" ", "")]
+        time_index = 0
+        for i in range(len(date_list)):
+            if result > makeup_test_date[date_list[i].replace(" ", "")]:
+                result = makeup_test_date[date_list[i].replace(" ", "")]
+                time_index = i
+    
+    # 데이터 저장
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_wb.save(f"./data/backup/{config['dataFileName']}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    data_file_ws = data_file_wb["데일리테스트"]
+
+    data_file_ws.cell(row, col).value = score
+    data_file_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+    if score < 60:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+    elif score < 70:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+    elif score < 80:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+
+    pythoncom.CoInitialize()
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = False
+
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    wb.Save()
+    wb.Close()
+
+    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_color_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
+
+    data_file_ws = data_file_wb["데일리테스트"]
+    data_file_color_ws = data_file_color_wb["데일리테스트"]
+
+    for c in range(1, data_file_ws.max_column):
+        if data_file_ws.cell(1, c).value == "이름":
+            STUDENT_NAME_COLUMN = c
+            break
+    
+    while data_file_color_ws.cell(row, STUDENT_NAME_COLUMN).value != "시험 평균":
+        row += 1
+
+    score_avg = data_file_color_ws.cell(row, col).value
+    if score_avg < 60:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+    elif score_avg < 70:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+    elif score_avg < 80:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+    else:
+        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+    
+    data_file_ws = data_file_wb["데일리테스트"]
+    data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
+
+    gui.q.put("데이터 저장을 완료했습니다.")
+    excel.Visible = True
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    pythoncom.CoUninitialize()
+    
+    # 재시험 명단 작성
+    if score < 80:
+        if not os.path.isfile("./data/재시험 명단.xlsx"):
+            gui.q.put("재시험 명단 파일 생성 중...")
+
+            ini_wb = xl.Workbook()
+            ini_ws = ini_wb[ini_wb.sheetnames[0]]
+            ini_ws.title = "재시험 명단"
+            ini_ws[gcl(MakeupTestList.TEST_DATE_COLUMN)+"1"] = "응시일"
+            ini_ws[gcl(MakeupTestList.CLASS_NAME_COLUMN)+"1"] = "반"
+            ini_ws[gcl(MakeupTestList.TEACHER_COLUMN)+"1"] = "담당T"
+            ini_ws[gcl(MakeupTestList.STUDENT_NAME_COLUMN)+"1"] = "이름"
+            ini_ws[gcl(MakeupTestList.TEST_NAME_COLUMN)+"1"] = "시험명"
+            ini_ws[gcl(MakeupTestList.TEST_SCORE_COLUMN)+"1"] = "시험 점수"
+            ini_ws[gcl(MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN)+"1"] = "재시 요일"
+            ini_ws[gcl(MakeupTestList.MAKEUP_TEST_TIME_COLUMN)+"1"] = "재시 시간"
+            ini_ws[gcl(MakeupTestList.MAKEUP_TEST_DATE_COLUMN)+"1"] = "재시 날짜"
+            ini_ws[gcl(MakeupTestList.MAKEUP_TEST_SCORE_COLUMN)+"1"] = "재시 점수"
+            ini_ws[gcl(MakeupTestList.ETC_COLUMN)+"1"] = "비고"
+            ini_ws.auto_filter.ref = "A:"+gcl(MakeupTestList.MAX)
+            ini_wb.save("./data/재시험 명단.xlsx")
+        makeup_list_wb = xl.load_workbook("./data/재시험 명단.xlsx")
+        try:
+            makeup_list_ws = makeup_list_wb["재시험 명단"]
+        except:
+            gui.q.put(r"'재시험 명단.xlsx'의 시트명을")
+            gui.q.put(r"'재시험 명단'으로 변경해 주세요.")
+            return
+        
+        class_wb = xl.load_workbook("./반 정보.xlsx")
+        try:
+            class_ws = class_wb["반 정보"]
+        except:
+            gui.q.put(r"'반 정보.xlsx'의 시트명을")
+            gui.q.put(r"'반 정보'로 변경해 주세요.")
+            return
+        
+        for r in range(2, class_ws.max_row + 1):
+            if class_ws.cell(r, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
+                teacher = class_ws.cell(r, ClassInfo.TEACHER_COLUMN).value
+                break
+        else: teacher = ""
+        
+        MAKEUP_TEST_WRITE_ROW = makeup_list_ws.max_row+1
+        while makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value is None:
+            MAKEUP_TEST_WRITE_ROW -= 1
+        MAKEUP_TEST_WRITE_ROW += 1
+
+        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = DATE.today()
+        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
+        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_COLUMN).value = teacher
+        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student
+        if (new_student is not None) and (new_student == "N"):
+            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
+        makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value = score
+        if dates is not None:
+            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_WEEK_DATE_COLUMN).value = dates
+            if time is not None:
+                makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_TIME_COLUMN).value = time
+            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).value = result
+            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUP_TEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
+        for c in range(1, makeup_list_ws.max_column + 1):
+            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, c).alignment = Alignment(horizontal="center", vertical="center")
+            makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, c).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        makeup_list_wb.save("./data/재시험 명단.xlsx")
+        gui.q.put("재시험 명단 작성을 완료하였습니다.")
+
+    # 개별 메시지 전송
+    gui.q.put("메시지 작성 중...")
+    options = webdriver.ChromeOptions()
+    options.add_experimental_option("detach", True)
+    driver = webdriver.Chrome(service=service, options=options)
+    
+    # 아이소식 접속
+    driver.get(config["url"])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["dailyTest"])
+    
+    driver.execute_script("window.open(\"" + config["url"] + "\");")
+    driver.switch_to.window(driver.window_handles[1])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTest"])
+
+    driver.execute_script("window.open(\"" + config["url"] + "\");")
+    driver.switch_to.window(driver.window_handles[2])
+    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(config["makeupTestDate"])
+
+    driver.switch_to.window(driver.window_handles[0])
+    table_names = driver.find_elements(By.CLASS_NAME, "style1")
+    for j in range(len(table_names)):
+        if class_name in table_names[j].text:
+            index = j
+            break
+    else:
+        # error
+        return
+    
+    trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
+    for tr in trs:
+        if tr.find_element(By.CLASS_NAME, "style9").text == student:
+            tds = tr.find_elements(By.TAG_NAME, "td")
+            tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
+            tds[1].find_element(By.TAG_NAME, "input").send_keys(score)
+            tds[2].find_element(By.TAG_NAME, "input").send_keys(score_avg)
+            break
+    
+    # 개별 재시험 메시지 전송
+    if score < 80:
+        if dates is None:
+            driver.switch_to.window(driver.window_handles[1])
+            trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
+            for tr in trs:
+                if tr.find_element(By.CLASS_NAME, "style9").text == student:
+                    tds = tr.find_elements(By.TAG_NAME, "td")
+                    tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
+                    break
+        else:
+            driver.switch_to.window(driver.window_handles[2])
+            trs = driver.find_element(By.ID, "table_" + str(index)).find_elements(By.CLASS_NAME, "style12")
+            for tr in trs:
+                if tr.find_element(By.CLASS_NAME, "style9").text == student:
+                    tds = tr.find_elements(By.TAG_NAME, "td")
+                    tds[0].find_element(By.TAG_NAME, "input").send_keys(test_name)
+                    try:
+                        if time is not None:
+                            if "/" in str(time):
+                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[time_index] + "시")
+                            else:
+                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
+                        else:
+                            tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일"))
+                    except:
+                        gui.q.put(student + "의 재시험 일정을 요일별 시간으로 설정하거나")
+                        gui.q.put("하나의 시간으로 통일해 주세요.")
+                        gui.q.put("중단되었습니다.")
+                        driver.quit()
+                        gui.thread_end_flag = True
+                        return
+                    break
+
+    gui.q.put("메시지 입력을 완료했습니다.")
+    gui.q.put("메시지 확인 후 전송해주세요.")
     gui.thread_end_flag = True
 
 ui = tk.Tk()
