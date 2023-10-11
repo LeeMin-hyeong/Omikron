@@ -1379,9 +1379,11 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         if sheet_name == "데일리테스트":
             TEST_NAME_COLUMN = DataForm.DAILYTEST_NAME_COLUMN
             SCORE_COLUMN = DataForm.DAILYTEST_SCORE_COLUMN
+            AVERAGE_COLUMN = DataForm.DAILYTEST_AVERAGE_COLUMN
         elif sheet_name == "모의고사":
             TEST_NAME_COLUMN = DataForm.MOCKTEST_NAME_COLUMN
             SCORE_COLUMN = DataForm.MOCKTEST_SCORE_COLUMN
+            AVERAGE_COLUMN = DataForm.MOCKTEST_AVERAGE_COLUMN
         else:
             # error
             return
@@ -1419,7 +1421,8 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 class_name = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
                 test_name = form_ws.cell(i, TEST_NAME_COLUMN).value
                 teacher = form_ws.cell(i, DataForm.TEACHER_COLUMN).value
-
+                score_avg = form_ws.cell(i, AVERAGE_COLUMN).value
+                
                 #반 시작 찾기
                 for row in range(2, data_file_ws.max_row+1):
                     if data_file_ws.cell(row, CLASS_NAME_COLUMN).value == class_name:
@@ -1458,16 +1461,19 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 data_file_ws.cell(CLASS_END, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
                 data_file_ws.cell(CLASS_END, WRITE_COLUMN).border = Border(bottom=Side(border_style="medium", color="000000"))
                 
-                # 평균 계산 초기화
-                score_sum = score_cnt = 0
+                if type(score_avg) == int:
+                    if score_avg < 60:
+                        data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+                    elif score_avg < 70:
+                        data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+                    elif score_avg < 80:
+                        data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+                    else:
+                        data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
             
             score = form_ws.cell(i, SCORE_COLUMN).value
             if score is None:
                 continue # 점수 없으면 미응시 처리
-            
-            if type(score) == int:
-                score_sum += score
-                score_cnt += 1
 
             # 학생 찾기
             for row in range(CLASS_START + 2, CLASS_END):
@@ -1485,18 +1491,6 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             else:
                 gui.q.put(f"{class_name} 반에 {form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value} 학생이 존재하지 않습니다.")
             
-            # 평균 자체 계산
-            if form_ws.cell(i+1, DataForm.CLASS_NAME_COLUMN).value is not None:
-                score_avg = score_sum/score_cnt
-                if score_avg < 60:
-                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
-                elif score_avg < 70:
-                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
-                elif score_avg < 80:
-                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
-                else:
-                    data_file_ws.cell(CLASS_END, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
-
             # 재시험 작성
             if (type(score) == int) and (score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
                 check = makeup_list_ws.max_row
@@ -1728,17 +1722,17 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                         try:
                             if time is not None:
                                 if "/" in str(time):
-                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[time_index] + "시")
+                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일".encode('unicode-escape').decode()).encode().decode('unicode-escape') + " " + str(time).split("/")[time_index] + "시")
                                 else:
-                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
+                                    tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일".encode('unicode-escape').decode()).encode().decode('unicode-escape') + " " + str(time)+ "시")
                             else:
-                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일"))
+                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일".encode('unicode-escape').decode()).encode().decode('unicode-escape'))
                         except:
                             gui.q.put(name + "의 재시험 일정을 요일별 시간으로 설정하거나")
                             gui.q.put("하나의 시간으로 통일해 주세요.")
                             gui.q.put("중단되었습니다.")
                             driver.quit()
-                            gui.thread_end_flag = True
+                            gui.thread_end_flag = True    
                             return
                         break
 
@@ -2335,11 +2329,11 @@ def individual_record(gui:GUI, student:str, class_name:int, test_name:int, row:i
                     try:
                         if time is not None:
                             if "/" in str(time):
-                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time).split("/")[time_index] + "시")
+                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일".encode('unicode-escape').decode()).encode().decode('unicode-escape') + " " + str(time).split("/")[time_index] + "시")
                             else:
-                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일") + " " + str(time)+ "시")
+                                tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일".encode('unicode-escape').decode()).encode().decode('unicode-escape') + " " + str(time)+ "시")
                         else:
-                            tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일"))
+                            tds[1].find_element(By.TAG_NAME, "input").send_keys(result.strftime("%m월 %d일".encode('unicode-escape').decode()).encode().decode('unicode-escape'))
                     except:
                         gui.q.put(student + "의 재시험 일정을 요일별 시간으로 설정하거나")
                         gui.q.put("하나의 시간으로 통일해 주세요.")
