@@ -97,9 +97,6 @@ class GUI():
         self.individual_record_button = tk.Button(self.ui, cursor="hand2", text="개별 시험 기록", width=40, command=lambda: self.individual_record_thread())
         self.individual_record_button.pack()
 
-        self.makeup_test_rcord_button = tk.Button(self.ui, cursor="hand2", text="재시험 기록", width=40, command=lambda: self.makeup_test_record_thread())
-        self.makeup_test_rcord_button.pack()
-
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
         self.apply_color_button = tk.Button(self.ui, cursor="hand2", text="데이터 엑셀 파일 조건부 서식 재지정", width=40, command=lambda: apply_color(self))
