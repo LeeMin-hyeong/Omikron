@@ -97,6 +97,9 @@ class GUI():
         self.individual_record_button = tk.Button(self.ui, cursor="hand2", text="개별 시험 기록", width=40, command=lambda: self.individual_record_thread())
         self.individual_record_button.pack()
 
+        self.makeup_test_rcord_button = tk.Button(self.ui, cursor="hand2", text="재시험 기록", width=40, command=lambda: self.makeup_test_record_thread())
+        self.makeup_test_rcord_button.pack()
+
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
         self.apply_color_button = tk.Button(self.ui, cursor="hand2", text="데이터 엑셀 파일 조건부 서식 재지정", width=40, command=lambda: apply_color(self))
@@ -130,9 +133,9 @@ class GUI():
             self.make_class_info_file_button["state"] = tk.DISABLED
             check1 = True
         else:
-            self.make_class_info_file_button["state"] = tk.NORMAL
+            self.make_class_info_file_button["state"]   = tk.NORMAL
             self.make_student_info_file_button["state"] = tk.DISABLED
-            self.make_data_file_button["state"] = tk.DISABLED
+            self.make_data_file_button["state"]         = tk.DISABLED
         if os.path.isfile("학생 정보.xlsx"):
             self.make_student_info_file_button["state"] = tk.DISABLED
             check2 = True
@@ -145,25 +148,25 @@ class GUI():
             self.make_data_file_button["state"] = tk.NORMAL
         
         if check1 and check2 and check3:
-            self.update_class_button["state"] = tk.NORMAL
-            self.make_data_form_button["state"] = tk.NORMAL
-            self.save_data_button["state"] = tk.NORMAL
-            self.send_message_button["state"] = tk.NORMAL
+            self.update_class_button["state"]      = tk.NORMAL
+            self.make_data_form_button["state"]    = tk.NORMAL
+            self.save_data_button["state"]         = tk.NORMAL
+            self.send_message_button["state"]      = tk.NORMAL
             self.individual_record_button["state"] = tk.NORMAL
-            self.apply_color_button["state"] = tk.NORMAL
-            self.add_student_button["state"] = tk.NORMAL
-            self.delete_student_button["state"] = tk.NORMAL
-            self.move_student_button["state"] = tk.NORMAL
+            self.apply_color_button["state"]       = tk.NORMAL
+            self.add_student_button["state"]       = tk.NORMAL
+            self.delete_student_button["state"]    = tk.NORMAL
+            self.move_student_button["state"]      = tk.NORMAL
         else:
-            self.update_class_button["state"] = tk.DISABLED
-            self.make_data_form_button["state"] = tk.DISABLED
-            self.save_data_button["state"] = tk.DISABLED
-            self.send_message_button["state"] = tk.DISABLED
+            self.update_class_button["state"]      = tk.DISABLED
+            self.make_data_form_button["state"]    = tk.DISABLED
+            self.save_data_button["state"]         = tk.DISABLED
+            self.send_message_button["state"]      = tk.DISABLED
             self.individual_record_button["state"] = tk.DISABLED
-            self.apply_color_button["state"] = tk.DISABLED
-            self.add_student_button["state"] = tk.DISABLED
-            self.delete_student_button["state"] = tk.DISABLED
-            self.move_student_button["state"] = tk.DISABLED
+            self.apply_color_button["state"]       = tk.DISABLED
+            self.add_student_button["state"]       = tk.DISABLED
+            self.delete_student_button["state"]    = tk.DISABLED
+            self.move_student_button["state"]      = tk.DISABLED
         
         self.ui.after(100, self.check_files)
 
@@ -426,7 +429,7 @@ class GUI():
         
         target_class_name = target_class_var.get()
         target_student_name = target_student_var.get()
-        if target_class_name == "학생을 추가할 반 선택":
+        if target_class_name == "학생을 추가할 반 선택" or target_student_name == "":
             return None
         else:
             return target_student_name, target_class_name
@@ -472,8 +475,8 @@ class GUI():
                 AVERAGE_SCORE_COLUMN = i
                 break
 
-        class_dict1 = {}
-        class_dict2 = {}
+        class_dict1:dict[str, dict] = {}
+        class_dict2:dict[str, dict] = {}
         for i in range(2, class_ws.max_row + 1):
             student_dict = {}
             class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
@@ -488,6 +491,7 @@ class GUI():
             class_dict1[class_name] = student_dict
             class_dict2[class_name] = test_name_dict
 
+        class_dict1 = dict(sorted(class_dict1.items()))
         tk.Label(popup).pack()
         def class_call_back(event):
             class_name = event.widget.get()
@@ -518,9 +522,9 @@ class GUI():
         
         popup.mainloop()
         
-        target_class_name = target_class_var.get()
+        target_class_name   = target_class_var.get()
         target_student_name = target_studnet_var.get()
-        test_name = test_name_var.get()
+        test_name           = test_name_var.get()
         try:
             test_score = score_var.get()
         except:
@@ -1193,17 +1197,17 @@ def make_data_form(gui:GUI):
     ini_wb = xl.Workbook()
     ini_ws = ini_wb[ini_wb.sheetnames[0]]
     ini_ws.title = "데일리테스트 기록 양식"
-    ini_ws[gcl(DataForm.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
-    ini_ws[gcl(DataForm.TEST_TIME_COLUMN)+"1"] = "시간"
-    ini_ws[gcl(DataForm.CLASS_NAME_COLUMN)+"1"] = "반"
-    ini_ws[gcl(DataForm.STUDENT_NAME_COLUMN)+"1"] = "이름"
-    ini_ws[gcl(DataForm.TEACHER_NAME_COLUMN)+"1"] = "담당T"
-    ini_ws[gcl(DataForm.DAILYTEST_NAME_COLUMN)+"1"] = "시험명"
-    ini_ws[gcl(DataForm.DAILYTEST_SCORE_COLUMN)+"1"] = "점수"
+    ini_ws[gcl(DataForm.CLASS_WEEKDAY_COLUMN)+"1"]     = "요일"
+    ini_ws[gcl(DataForm.TEST_TIME_COLUMN)+"1"]         = "시간"
+    ini_ws[gcl(DataForm.CLASS_NAME_COLUMN)+"1"]        = "반"
+    ini_ws[gcl(DataForm.STUDENT_NAME_COLUMN)+"1"]      = "이름"
+    ini_ws[gcl(DataForm.TEACHER_NAME_COLUMN)+"1"]      = "담당T"
+    ini_ws[gcl(DataForm.DAILYTEST_NAME_COLUMN)+"1"]    = "시험명"
+    ini_ws[gcl(DataForm.DAILYTEST_SCORE_COLUMN)+"1"]   = "점수"
     ini_ws[gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+"1"] = "평균"
-    ini_ws[gcl(DataForm.MOCKTEST_NAME_COLUMN)+"1"] = "모의고사 시험명"
-    ini_ws[gcl(DataForm.MOCKTEST_SCORE_COLUMN)+"1"] = "모의고사 점수"
-    ini_ws[gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+"1"] = "모의고사 평균"
+    ini_ws[gcl(DataForm.MOCKTEST_NAME_COLUMN)+"1"]     = "모의고사 시험명"
+    ini_ws[gcl(DataForm.MOCKTEST_SCORE_COLUMN)+"1"]    = "모의고사 점수"
+    ini_ws[gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+"1"]  = "모의고사 평균"
     ini_ws[gcl(DataForm.MAKEUP_TEST_CHECK_COLUMN)+"1"] = "재시험 응시 여부"
     ini_ws["Y1"] = "X"
     ini_ws["Z1"] = "x"
@@ -1244,19 +1248,19 @@ def make_data_form(gui:GUI):
         for row in range(2, class_ws.max_row + 1):
             if class_ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
                 teacher_name = class_ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value
-                date = class_ws.cell(row, ClassInfo.CLASS_WEEKDAY_COLUMN).value
-                test_time = class_ws.cell(row, ClassInfo.TEST_TIME_COLUMN).value
+                date         = class_ws.cell(row, ClassInfo.CLASS_WEEKDAY_COLUMN).value
+                test_time    = class_ws.cell(row, ClassInfo.TEST_TIME_COLUMN).value
                 is_class_exist = True
         if not is_class_exist or len(trs) == 0:
             continue
-        ini_ws.cell(WRITE_LOCATION, DataForm.CLASS_NAME_COLUMN).value = class_name
+        ini_ws.cell(WRITE_LOCATION, DataForm.CLASS_NAME_COLUMN).value   = class_name
         ini_ws.cell(WRITE_LOCATION, DataForm.TEACHER_NAME_COLUMN).value = teacher_name
 
         #학생 루프
         for tr in trs:
             ini_ws.cell(WRITE_LOCATION, DataForm.CLASS_WEEKDAY_COLUMN).value = date
-            ini_ws.cell(WRITE_LOCATION, DataForm.TEST_TIME_COLUMN).value = test_time
-            ini_ws.cell(WRITE_LOCATION, DataForm.STUDENT_NAME_COLUMN).value = tr.find_element(By.CLASS_NAME, "style9").text
+            ini_ws.cell(WRITE_LOCATION, DataForm.TEST_TIME_COLUMN).value     = test_time
+            ini_ws.cell(WRITE_LOCATION, DataForm.STUDENT_NAME_COLUMN).value  = tr.find_element(By.CLASS_NAME, "style9").text
             dv = DataValidation(type="list", formula1="=Y1:Z1", showDropDown=True, allow_blank=True, showErrorMessage=True)
             dv.error = "이 셀의 값은 'x' 또는 'X'이어야 합니다."
             ini_ws.add_data_validation(dv)
@@ -1285,17 +1289,17 @@ def make_data_form(gui:GUI):
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_NAME_COLUMN)+str(end)}")
             ini_ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
         
-    ini_ws.protection.sheet = True
-    ini_ws.protection.autoFilter = False
+    ini_ws.protection.sheet         = True
+    ini_ws.protection.autoFilter    = False
     ini_ws.protection.formatColumns = False
     for row in range(2, ini_ws.max_row + 1):
-        ini_ws.cell(row, DataForm.CLASS_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ini_ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ini_ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ini_ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).protection = Protection(locked=False)
-        ini_ws.cell(row, DataForm.DAILYTEST_SCORE_COLUMN).protection = Protection(locked=False)
-        ini_ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).protection = Protection(locked=False)
-        ini_ws.cell(row, DataForm.MOCKTEST_SCORE_COLUMN).protection = Protection(locked=False)
+        ini_ws.cell(row, DataForm.CLASS_NAME_COLUMN).alignment         = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).alignment     = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).alignment      = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ini_ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).protection    = Protection(locked=False)
+        ini_ws.cell(row, DataForm.DAILYTEST_SCORE_COLUMN).protection   = Protection(locked=False)
+        ini_ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).protection     = Protection(locked=False)
+        ini_ws.cell(row, DataForm.MOCKTEST_SCORE_COLUMN).protection    = Protection(locked=False)
         ini_ws.cell(row, DataForm.MAKEUP_TEST_CHECK_COLUMN).protection = Protection(locked=False)
 
     if os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx"):
@@ -1538,13 +1542,13 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 if makeup_test_weekday is not None:
                     makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
                     date_list = makeup_test_weekday.split("/")
-                    result = makeup_test_date[date_list[0].replace(" ", "")]
+                    result    = makeup_test_date[date_list[0].replace(" ", "")]
                     for d in date_list:
                         if result > makeup_test_date[d.replace(" ", "")]:
                             result = makeup_test_date[d.replace(" ", "")]
                     if makeup_test_time is not None:
                         makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
-                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value = result
+                    makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value         = result
                     makeup_list_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
                 MAKEUP_TEST_WRITE_ROW += 1
 
@@ -1564,11 +1568,11 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     wb.Save()
     wb.Close()
 
-    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_wb       = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     data_file_color_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
 
     for sheet_name in data_file_wb.sheetnames:
-        data_file_ws = data_file_wb[sheet_name]
+        data_file_ws       = data_file_wb[sheet_name]
         data_file_color_ws = data_file_color_wb[sheet_name]
 
         for col in range(1, data_file_ws.max_column):
@@ -1581,9 +1585,9 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 break
         for row in range(2, data_file_color_ws.max_row+1):
             # 학생 별 평균 점수에 대한 조건부 서식
-            student_average = data_file_color_ws.cell(row, AVERAGE_SCORE_COLUMN).value
+            student_average      = data_file_color_ws.cell(row, AVERAGE_SCORE_COLUMN).value
             student_average_cell = data_file_ws.cell(row, AVERAGE_SCORE_COLUMN)
-            student_name_cell = data_file_ws.cell(row, STUDENT_NAME_COLUMN)
+            student_name_cell    = data_file_ws.cell(row, STUDENT_NAME_COLUMN)
             if type(student_average) == int:
                 if student_average < 60:
                     student_average_cell.fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
@@ -1728,9 +1732,9 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
                 driver.execute_script(f"arguments[0].value = '{test_name}'", tds[0].find_element(By.TAG_NAME, "input"))
                 tds[1].find_element(By.TAG_NAME, "input").send_keys(' \b')
             else:
-                weekday_list = makeup_test_weekday.split("/")
+                weekday_list    = makeup_test_weekday.split("/")
                 calculated_date = makeup_test_date[weekday_list[0].replace(" ", "")]
-                time_index = 0
+                time_index      = 0
                 for tmp_idx in range(len(weekday_list)):
                     if calculated_date > makeup_test_date[weekday_list[tmp_idx].replace(" ", "")]:
                         calculated_date = makeup_test_date[weekday_list[tmp_idx].replace(" ", "")]
@@ -1782,11 +1786,11 @@ def apply_color(gui:GUI):
 
     gui.q.put("조건부 서식 적용중...")
 
-    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_wb       = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     data_file_color_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
     
     for sheet_name in data_file_wb.sheetnames:
-        data_file_ws = data_file_wb[sheet_name]
+        data_file_ws       = data_file_wb[sheet_name]
         data_file_color_ws = data_file_color_wb[sheet_name]
 
         for col in range(1, data_file_ws.max_column):
@@ -2148,11 +2152,11 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
         return
     
     # 학생 정보 찾기
-    for row in range(2, student_ws.max_row+1):
-        if student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == student_name:
-            makeup_test_weekday = student_ws.cell(row, StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN).value
-            makeup_test_time    = student_ws.cell(row, StudentInfo.MAKEUPTEST_TIME_COLUMN).value
-            new_student         = student_ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+    for r in range(2, student_ws.max_row+1):
+        if student_ws.cell(r, StudentInfo.STUDENT_NAME_COLUMN).value == student_name:
+            makeup_test_weekday = student_ws.cell(r, StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN).value
+            makeup_test_time    = student_ws.cell(r, StudentInfo.MAKEUPTEST_TIME_COLUMN).value
+            new_student         = student_ws.cell(r, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
             break
     else:
         makeup_test_weekday = None
@@ -2193,10 +2197,10 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
     wb.Save()
     wb.Close()
 
-    data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+    data_file_wb       = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
     data_file_color_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx", data_only=True)
 
-    data_file_ws = data_file_wb["데일리테스트"]
+    data_file_ws       = data_file_wb["데일리테스트"]
     data_file_color_ws = data_file_color_wb["데일리테스트"]
 
     for c in range(1, data_file_ws.max_column):
@@ -2208,14 +2212,15 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
         row += 1
 
     test_average = data_file_color_ws.cell(row, col).value
-    if test_average < 60:
-        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
-    elif test_average < 70:
-        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
-    elif test_average < 80:
-        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
-    else:
-        data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+    if type(test_average) == int:
+        if test_average < 60:
+            data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+        elif test_average < 70:
+            data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+        elif test_average < 80:
+            data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+        else:
+            data_file_ws.cell(row, col).fill = PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
     
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
@@ -2302,16 +2307,6 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
     driver.execute_script(f"arguments[0].value = '{config['dailyTest']}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
 
-    driver.execute_script(f"window.open('{config['url']}')")
-    driver.switch_to.window(driver.window_handles[1])
-    driver.execute_script(f"arguments[0].value = '{config['makeupTest']}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
-    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
-
-    driver.execute_script(f"window.open('{config['url']}')")
-    driver.switch_to.window(driver.window_handles[2])
-    driver.execute_script(f"arguments[0].value = '{config['makeupTestDate']}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
-    driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
-
     driver.switch_to.window(driver.window_handles[0])
     tables = driver.find_elements(By.CLASS_NAME, "style1")
     table_names = [table.text for table in tables]
@@ -2335,13 +2330,19 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
     # 재시험 메시지 작성
     if test_score < 80:
         if makeup_test_weekday is None:
+            driver.execute_script(f"window.open('{config['url']}')")
             driver.switch_to.window(driver.window_handles[1])
+            driver.execute_script(f"arguments[0].value = '{config['makeupTest']}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
+            driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
             trs = driver.find_element(By.ID, "table_" + str(class_index)).find_elements(By.CLASS_NAME, "style12")
             tds = trs[student_index].find_elements(By.TAG_NAME, "td")
             driver.execute_script(f"arguments[0].value = '{test_name}'", tds[0].find_element(By.TAG_NAME, "input"))
             tds[1].find_element(By.TAG_NAME, "input").send_keys(' \b')
         else:
-            driver.switch_to.window(driver.window_handles[2])
+            driver.execute_script(f"window.open('{config['url']}')")
+            driver.switch_to.window(driver.window_handles[1])
+            driver.execute_script(f"arguments[0].value = '{config['makeupTestDate']}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
+            driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
             trs = driver.find_element(By.ID, "table_" + str(class_index)).find_elements(By.CLASS_NAME, "style12")
             tds = trs[student_index].find_elements(By.TAG_NAME, "td")
             driver.execute_script(f"arguments[0].value = '{test_name}'", tds[0].find_element(By.TAG_NAME, "input"))
