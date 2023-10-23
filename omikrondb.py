@@ -551,7 +551,7 @@ class GUI():
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
         popup.geometry(f"{width}x{height}+{x}+{y}")
-        popup.title("학생 반 이동")
+        popup.title("재시험 기록")
         popup.resizable(False, False)
         popup.protocol("WM_DELETE_WINDOW", quitEvent)
 
@@ -594,6 +594,8 @@ class GUI():
                                             not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike and\
                                                 data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb != "FFFF0000"]
             class_dict[class_name] = student_list
+        class_dict = dict(sorted(class_dict.items()))
+
         student_dict:dict[str, dict[str, int]] = {}
         for i in range(2, makeup_list_ws.max_row+1):
             if makeup_list_ws.cell(i, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value is None:
@@ -610,6 +612,8 @@ class GUI():
             class_name = event.widget.get()
             student_combo.set("학생 선택")
             student_combo["values"] = list(class_dict[class_name])
+            makeup_test_list_combo.set("재시험 선택")
+            makeup_test_list_combo["values"] = None
         target_class_var = tk.StringVar()
         target_class_combo = ttk.Combobox(popup, values=list(class_dict.keys()), state="readonly", textvariable=target_class_var, width=100)
         target_class_combo.set("반 선택")
@@ -624,7 +628,6 @@ class GUI():
             except:
                 makeup_test_list_combo.set("재시험이 없습니다")
                 makeup_test_list_combo["values"] = None
-
         target_studnet_var = tk.StringVar()
         student_combo = ttk.Combobox(popup, values=None, state="readonly", textvariable=target_studnet_var, width=100)
         student_combo.set("학생 선택")
@@ -785,13 +788,13 @@ class GUI():
             self.q.put(r"'재시험 명단'으로 변경해 주세요.")
             return
         makeup_list_ws.cell(row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value = makeup_test_score
-        makeup_list_ws.sheet_view.topLeftCell = f"A{str(max(1, row-10))}"
-        makeup_list_ws.sheet_view.selection[0].sqref = f"{gcl(MakeupTestList.MAKEUPTEST_SCORE_COLUMN)}{str(row)}"
+        # makeup_list_ws.sheet_view.topLeftCell = f"A{str(max(1, row-10))}"
+        # makeup_list_ws.sheet_view.selection[0].sqref = f"{gcl(MakeupTestList.MAKEUPTEST_SCORE_COLUMN)}{str(row)}"
         makeup_list_wb.save("./data/재시험 명단.xlsx")
         self.q.put(f"{row} 행에 재시험 점수를 기록하였습니다.")
-        excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = True
-        excel.Workbooks.Open(f"{os.getcwd()}\\data\\재시험 명단.xlsx")
+        # excel = win32com.client.Dispatch("Excel.Application")
+        # excel.Visible = True
+        # excel.Workbooks.Open(f"{os.getcwd()}\\data\\재시험 명단.xlsx")
 
     def add_student_thread(self):
         if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
