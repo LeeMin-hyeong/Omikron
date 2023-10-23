@@ -92,13 +92,12 @@ class GUI():
 
         self.send_message_button = tk.Button(self.ui, cursor="hand2", text="시험 결과 전송", width=40, command=lambda: self.send_message_thread())
         self.send_message_button.pack()
-        self.send_message_button["state"] = tk.DISABLED
 
         self.individual_record_button = tk.Button(self.ui, cursor="hand2", text="개별 시험 기록", width=40, command=lambda: self.individual_record_thread())
         self.individual_record_button.pack()
 
-        self.makeup_test_rcord_button = tk.Button(self.ui, cursor="hand2", text="재시험 기록", width=40, command=lambda: self.makeup_test_record_thread())
-        self.makeup_test_rcord_button.pack()
+        self.makeup_test_record_button = tk.Button(self.ui, cursor="hand2", text="재시험 기록", width=40, command=lambda: self.makeup_test_record_thread())
+        self.makeup_test_record_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
@@ -148,25 +147,27 @@ class GUI():
             self.make_data_file_button["state"] = tk.NORMAL
         
         if check1 and check2 and check3:
-            self.update_class_button["state"]      = tk.NORMAL
-            self.make_data_form_button["state"]    = tk.NORMAL
-            self.save_data_button["state"]         = tk.NORMAL
-            self.send_message_button["state"]      = tk.NORMAL
-            self.individual_record_button["state"] = tk.NORMAL
-            self.apply_color_button["state"]       = tk.NORMAL
-            self.add_student_button["state"]       = tk.NORMAL
-            self.delete_student_button["state"]    = tk.NORMAL
-            self.move_student_button["state"]      = tk.NORMAL
+            self.update_class_button["state"]       = tk.NORMAL
+            self.make_data_form_button["state"]     = tk.NORMAL
+            self.save_data_button["state"]          = tk.NORMAL
+            self.send_message_button["state"]       = tk.NORMAL
+            self.individual_record_button["state"]  = tk.NORMAL
+            self.makeup_test_record_button["state"] = tk.NORMAL
+            self.apply_color_button["state"]        = tk.NORMAL
+            self.add_student_button["state"]        = tk.NORMAL
+            self.delete_student_button["state"]     = tk.NORMAL
+            self.move_student_button["state"]       = tk.NORMAL
         else:
-            self.update_class_button["state"]      = tk.DISABLED
-            self.make_data_form_button["state"]    = tk.DISABLED
-            self.save_data_button["state"]         = tk.DISABLED
-            self.send_message_button["state"]      = tk.DISABLED
-            self.individual_record_button["state"] = tk.DISABLED
-            self.apply_color_button["state"]       = tk.DISABLED
-            self.add_student_button["state"]       = tk.DISABLED
-            self.delete_student_button["state"]    = tk.DISABLED
-            self.move_student_button["state"]      = tk.DISABLED
+            self.update_class_button["state"]       = tk.DISABLED
+            self.make_data_form_button["state"]     = tk.DISABLED
+            self.save_data_button["state"]          = tk.DISABLED
+            self.send_message_button["state"]       = tk.DISABLED
+            self.individual_record_button["state"]  = tk.DISABLED
+            self.makeup_test_record_button["state"] = tk.DISABLED
+            self.apply_color_button["state"]        = tk.DISABLED
+            self.add_student_button["state"]        = tk.DISABLED
+            self.delete_student_button["state"]     = tk.DISABLED
+            self.move_student_button["state"]       = tk.DISABLED
         
         self.ui.after(100, self.check_files)
 
@@ -776,6 +777,7 @@ class GUI():
         if os.path.isfile("./data/~$재시험 명단.xlsx"):
             self.q.put(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
             return
+        self.makeup_test_record_button["state"] = tk.DISABLED
         ret = self.makeup_test_record_dialog()
         if ret is None:
             return
@@ -795,6 +797,7 @@ class GUI():
         # excel = win32com.client.Dispatch("Excel.Application")
         # excel.Visible = True
         # excel.Workbooks.Open(f"{os.getcwd()}\\data\\재시험 명단.xlsx")
+        self.makeup_test_record_button["state"] = tk.NORMAL
 
     def add_student_thread(self):
         if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
@@ -2263,7 +2266,7 @@ def rescoping_formula():
 
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
-def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str):
+def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str) -> bool:
     gui.q.put(r"아이소식으로부터 정보 받아오는 중...")
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
