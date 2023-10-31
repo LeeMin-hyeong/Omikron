@@ -46,7 +46,7 @@ class GUI():
         self.thread_end_flag = False
         self.ui = ui
         self.width = 320
-        self.height = 560 # button +25
+        self.height = 585 # button +25
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
         self.ui.geometry(f"{self.width}x{self.height}+{self.x}+{self.y}")
@@ -92,10 +92,12 @@ class GUI():
 
         self.send_message_button = tk.Button(self.ui, cursor="hand2", text="시험 결과 전송", width=40, command=lambda: self.send_message_thread())
         self.send_message_button.pack()
-        self.send_message_button["state"] = tk.DISABLED
 
         self.individual_record_button = tk.Button(self.ui, cursor="hand2", text="개별 시험 기록", width=40, command=lambda: self.individual_record_thread())
         self.individual_record_button.pack()
+
+        self.makeup_test_record_button = tk.Button(self.ui, cursor="hand2", text="재시험 기록", width=40, command=lambda: self.makeup_test_record_thread())
+        self.makeup_test_record_button.pack()
 
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
@@ -145,25 +147,27 @@ class GUI():
             self.make_data_file_button["state"] = tk.NORMAL
         
         if check1 and check2 and check3:
-            self.update_class_button["state"]      = tk.NORMAL
-            self.make_data_form_button["state"]    = tk.NORMAL
-            self.save_data_button["state"]         = tk.NORMAL
-            self.send_message_button["state"]      = tk.NORMAL
-            self.individual_record_button["state"] = tk.NORMAL
-            self.apply_color_button["state"]       = tk.NORMAL
-            self.add_student_button["state"]       = tk.NORMAL
-            self.delete_student_button["state"]    = tk.NORMAL
-            self.move_student_button["state"]      = tk.NORMAL
+            self.update_class_button["state"]       = tk.NORMAL
+            self.make_data_form_button["state"]     = tk.NORMAL
+            self.save_data_button["state"]          = tk.NORMAL
+            self.send_message_button["state"]       = tk.NORMAL
+            self.individual_record_button["state"]  = tk.NORMAL
+            self.makeup_test_record_button["state"] = tk.NORMAL
+            self.apply_color_button["state"]        = tk.NORMAL
+            self.add_student_button["state"]        = tk.NORMAL
+            self.delete_student_button["state"]     = tk.NORMAL
+            self.move_student_button["state"]       = tk.NORMAL
         else:
-            self.update_class_button["state"]      = tk.DISABLED
-            self.make_data_form_button["state"]    = tk.DISABLED
-            self.save_data_button["state"]         = tk.DISABLED
-            self.send_message_button["state"]      = tk.DISABLED
-            self.individual_record_button["state"] = tk.DISABLED
-            self.apply_color_button["state"]       = tk.DISABLED
-            self.add_student_button["state"]       = tk.DISABLED
-            self.delete_student_button["state"]    = tk.DISABLED
-            self.move_student_button["state"]      = tk.DISABLED
+            self.update_class_button["state"]       = tk.DISABLED
+            self.make_data_form_button["state"]     = tk.DISABLED
+            self.save_data_button["state"]          = tk.DISABLED
+            self.send_message_button["state"]       = tk.DISABLED
+            self.individual_record_button["state"]  = tk.DISABLED
+            self.makeup_test_record_button["state"] = tk.DISABLED
+            self.apply_color_button["state"]        = tk.DISABLED
+            self.add_student_button["state"]        = tk.DISABLED
+            self.delete_student_button["state"]     = tk.DISABLED
+            self.move_student_button["state"]       = tk.DISABLED
         
         self.ui.after(100, self.check_files)
 
@@ -511,7 +515,7 @@ class GUI():
         test_list_combo.set("시험 선택")
         test_list_combo.pack()
 
-        score_var = tk.IntVar()
+        score_var = tk.StringVar()
         tk.Entry(popup, textvariable=score_var, width=28).pack()
 
         tk.Label(popup).pack()
@@ -522,8 +526,12 @@ class GUI():
         target_class_name   = target_class_var.get()
         target_student_name = target_studnet_var.get()
         test_name           = test_name_var.get()
+        test_score          = score_var.get()
         try:
-            test_score = score_var.get()
+            if '.' in test_score:
+                test_score = float(test_score)
+            else:
+                test_score = int(test_score)
         except:
             self.q.put("올바른 점수를 입력해 주세요.")
             return None
@@ -534,6 +542,126 @@ class GUI():
         row = class_dict1[target_class_name][target_student_name]
         col = class_dict2[target_class_name][test_name]
         return target_student_name, target_class_name, test_name, row, col, test_score, data_file_ws.cell(row, col).value
+
+    def makeup_test_record_dialog(self):
+        def quitEvent():
+            self.ui.wm_attributes("-disabled", False)
+            popup.quit()
+            popup.destroy()
+
+        self.ui.wm_attributes("-disabled", True)
+        popup = tk.Toplevel()
+        width = 250
+        height = 160
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.title("재시험 기록")
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+
+        # 반 정보 확인
+        class_wb = xl.load_workbook("./반 정보.xlsx")
+        try:
+            class_ws = class_wb["반 정보"]
+        except:
+            self.q.put(r"'반 정보.xlsx'의 시트명을")
+            self.q.put(r"'반 정보'로 변경해 주세요.")
+            return
+        
+        makeup_list_wb = xl.load_workbook("./data/재시험 명단.xlsx")
+        try:
+            makeup_list_ws = makeup_list_wb["재시험 명단"]
+        except:
+            gui.q.put(r"'재시험 명단.xlsx'의 시트명을")
+            gui.q.put(r"'재시험 명단'으로 변경해 주세요.")
+            return
+        
+        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        data_file_ws = data_file_wb.worksheets[0]
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "이름":
+                STUDENT_NAME_COLUMN = i
+                break
+        for i in range(1, data_file_ws.max_column):
+            if data_file_ws.cell(1, i).value == "반":
+                CLASS_NAME_COLUMN = i
+                break
+
+        class_dict:dict[str, list] = {}
+        for i in range(2, class_ws.max_row + 1):
+            class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
+            student_list = [data_file_ws.cell(j, STUDENT_NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
+                            if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name and\
+                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
+                                    data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
+                                        data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
+                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike and\
+                                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb != "FFFF0000"]
+            class_dict[class_name] = student_list
+        class_dict = dict(sorted(class_dict.items()))
+
+        student_dict:dict[str, dict[str, int]] = {}
+        for i in range(2, makeup_list_ws.max_row+1):
+            if makeup_list_ws.cell(i, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value is None:
+                student_name = makeup_list_ws.cell(i, MakeupTestList.STUDENT_NAME_COLUMN).value
+                makeup_test_name = makeup_list_ws.cell(i, MakeupTestList.TEST_NAME_COLUMN).value
+                try:
+                    student_dict[student_name]
+                except:
+                    student_dict[student_name] = {}
+                
+                student_dict[student_name][makeup_test_name] = i
+
+        def class_call_back(event):
+            class_name = event.widget.get()
+            student_combo.set("학생 선택")
+            student_combo["values"] = list(class_dict[class_name])
+            makeup_test_list_combo.set("재시험 선택")
+            makeup_test_list_combo["values"] = None
+        target_class_var = tk.StringVar()
+        target_class_combo = ttk.Combobox(popup, values=list(class_dict.keys()), state="readonly", textvariable=target_class_var, width=100)
+        target_class_combo.set("반 선택")
+        target_class_combo.bind("<<ComboboxSelected>>", class_call_back)
+        target_class_combo.pack()
+
+        def student_call_back(event):
+            student_name = event.widget.get()
+            makeup_test_list_combo.set("재시험 선택")
+            try:
+                makeup_test_list_combo["values"] = list(student_dict[student_name].keys())
+            except:
+                makeup_test_list_combo.set("재시험이 없습니다")
+                makeup_test_list_combo["values"] = None
+        target_studnet_var = tk.StringVar()
+        student_combo = ttk.Combobox(popup, values=None, state="readonly", textvariable=target_studnet_var, width=100)
+        student_combo.set("학생 선택")
+        student_combo.bind("<<ComboboxSelected>>", student_call_back)
+        student_combo.pack()
+
+        makeup_test_name_var = tk.StringVar()
+        makeup_test_list_combo = ttk.Combobox(popup, values=None, state="readonly", textvariable=makeup_test_name_var, width=100)
+        makeup_test_list_combo.set("재시험 선택")
+        makeup_test_list_combo.pack()
+
+        makeup_test_score_var = tk.StringVar()
+        tk.Entry(popup, textvariable=makeup_test_score_var, width=28).pack()
+
+        tk.Label(popup).pack()
+        tk.Button(popup, text="재시험 저장", width=10 , command=quitEvent).pack()
+        
+        popup.mainloop()
+
+        target_class_name   = target_class_var.get()
+        target_student_name = target_studnet_var.get()
+        makeup_test_name    = makeup_test_name_var.get()
+        makeup_test_score   = makeup_test_score_var.get()
+        
+        if target_class_name == "반 선택" or target_student_name == "학생 선택" or makeup_test_name == "재시험 선택" or makeup_test_name == "재시험이 없습니다" or makeup_test_score == "":
+            return None
+        
+        row = student_dict[target_student_name][makeup_test_name]
+        return row, makeup_test_score
 
     # threads
     def make_class_info_file_thread(self):
@@ -648,6 +776,32 @@ class GUI():
         thread.daemon = True
         thread.start()
         self.individual_record_button["state"] = tk.NORMAL
+
+    def makeup_test_record_thread(self):
+        if os.path.isfile("./data/~$재시험 명단.xlsx"):
+            self.q.put(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+        self.makeup_test_record_button["state"] = tk.DISABLED
+        ret = self.makeup_test_record_dialog()
+        if ret is None:
+            return
+        row, makeup_test_score = ret
+        makeup_list_wb = xl.load_workbook("./data/재시험 명단.xlsx")
+        try:
+            makeup_list_ws = makeup_list_wb["재시험 명단"]
+        except:
+            self.q.put(r"'재시험 명단.xlsx'의 시트명을")
+            self.q.put(r"'재시험 명단'으로 변경해 주세요.")
+            return
+        makeup_list_ws.cell(row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value = makeup_test_score
+        # makeup_list_ws.sheet_view.topLeftCell = f"A{str(max(1, row-10))}"
+        # makeup_list_ws.sheet_view.selection[0].sqref = f"{gcl(MakeupTestList.MAKEUPTEST_SCORE_COLUMN)}{str(row)}"
+        makeup_list_wb.save("./data/재시험 명단.xlsx")
+        self.q.put(f"{row} 행에 재시험 점수를 기록하였습니다.")
+        # excel = win32com.client.Dispatch("Excel.Application")
+        # excel.Visible = True
+        # excel.Workbooks.Open(f"{os.getcwd()}\\data\\재시험 명단.xlsx")
+        self.makeup_test_record_button["state"] = tk.NORMAL
 
     def add_student_thread(self):
         if os.path.isfile(f"./data/~${config['dataFileName']}.xlsx"):
@@ -1481,7 +1635,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             for row in range(CLASS_START + 2, CLASS_END):
                 if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                     data_file_ws.cell(row, WRITE_COLUMN).value = test_score
-                    if type(test_score) == int:
+                    if type(test_score) == int or type(test_score) == float:
                         if test_score < 60:
                             data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
                         elif test_score < 70:
@@ -1494,7 +1648,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 gui.q.put(f"{class_name} 반에 {form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value} 학생이 존재하지 않습니다.")
             
             # 재시험 작성
-            if (type(test_score) == int) and (test_score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
+            if (type(test_score) == int or type(test_score) == float) and (test_score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
                 check = makeup_list_ws.max_row
                 # 재시험 중복 작성 검사
                 duplicated = False
@@ -1694,7 +1848,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         else:
             continue
 
-        if type(test_score) != int:
+        if type(test_score) != int and type(test_score) != float:
             continue
 
         # 시험 결과 메시지 작성
@@ -2116,7 +2270,7 @@ def rescoping_formula():
 
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
-def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str):
+def check_student_exists(gui:GUI, target_student_name:str, target_class_name:str) -> bool:
     gui.q.put(r"아이소식으로부터 정보 받아오는 중...")
     options = webdriver.ChromeOptions()
     options.add_argument("headless")

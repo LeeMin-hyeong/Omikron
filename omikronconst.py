@@ -1,4 +1,4 @@
-VERSION = "Omikron v1.3.2"
+VERSION = "Omikron v1.4.0"
 class DataFile:
     TEST_TIME_COLUMN          =  1
     CLASS_WEEKDAY_COLUMN      =  2
