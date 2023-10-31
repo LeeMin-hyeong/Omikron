@@ -515,7 +515,7 @@ class GUI():
         test_list_combo.set("시험 선택")
         test_list_combo.pack()
 
-        score_var = tk.IntVar()
+        score_var = tk.StringVar()
         tk.Entry(popup, textvariable=score_var, width=28).pack()
 
         tk.Label(popup).pack()
@@ -526,8 +526,12 @@ class GUI():
         target_class_name   = target_class_var.get()
         target_student_name = target_studnet_var.get()
         test_name           = test_name_var.get()
+        test_score          = score_var.get()
         try:
-            test_score = score_var.get()
+            if '.' in test_score:
+                test_score = float(test_score)
+            else:
+                test_score = int(test_score)
         except:
             self.q.put("올바른 점수를 입력해 주세요.")
             return None
@@ -1631,7 +1635,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
             for row in range(CLASS_START + 2, CLASS_END):
                 if data_file_ws.cell(row, STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                     data_file_ws.cell(row, WRITE_COLUMN).value = test_score
-                    if type(test_score) == int:
+                    if type(test_score) == int or type(test_score) == float:
                         if test_score < 60:
                             data_file_ws.cell(row, WRITE_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
                         elif test_score < 70:
@@ -1644,7 +1648,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 gui.q.put(f"{class_name} 반에 {form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value} 학생이 존재하지 않습니다.")
             
             # 재시험 작성
-            if (type(test_score) == int) and (test_score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
+            if (type(test_score) == int or type(test_score) == float) and (test_score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
                 check = makeup_list_ws.max_row
                 # 재시험 중복 작성 검사
                 duplicated = False
@@ -1844,7 +1848,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         else:
             continue
 
-        if type(test_score) != int:
+        if type(test_score) != int and type(test_score) != float:
             continue
 
         # 시험 결과 메시지 작성
