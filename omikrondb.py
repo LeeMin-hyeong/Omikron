@@ -271,14 +271,6 @@ class GUI():
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike: continue
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color is not None and data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000": continue
                 student_list.append(data_file_ws.cell(j, STUDENT_NAME_COLUMN).value)
-            
-            # student_list = [data_file_ws.cell(j, STUDENT_NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
-            #                 if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name and\
-            #                     data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
-            #                         data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
-            #                             data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
-            #                                 not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike and\
-            #                                     data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb != "FFFF0000"]
             class_dict[class_name] = student_list
 
             
@@ -499,13 +491,6 @@ class GUI():
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color is not None and data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000": continue
                 student_dict[data_file_ws.cell(j, STUDENT_NAME_COLUMN).value] = j
             
-            # for j in range(2, data_file_ws.max_row):
-            #     if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name:
-            #         if data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "날짜":
-            #             test_name_dict = {data_file_ws.cell(j, k).value.strftime("%y/%m/%d ")+str(data_file_ws.cell(j+1, k).value) : k for k in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_row+1) if data_file_ws.cell(j, k).value is not None and data_file_ws.cell(j+1, k).value is not None}
-            #         elif data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "시험명" or data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "시험 평균" or data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike or (data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000"):
-            #             continue
-            #         else: student_dict[data_file_ws.cell(j, STUDENT_NAME_COLUMN).value] = j
             test_name_dict = dict(sorted(test_name_dict.items(), reverse=True))
             class_dict1[class_name] = student_dict
             class_dict2[class_name] = test_name_dict
@@ -609,13 +594,13 @@ class GUI():
         class_dict:dict[str, list] = {}
         for i in range(2, class_ws.max_row + 1):
             class_name = class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value
-            student_list = [data_file_ws.cell(j, STUDENT_NAME_COLUMN).value for j in range(2, data_file_ws.max_row)\
-                            if data_file_ws.cell(j, CLASS_NAME_COLUMN).value == class_name and\
-                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "날짜" and\
-                                    data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험명" and\
-                                        data_file_ws.cell(j, STUDENT_NAME_COLUMN).value != "시험 평균" and\
-                                            not data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike and\
-                                                data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb != "FFFF0000"]
+            student_list = []
+            for j in range(2, data_file_ws.max_row+1):
+                if data_file_ws.cell(j, CLASS_NAME_COLUMN).value != class_name: continue
+                if data_file_ws.cell(j, STUDENT_NAME_COLUMN).value in ("날짜", "시험명", "시험 평균"): continue
+                if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike: continue
+                if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color is not None and data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000": continue
+                student_list.append(data_file_ws.cell(j, STUDENT_NAME_COLUMN).value)
             class_dict[class_name] = student_list
         class_dict = dict(sorted(class_dict.items()))
 
@@ -1780,8 +1765,8 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
     gui.q.put("데이터 저장을 완료했습니다.")
-    excel.Visible = True
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    # excel.Visible = True
+    # wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     pythoncom.CoUninitialize()
     gui.thread_end_flag = True
 
