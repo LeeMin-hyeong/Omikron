@@ -28,10 +28,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 config = json.load(open("./config.json", encoding="UTF8"))
 os.environ["WDM_PROGRESS_BAR"] = "0"
-try:
-    service = Service(ChromeDriverManager().install())
-except:
-    service = Service(ChromeDriverManager(version=config["webDriverManagerVersion"]).install())
+
+service = Service(ChromeDriverManager().install())
 service.creation_flags = CREATE_NO_WINDOW
 
 if not os.path.exists("./data"):
@@ -42,7 +40,7 @@ if not os.path.exists("./data/backup"):
 class GUI():
     def __init__(self, ui:tk.Tk):
         self.q = queue.Queue()
-        self.q.put(VERSION)
+        # self.q.put(VERSION)
         self.thread_end_flag = False
         self.ui = ui
         self.width = 320
@@ -50,7 +48,7 @@ class GUI():
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
         self.ui.geometry(f"{self.width}x{self.height}+{self.x}+{self.y}")
-        self.ui.title("Omikron")
+        self.ui.title(VERSION)
         self.ui.resizable(False, False)
 
         self.makeup_test_date = None
@@ -61,7 +59,7 @@ class GUI():
             webbrowser.open_new(url)
         link = tk.Label(self.ui, text="[ 사용법 및 도움말 ]", cursor="hand2")
         link.pack()
-        link.bind("<Button-1>", lambda e: callback("https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"))
+        link.bind("<Button-1>", lambda _: callback("https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"))
 
         self.scroll = tk.Scrollbar(self.ui, orient="vertical")
         self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=51, height=5)
@@ -272,8 +270,8 @@ class GUI():
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color is not None and data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000": continue
                 student_list.append(data_file_ws.cell(j, STUDENT_NAME_COLUMN).value)
             class_dict[class_name] = student_list
-
-            
+        class_dict = dict(sorted(class_dict.items()))
+        
         tk.Label(popup).pack()
         def class_call_back(event):
             class_name = event.widget.get()
@@ -349,6 +347,7 @@ class GUI():
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color is not None and data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000": continue
                 student_list.append(data_file_ws.cell(j, STUDENT_NAME_COLUMN).value)
             class_dict[class_name] = student_list
+        class_dict = dict(sorted(class_dict.items()))
 
         tk.Label(popup).pack()
         def class_call_back(event):
@@ -411,7 +410,7 @@ class GUI():
             self.q.put(r"'반 정보'로 변경해 주세요.")
             return
         
-        class_names = [class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row + 1)]
+        class_names = sorted([class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row + 1) if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is not None])
 
         tk.Label(popup).pack()
         target_class_var = tk.StringVar()
@@ -904,23 +903,22 @@ def make_class_info_file(gui:GUI):
     gui.thread_end_flag = True
 
 def make_student_info_file(gui:GUI):
-    if not os.path.isfile("./학생 정보.xlsx"):
-        gui.q.put("학생 정보 파일 생성 중...")
+    gui.q.put("학생 정보 파일 생성 중...")
 
-        ini_wb = xl.Workbook()
-        ini_ws = ini_wb[ini_wb.sheetnames[0]]
-        ini_ws.title = "학생 정보"
-        ini_ws[gcl(StudentInfo.STUDENT_NAME_COLUMN)+"1"]       = "이름"
-        ini_ws[gcl(StudentInfo.CLASS_NAME_COLUMN)+"1"]         = "반명"
-        ini_ws[gcl(StudentInfo.TEACHER_NAME_COLUMN)+"1"]       = "담당"
-        ini_ws[gcl(StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN)+"1"] = "재시험 응시 요일"
-        ini_ws[gcl(StudentInfo.MAKEUPTEST_TIME_COLUMN)+"1"]    = "재시험 응시 시간"
-        ini_ws[gcl(StudentInfo.NEW_STUDENT_CHECK_COLUMN)+"1"]  = "기수 신규생"
-        ini_ws["Z1"] = "N"
-        ini_ws.auto_filter.ref = "A:"+gcl(StudentInfo.MAX)
-        ini_ws.column_dimensions.group("Z", hidden=True)
-        ini_wb.save("./학생 정보.xlsx")
-    
+    ini_wb = xl.Workbook()
+    ini_ws = ini_wb[ini_wb.sheetnames[0]]
+    ini_ws.title = "학생 정보"
+    ini_ws[gcl(StudentInfo.STUDENT_NAME_COLUMN)+"1"]       = "이름"
+    ini_ws[gcl(StudentInfo.CLASS_NAME_COLUMN)+"1"]         = "반명"
+    ini_ws[gcl(StudentInfo.TEACHER_NAME_COLUMN)+"1"]       = "담당"
+    ini_ws[gcl(StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN)+"1"] = "재시험 응시 요일"
+    ini_ws[gcl(StudentInfo.MAKEUPTEST_TIME_COLUMN)+"1"]    = "재시험 응시 시간"
+    ini_ws[gcl(StudentInfo.NEW_STUDENT_CHECK_COLUMN)+"1"]  = "기수 신규생"
+    ini_ws["Z1"] = "N"
+    ini_ws.auto_filter.ref = "A:"+gcl(StudentInfo.MAX)
+    ini_ws.column_dimensions.group("Z", hidden=True)
+    ini_wb.save("./학생 정보.xlsx")
+
     student_wb = xl.load_workbook("./학생 정보.xlsx")
     try:
         student_ws = student_wb["학생 정보"]
@@ -928,7 +926,7 @@ def make_student_info_file(gui:GUI):
         gui.q.put(r"'학생 정보.xlsx'의 시트명을")
         gui.q.put(r"'학생 정보'로 변경해 주세요.")
         return
-    
+
     # 반 정보 확인
     class_wb = xl.load_workbook("./반 정보.xlsx")
     try:
@@ -973,7 +971,7 @@ def make_student_info_file(gui:GUI):
         for k in range(1, StudentInfo.MAX + 1):
             ini_ws.cell(j, k).alignment = Alignment(horizontal="center", vertical="center")
             ini_ws.cell(j, k).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-    
+
     ini_wb.save("./학생 정보.xlsx")
     gui.q.put("학생 정보 파일을 생성했습니다.")
     gui.thread_end_flag = True
@@ -1651,7 +1649,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 gui.q.put(f"{class_name} 반에 {form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value} 학생이 존재하지 않습니다.")
             
             # 재시험 작성
-            if (type(test_score) == int or type(test_score) == float) and (test_score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
+            if (type(test_score) == int or type(test_score) == float) and test_score < 80 and form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value not in ("x", "X"):
                 check = makeup_list_ws.max_row
                 # 재시험 중복 작성 검사
                 duplicated = False
@@ -1755,7 +1753,7 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                     student_average_cell.fill = PatternFill(fill_type="solid", fgColor=Color("E2EFDA"))
             # 신규생 하이라이트
             student_name_cell.fill = PatternFill(fill_type=None, fgColor=Color("00FFFFFF"))
-            if (student_name_cell.value is not None) or (student_name_cell.value != "날짜") or (student_name_cell.value != "시험명") or (student_name_cell.value != "시험 평균"):
+            if (student_name_cell.value is not None) and student_name_cell.value not in ("날짜", "시험명", "시험 평균"):
                 for row in range(2, student_ws.max_row+1):
                     if (student_name_cell.value == student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value) and (student_ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value == "N"):
                         student_name_cell.fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
@@ -1869,7 +1867,7 @@ def send_message(gui:GUI, filepath:str, makeup_test_date:dict):
         tds[2].find_element(By.TAG_NAME, "input").send_keys(test_average)
 
         # 재시험 메시지 작성
-        if (test_score < 80) and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "x") and (form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value != "X"):
+        if (test_score < 80) and form_ws.cell(i, DataForm.MAKEUP_TEST_CHECK_COLUMN).value not in ("x", "X"):
             for row in range(2, student_ws.max_row+1):
                 if student_ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == student_name:
                     makeup_test_weekday = student_ws.cell(row, StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN).value
@@ -2379,8 +2377,8 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
 
     gui.q.put("데이터 저장을 완료했습니다.")
-    excel.Visible = True
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    # excel.Visible = True
+    # wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     pythoncom.CoUninitialize()
     
     # 재시험 명단 작성
