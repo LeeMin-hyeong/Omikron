@@ -1,30 +1,42 @@
 @echo off
-@chcp 65001 1> NUL 2> NUL
 
+echo.
+echo Checking requirements...
+echo.
 python --version
 IF %ERRORLEVEL% NEQ 0 (
-    echo 프로그램 설치를 진행하기 위해서 python이 필요합니다.
+    echo The installation of this program requires Python3.10+ to be executed.
     pause
     exit
 )
 git --version
 IF %ERRORLEVEL% NEQ 0 (
-    echo 프로그램 설치를 진행하기 위해서 git이 필요합니다.
+    echo The installation of this program requires git to be executed.
     pause
     exit
 )
 
-echo 필요 파일 다운로드
-pip install upgrade pip
+echo.
+echo Upgrade python packages...
+echo.
+pip install --upgrade pip
 pip install --upgrade openpyxl selenium webdriver-manager pyinstaller pywin32 python-dateutil
-git clone https://github.com/LeeMin-hyeong/Omikron.git
-cd Omikron
-pyinstaller -F omikrondb.py
 
-echo 어플리케이션 빌드 완료
+echo.
+echo Fetching Source Code...
+echo.
+git clone https://github.com/LeeMin-hyeong/Omikron.git
+
+echo.
+echo Build executable file...
+echo.
+cd Omikron
+C:\Users\%USERNAME%\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\pyinstaller.exe -F omikrondb.py
+
 cd ..
 move Omikron\dist\* .
 rd /s /q Omikron
 
-echo 프로그램 설치가 완료되었습니다.
+echo.
+echo Installation completed
 pause
