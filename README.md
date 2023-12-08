@@ -1,21 +1,25 @@
 # Omikron 수학학원 테스트 데이터 관리 프로그램
 
-오미크론 수학학원 학생들의 테스트 데이터를 저장하고 테스트 결과를 학부모님께 전송하는 프로그램입니다.\n
-해당 프로그램은 Windows10 이상의 환경에서 작동합니다.
+오미크론 수학학원 학생들의 테스트 데이터를 저장하고 테스트 결과를 학부모님께 전송하는 프로그램입니다.
+
+해당 프로그램은 Windows10 이상의 환경에서 실행 가능합니다.
 
 ## 설치 방법
 
-프로그램 설치 및 실행을 위해 다음 세 가지 프로그램이 필요합니다.
-* 프로그램 설치
-    * [Git](https://git-scm.com/download/win)
-    * [Python 3.10+](https://apps.microsoft.com/detail/9PJPW5LDXLZ5?hl=ko-KR&gl=US)
-* 프로그램 실행
-    * [Google Chrome](https://www.google.co.kr/chrome/)
-    * Microsoft Excel
+프로그램 설치를 위해 다음 프로그램이 필요합니다.
+* [Git](https://git-scm.com/download/win)
+* [Python 3.10+](https://apps.microsoft.com/detail/9PJPW5LDXLZ5?hl=ko-KR&gl=US)
 
-세 프로그램을 모두 설치하였다면 ``Omikron_installer.bat`` 를 실행하여 Omikron 프로그램을 설치해 주세요.
+프로그램을 모두 설치하였다면 ``Omikron_installer.bat`` 를 실행하여 Omikron 프로그램을 설치해 주세요.
 
 ## 프로그램 사용법 및 도움말
+
+프로그램을 실행시키기 위해 ``config.json`` 파일이 필요합니다.
+* ``config.json`` 은 학원 아이소식의 주소와 메세지 양식 등이 포함되어 있습니다.
+
+프로그램 실행 및 조작을 위해 다음 프로그램이 필요합니다.
+* Google Chrome
+* Microsoft Excel
 
 [INSTRUCTION](https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4)
 
