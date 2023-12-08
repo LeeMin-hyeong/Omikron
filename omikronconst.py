@@ -1,4 +1,5 @@
-VERSION = "Omikron v1.4.1"
+VERSION = "Omikron v1.4.2"
+
 class DataFile:
     TEST_TIME_COLUMN          =  1
     CLASS_WEEKDAY_COLUMN      =  2
@@ -8,6 +9,7 @@ class DataFile:
     AVERAGE_SCORE_COLUMN      =  6
     MAX                       =  AVERAGE_SCORE_COLUMN
     DATA_COLUMN               =  MAX + 1
+
 class DataForm:
     CLASS_WEEKDAY_COLUMN      =  1
     TEST_TIME_COLUMN          =  2
@@ -22,6 +24,7 @@ class DataForm:
     MOCKTEST_AVERAGE_COLUMN   = 11
     MAKEUP_TEST_CHECK_COLUMN  = 12
     MAX                       = MAKEUP_TEST_CHECK_COLUMN
+
 class MakeupTestList:
     TEST_DATE_COLUMN          =  1
     CLASS_NAME_COLUMN         =  2
@@ -35,12 +38,14 @@ class MakeupTestList:
     MAKEUPTEST_SCORE_COLUMN   = 10
     ETC_COLUMN                = 11
     MAX                       = ETC_COLUMN
+
 class ClassInfo:
     CLASS_NAME_COLUMN         =  1
     TEACHER_NAME_COLUMN       =  2
     CLASS_WEEKDAY_COLUMN      =  3
     TEST_TIME_COLUMN          =  4
     MAX                       =  TEST_TIME_COLUMN
+
 class StudentInfo:
     STUDENT_NAME_COLUMN       =  1
     CLASS_NAME_COLUMN         =  2
