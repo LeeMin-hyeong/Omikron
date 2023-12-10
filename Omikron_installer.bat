@@ -5,13 +5,13 @@ echo Checking requirements...
 echo.
 python --version
 IF %ERRORLEVEL% NEQ 0 (
-    echo The installation of this program requires Python3.10+ to be executed.
+    echo The installation of Omikron requires Python3.10 to be executed.
     pause
     exit
 )
 git --version
 IF %ERRORLEVEL% NEQ 0 (
-    echo The installation of this program requires git to be executed.
+    echo The installation of Omikron requires git to be executed.
     pause
     exit
 )
@@ -31,7 +31,7 @@ echo.
 echo Build executable file...
 echo.
 cd Omikron
-C:\Users\%USERNAME%\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\pyinstaller.exe -F omikrondb.py
+C:\Users\%USERNAME%\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\pyinstaller.exe -F -n Omikron.exe omikrondb.py
 
 cd ..
 move Omikron\dist\* .
