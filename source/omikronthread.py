@@ -6,7 +6,7 @@ import openpyxl as xl
 import win32com.client # only works in Windows
 
 from copy import copy
-from defs import *
+
 from tkinter import ttk, filedialog
 from datetime import date as DATE, datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -21,12 +21,16 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from win32process import CREATE_NO_WINDOW # only works in Windows
 from webdriver_manager.chrome import ChromeDriverManager
-from message import Message
+
+from omikronlog import OmikronLog
+
+thread_end_flag = False
 
 def make_class_info_file_thread():
-    thread = threading.Thread(target=make_class_info_file)
-    thread.daemon = True
-    thread.start()
+    OmikronLog.error(r"'반 정보.xlsx'의 시트명을 '반 정보'로 변경해 주세요.")
+    # thread = threading.Thread(target=make_class_info_file)
+    # thread.daemon = True
+    # thread.start()
 
 def make_student_info_file_thread(self):
     thread = threading.Thread(target=lambda: make_student_info_file(self))

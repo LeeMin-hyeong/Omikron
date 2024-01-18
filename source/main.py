@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
 
-from gui import GUI
+from omikrongui import GUI
 
 if not os.path.exists("./data"):
     os.makedirs("./data")
@@ -12,7 +12,7 @@ os.environ["WDM_PROGRESS_BAR"] = "0"
 
 ui = tk.Tk()
 gui = GUI(ui)
-ui.after(100, gui.thread_log)
+ui.after(100, gui.print_log)
 ui.after(100, gui.check_files)
 ui.after(100, gui.check_thread_end)
 ui.mainloop()

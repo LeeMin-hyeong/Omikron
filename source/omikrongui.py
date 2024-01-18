@@ -1,29 +1,32 @@
 import os
 import queue
-import json
 import webbrowser
 import tkinter as tk
-from message import Message
+import openpyxl as xl
 
-import thread
-from defs import VERSION, MESSAGE_INTERFACE_WIDTH
+from tkinter import ttk, filedialog
+from datetime import date as DATE, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
-config = json.load(open("./config.json", encoding="UTF8"))
+import omikronthread
+import omikronconfig
+from omikronlog import OmikronLog
+from omikrondefs import VERSION, LOG_INTERFACE_WIDTH
 
 class GUI():
     def __init__(self, ui:tk.Tk):
-        # message queue
-        self.q = Message.message_queue
-        # check if the thread ends
-        # if thread ends, 
-        self.thread_end_flag = False
         self.ui = ui
+        
+        # log queue
+        self.log_q = OmikronLog.log_queue
+        
+        # 작업 종료 플래그
+        self.thread_end_flag = omikronthread.thread_end_flag
 
-        # window size
+        # 창 크기
         self.width = 320
         self.height = 585 # button +25
-
-        # window location
+        # 창 위치
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
         self.y = int((self.ui.winfo_screenheight()/2) - (self.height/2))
 
@@ -31,28 +34,29 @@ class GUI():
         self.ui.title(VERSION)
         self.ui.resizable(False, False)
 
-        # initialize makeup test date
-        # if it's None, User should define 
+        # 재시험 일정 초기화
+        # 정해지지 않으면 최초 1회 사용자가 직접 설정
         self.makeup_test_date = None
 
         tk.Label(self.ui, text="Omikron 데이터 프로그램").pack()
         
-        # hyperlink for instruction Notion page
+        # Notion 사용 설명서 하이퍼링크
         def callback(url:str):
             webbrowser.open_new(url)
         link = tk.Label(self.ui, text="[ 사용법 및 도움말 ]", cursor="hand2")
         link.pack()
         link.bind("<Button-1>", lambda _: callback("https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"))
 
-        # message interface
+        # 메세지 창
         self.scroll = tk.Scrollbar(self.ui, orient="vertical")
-        self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=MESSAGE_INTERFACE_WIDTH, height=5)
+        self.log = tk.Listbox(self.ui, yscrollcommand=self.scroll.set, width=LOG_INTERFACE_WIDTH, height=5)
         self.scroll.config(command=self.log.yview)
         self.log.pack()
         
+        # buttons
         tk.Label(self.ui, text="< 기수 변경 관련 >").pack()
 
-        self.make_class_info_file_button = tk.Button(self.ui, cursor="hand2", text="반 정보 기록 양식 생성", width=40, command=lambda: thread.make_class_info_file_thread())
+        self.make_class_info_file_button = tk.Button(self.ui, cursor="hand2", text="반 정보 기록 양식 생성", width=40, command=omikronthread.make_class_info_file_thread)
         self.make_class_info_file_button.pack()
 
         self.make_student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=lambda: self.make_student_info_file_thread())
@@ -97,16 +101,16 @@ class GUI():
         self.move_student_button.pack()
 
     # ui
-    def thread_log(self):
+    def print_log(self):
         try:
-            msg = self.q.get(block=False)
+            msg = self.log_q.get(block=False)
         except queue.Empty:
-            self.ui.after(100, self.thread_log)
+            self.ui.after(100, self.print_log)
             return
         self.log.insert(tk.END, msg)
         self.log.update()
         self.log.see(tk.END)
-        self.ui.after(100, self.thread_log)
+        self.ui.after(100, self.print_log)
 
     def check_files(self):
         check1 = check2 = check3 = False
@@ -122,7 +126,7 @@ class GUI():
             check2 = True
         else: 
             self.make_student_info_file_button["state"] = tk.NORMAL
-        if os.path.isfile(f"./data/{config['dataFileName']}.xlsx"):
+        if os.path.isfile(f"./data/{omikronconfig.config['dataFileName']}.xlsx"):
             self.make_data_file_button["state"] = tk.DISABLED
             check3 = True
         else:
@@ -160,8 +164,9 @@ class GUI():
             self.ui.wm_attributes("-topmost", 0)
         self.ui.after(100, self.check_thread_end)
 
+    # dialog
     def holiday_dialog(self) -> dict:
-        def quitEvent():
+        def quit_event():
             for i in range(7):
                 if var_list[i].get():
                     makeup_test_date[weekday[i]] += timedelta(days=7)
@@ -178,7 +183,7 @@ class GUI():
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.title("휴일 선택")
         popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
 
         today = DATE.today()
         weekday = ("월", "화", "수", "목", "금", "토", "일")
@@ -199,14 +204,14 @@ class GUI():
         for i in range(7):
             tk.Checkbutton(popup, text=f"{str(makeup_test_date[weekday[(sort+i)%7]])} {weekday[(sort+i)%7]}", variable=var_list[(sort+i)%7]).pack()
         tk.Label(popup, text="\n").pack()
-        tk.Button(popup, text="확인", width=10 , command=quitEvent).pack()
+        tk.Button(popup, text="확인", width=10 , command=quit_event).pack()
         
         popup.mainloop()    
         
         return makeup_test_date
 
     def delete_student_name_dialog(self) -> str:
-        def quitEvent():
+        def quit_event():
             self.ui.wm_attributes("-disabled", False)
             popup.quit()
             popup.destroy()
@@ -220,18 +225,18 @@ class GUI():
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.title("퇴원 관리")
         popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
 
         # 반 정보 확인
         class_wb = xl.load_workbook("./반 정보.xlsx")
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"'반 정보.xlsx'의 시트명을")
-            self.q.put(r"'반 정보'로 변경해 주세요.")
+            self.log_q.put(r"'반 정보.xlsx'의 시트명을")
+            self.log_q.put(r"'반 정보'로 변경해 주세요.")
             return
         
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        data_file_wb = xl.load_workbook(f"./data/{omikronconfig.config['dataFileName']}.xlsx")
         data_file_ws = data_file_wb.worksheets[0]
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "이름":
@@ -272,7 +277,7 @@ class GUI():
         student_combo.pack()
 
         tk.Label(popup).pack()
-        tk.Button(popup, text="퇴원", width=10 , command=quitEvent).pack()
+        tk.Button(popup, text="퇴원", width=10 , command=quit_event).pack()
         
         popup.mainloop()
         
@@ -283,7 +288,7 @@ class GUI():
             return student_name
 
     def move_student_dialog(self):
-        def quitEvent():
+        def quit_event():
             self.ui.wm_attributes("-disabled", False)
             popup.quit()
             popup.destroy()
@@ -297,18 +302,18 @@ class GUI():
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.title("학생 반 이동")
         popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
 
         # 반 정보 확인
         class_wb = xl.load_workbook("./반 정보.xlsx")
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"'반 정보.xlsx'의 시트명을")
-            self.q.put(r"'반 정보'로 변경해 주세요.")
+            self.log_q.put(r"'반 정보.xlsx'의 시트명을")
+            self.log_q.put(r"'반 정보'로 변경해 주세요.")
             return
         
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        data_file_wb = xl.load_workbook(f"./data/{omikronconfig.config['dataFileName']}.xlsx")
         data_file_ws = data_file_wb.worksheets[0]
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "이름":
@@ -355,7 +360,7 @@ class GUI():
         current_class_combo.pack()
 
         tk.Label(popup).pack()
-        tk.Button(popup, text="반 이동", width=10 , command=quitEvent).pack()
+        tk.Button(popup, text="반 이동", width=10 , command=quit_event).pack()
         
         popup.mainloop()
         
@@ -368,7 +373,7 @@ class GUI():
             return target_student_name, target_class_name, current_class_name
 
     def add_student_dialog(self):
-        def quitEvent():
+        def quit_event():
             self.ui.wm_attributes("-disabled", False)
             popup.quit()
             popup.destroy()
@@ -382,15 +387,15 @@ class GUI():
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.title("신규생 추가")
         popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
 
         # 반 정보 확인
         class_wb = xl.load_workbook("./반 정보.xlsx")
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"'반 정보.xlsx'의 시트명을")
-            self.q.put(r"'반 정보'로 변경해 주세요.")
+            self.log_q.put(r"'반 정보.xlsx'의 시트명을")
+            self.log_q.put(r"'반 정보'로 변경해 주세요.")
             return
         
         class_names = sorted([class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value for i in range(2, class_ws.max_row + 1) if class_ws.cell(i, ClassInfo.CLASS_NAME_COLUMN).value is not None])
@@ -406,7 +411,7 @@ class GUI():
         tk.Entry(popup, textvariable=target_student_var, width=28).pack()
 
         tk.Label(popup).pack()
-        tk.Button(popup, text="신규생 추가", width=10 , command=quitEvent).pack()
+        tk.Button(popup, text="신규생 추가", width=10 , command=quit_event).pack()
         
         popup.mainloop()
         
@@ -418,7 +423,7 @@ class GUI():
             return target_student_name, target_class_name
 
     def individual_record_dialog(self):
-        def quitEvent():
+        def quit_event():
             self.ui.wm_attributes("-disabled", False)
             popup.quit()
             popup.destroy()
@@ -432,18 +437,18 @@ class GUI():
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.title("개별 점수 기록")
         popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
 
         # 반 정보 확인
         class_wb = xl.load_workbook("./반 정보.xlsx")
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"'반 정보.xlsx'의 시트명을")
-            self.q.put(r"'반 정보'로 변경해 주세요.")
+            self.log_q.put(r"'반 정보.xlsx'의 시트명을")
+            self.log_q.put(r"'반 정보'로 변경해 주세요.")
             return
         
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        data_file_wb = xl.load_workbook(f"./data/{omikronconfig.config['dataFileName']}.xlsx")
         data_file_ws = data_file_wb.worksheets[0]
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "이름":
@@ -504,7 +509,7 @@ class GUI():
         tk.Entry(popup, textvariable=score_var, width=28).pack()
 
         tk.Label(popup).pack()
-        tk.Button(popup, text="메세지 전송 및 저장", width=20 , command=quitEvent).pack()
+        tk.Button(popup, text="메세지 전송 및 저장", width=20 , command=quit_event).pack()
         
         popup.mainloop()
         
@@ -518,7 +523,7 @@ class GUI():
             else:
                 test_score = int(test_score)
         except:
-            self.q.put("올바른 점수를 입력해 주세요.")
+            self.log_q.put("올바른 점수를 입력해 주세요.")
             return None
         
         if target_class_name == "반 선택" or target_student_name == "학생 선택" or test_name == "시험 선택":
@@ -529,7 +534,7 @@ class GUI():
         return target_student_name, target_class_name, test_name, row, col, test_score, data_file_ws.cell(row, col).value
 
     def makeup_test_record_dialog(self):
-        def quitEvent():
+        def quit_event():
             self.ui.wm_attributes("-disabled", False)
             popup.quit()
             popup.destroy()
@@ -543,15 +548,15 @@ class GUI():
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.title("재시험 기록")
         popup.resizable(False, False)
-        popup.protocol("WM_DELETE_WINDOW", quitEvent)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
 
         # 반 정보 확인
         class_wb = xl.load_workbook("./반 정보.xlsx")
         try:
             class_ws = class_wb["반 정보"]
         except:
-            self.q.put(r"'반 정보.xlsx'의 시트명을")
-            self.q.put(r"'반 정보'로 변경해 주세요.")
+            self.log_q.put(r"'반 정보.xlsx'의 시트명을")
+            self.log_q.put(r"'반 정보'로 변경해 주세요.")
             return
         
         makeup_list_wb = xl.load_workbook("./data/재시험 명단.xlsx")
@@ -562,7 +567,7 @@ class GUI():
             gui.q.put(r"'재시험 명단'으로 변경해 주세요.")
             return
         
-        data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
+        data_file_wb = xl.load_workbook(f"./data/{omikronconfig.config['dataFileName']}.xlsx")
         data_file_ws = data_file_wb.worksheets[0]
         for i in range(1, data_file_ws.max_column):
             if data_file_ws.cell(1, i).value == "이름":
@@ -633,7 +638,7 @@ class GUI():
         tk.Entry(popup, textvariable=makeup_test_score_var, width=28).pack()
 
         tk.Label(popup).pack()
-        tk.Button(popup, text="재시험 저장", width=10 , command=quitEvent).pack()
+        tk.Button(popup, text="재시험 저장", width=10 , command=quit_event).pack()
         
         popup.mainloop()
 
