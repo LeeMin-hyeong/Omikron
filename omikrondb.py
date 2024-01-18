@@ -1647,7 +1647,6 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 duplicated = False
                 while check >= 1:
                     try:
-                        print(str(makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value))
                         if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
                             check -= 1
                             continue
