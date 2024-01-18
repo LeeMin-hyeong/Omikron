@@ -483,7 +483,7 @@ class GUI():
             for j in range(2, data_file_ws.max_row+1):
                 if data_file_ws.cell(j, CLASS_NAME_COLUMN).value != class_name: continue
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).value == "날짜":
-                    test_name_dict = {data_file_ws.cell(j, k).value.strftime("%y/%m/%d ")+str(data_file_ws.cell(j+1, k).value) : k for k in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_row+1) if data_file_ws.cell(j, k).value is not None and data_file_ws.cell(j+1, k).value is not None}
+                    test_name_dict = {str(data_file_ws.cell(j, k).value).split()[0][2:].replace("-", "/")+" "+str(data_file_ws.cell(j+1, k).value) : k for k in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_row+1) if data_file_ws.cell(j, k).value is not None and data_file_ws.cell(j+1, k).value is not None}
                     continue
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).value in ("시험명", "시험 평균"): continue
                 if data_file_ws.cell(j, STUDENT_NAME_COLUMN).font.strike: continue
@@ -692,7 +692,10 @@ class GUI():
             global ret
             ret = check_update_class(self)
             excel = win32com.client.Dispatch("Excel.Application")
-            excel.Visible = True
+            try:
+                excel.Visible = True
+            except:
+                self.q.put("모든 Excel 파일을 종료한 뒤 다시 시도해 주세요.")
             wb = excel.Workbooks.Open(f"{os.getcwd()}\\temp.xlsx")
             self.update_class_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
             if not tkinter.messagebox.askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
@@ -1182,7 +1185,7 @@ def update_class(gui:GUI, current_classes:list, unregistered_classes:dict):
             ini_wb.save("./data/지난 데이터.xlsx")
         pythoncom.CoInitialize()
         excel = win32com.client.Dispatch("Excel.Application")
-        excel.Visible = False
+    
         try:
             wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
             wb.Save()
@@ -1511,17 +1514,6 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
         gui.q.put(r"'재시험 명단.xlsx'의 시트명을")
         gui.q.put(r"'재시험 명단'으로 변경해 주세요.")
         return
-    
-    pythoncom.CoInitialize()
-    excel = win32com.client.Dispatch("Excel.Application")
-    excel.Visible = False
-    try:
-        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
-    except:
-        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
-        return
-    wb.Save()
-    wb.Close()
 
     # 백업 생성
     data_file_wb = xl.load_workbook(f"./data/{config['dataFileName']}.xlsx")
@@ -1595,11 +1587,11 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                         break
                 
                 # 데일리테스트 작성 열 위치 찾기
-                for col in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_column+2):
+                for col in range(AVERAGE_SCORE_COLUMN+1, data_file_ws.max_column+2): 
                     if data_file_ws.cell(CLASS_START, col).value is None:
                         WRITE_COLUMN = col
                         break
-                    if data_file_ws.cell(CLASS_START, col).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
+                    if str(data_file_ws.cell(CLASS_START, col).value) == DATE.today().strftime("%Y-%m-%d 00:00:00"):
                         WRITE_COLUMN = col
                         break
                 
@@ -1655,15 +1647,16 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
                 duplicated = False
                 while check >= 1:
                     try:
+                        print(str(makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value))
                         if makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value is None:
                             check -= 1
                             continue
-                        elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == DATE.today().strftime("%y.%m.%d"):
+                        elif str(makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value) == DATE.today().strftime("%Y-%m-%d 00:00:00"):
                             if makeup_list_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value:
                                 if makeup_list_ws.cell(check, MakeupTestList.CLASS_NAME_COLUMN).value == class_name:
                                     duplicated = True
                                     break
-                        elif makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value.strftime("%y.%m.%d") == (DATE.today()+timedelta(days=-1)).strftime("%y.%m.%d"):
+                        elif str(makeup_list_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value) == (DATE.today()+timedelta(days=-1)).strftime("%Y-%m-%d 00:00:00"):
                             break
                     except:
                         pass
@@ -1716,7 +1709,14 @@ def save_data(gui:GUI, filepath:str, makeup_test_date:dict):
     makeup_list_wb.save("./data/재시험 명단.xlsx")
 
     # 조건부 서식 수식 로딩
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    pythoncom.CoInitialize()
+    excel = win32com.client.gencache.EnsureDispatch("Excel.Application")
+
+    try:
+        wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
+    except:
+        gui.q.put("데이터 파일 창을 끄고 다시 실행해 주세요.")
+        return
     wb.Save()
     wb.Close()
 
@@ -1927,7 +1927,7 @@ def apply_color(gui:GUI):
     
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    excel.Visible = False
+
     try:
         wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     except:
@@ -2003,7 +2003,7 @@ def apply_color(gui:GUI):
     
     data_file_wb.save(f"./data/{config['dataFileName']}.xlsx")
     gui.q.put("조건부 서식 지정을 완료했습니다.")
-    excel.Visible = True
+    # excel.Visible = True
     wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     pythoncom.CoUninitialize()
 
@@ -2343,8 +2343,6 @@ def individual_record(gui:GUI, student_name:str, class_name:int, test_name:int, 
 
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    excel.Visible = False
-
     wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{config['dataFileName']}.xlsx")
     wb.Save()
     wb.Close()
