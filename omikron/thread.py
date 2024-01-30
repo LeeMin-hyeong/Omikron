@@ -28,6 +28,14 @@ def make_student_info_file_thread():
     global thread_end_flag
     thread_end_flag = True
 
+def update_student_info_file_thread():
+    OmikronLog.log("학생 정보 파일 업데이트 중...")
+    if omikron.studentinfo.update_student():
+        OmikronLog.log("학생 정보 파일을 업데이트했습니다.")
+
+    global thread_end_flag
+    thread_end_flag = True
+
 def make_data_file_thread():
     OmikronLog.log("데이터 파일 생성 중...")
     if omikron.datafile.make_file():
@@ -37,7 +45,7 @@ def make_data_file_thread():
     thread_end_flag = True
 
 def update_class_thread():
-    OmikronLog.log("반 업데이트 진행중")
+    OmikronLog.log("반 업데이트 진행중...")
 
     complete, data_file_wb = omikron.datafile.update_class()
     if not complete: return
@@ -107,18 +115,13 @@ def send_message_thread(filepath:str, makeup_test_date:dict):
     thread_end_flag = True
 
 def save_individual_test_thread(student_name, class_name, test_name, target_row, target_col, test_score, makeup_test_check, makeup_test_date):
-    # TODO : 오류 발생 시 데이터 보존
     OmikronLog.log(f"{student_name} 개별 시험 결과 저장 중...")
     complete, test_average, data_file_wb = omikron.datafile.save_individual_test_data(target_row, target_col, test_score)
-    if complete:
-        OmikronLog.log("데이터 저장을 완료했습니다.")
-    else: return
+    if not complete: return
 
     if test_score < 80 and not makeup_test_check:
         complete, makeup_test_wb = omikron.makeuptest.save_individual_makeup_test(student_name, class_name, test_name, test_score, makeup_test_date)
         if not complete: return
-
-    OmikronLog.log("데이터 저장을 완료했습니다.")
 
     try:
         omikron.datafile.save(data_file_wb)
@@ -136,6 +139,8 @@ def save_individual_test_thread(student_name, class_name, test_name, target_row,
         OmikronLog.log("테스트 결과 메시지 작성을 완료했습니다.")
         OmikronLog.log("메시지 확인 후 전송해주세요.")
     else: return
+
+    OmikronLog.log("데이터 저장을 완료했습니다.")
 
     global thread_end_flag
     thread_end_flag = True

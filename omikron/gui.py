@@ -68,11 +68,11 @@ class GUI():
         self.make_class_info_file_button = tk.Button(self.ui, cursor="hand2", text="반 정보 기록 양식 생성", width=40, command=self.make_class_info_file_task)
         self.make_class_info_file_button.pack()
 
-        self.make_student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=self.make_student_info_file_task)
-        self.make_student_info_file_button.pack()
-
         self.make_data_file_button = tk.Button(self.ui, cursor="hand2", text="데이터 파일 생성", width=40, command=self.make_data_file_task)
         self.make_data_file_button.pack()
+
+        self.make_student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=self.student_info_file_task)
+        self.make_student_info_file_button.pack()
 
         self.update_class_button = tk.Button(self.ui, cursor="hand2", text="반 업데이트", width=40, command=self.update_class_task)
         self.update_class_button.pack()
@@ -142,10 +142,10 @@ class GUI():
             self.make_student_info_file_button["state"] = tk.DISABLED
             self.make_data_file_button["state"]         = tk.DISABLED
         if os.path.isfile(f"{StudentInfo.DEFAULT_NAME}.xlsx"):
-            self.make_student_info_file_button["state"] = tk.DISABLED
+            self.make_student_info_file_button["text"] = "학생 정보 업데이트"
             studentinfo_check = True
         else: 
-            self.make_student_info_file_button["state"] = tk.NORMAL
+            self.make_student_info_file_button["text"] = "학생 정보 기록 양식 생성"
         if os.path.isfile(f"./data/{DATA_FILE_NAME}.xlsx"):
             self.make_data_file_button["state"] = tk.DISABLED
             datafile_check = True
@@ -581,13 +581,17 @@ class GUI():
         thread = threading.Thread(target=omikron.thread.make_class_info_file_thread, daemon=True)
         thread.start()
 
-    def make_student_info_file_task(self):
-        thread = threading.Thread(target=omikron.thread.make_student_info_file_thread, daemon=True)
-        thread.start()
-
     def make_data_file_task(self):
         thread = threading.Thread(target=omikron.thread.make_data_file_thread, daemon=True)
         thread.start()
+
+    def student_info_file_task(self):
+        if self.make_student_info_file_button["text"] == "학생 정보 기록 양식 생성":
+            thread = threading.Thread(target=omikron.thread.make_student_info_file_thread, daemon=True)
+            thread.start()
+        else:
+            thread = threading.Thread(target=omikron.thread.update_student_info_file_thread, daemon=True)
+            thread.start()
 
     def update_class_task(self):
         if omikron.datafile.isopen():

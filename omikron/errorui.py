@@ -3,6 +3,9 @@ import tkinter as tk
 from omikron.defs import VERSION
 
 def no_config_file_error():
+    """
+    실행 파일과 같은 위치에 `config.json`파일이 존재하지 않을 경우 해당 ui 출력
+    """
     ui = tk.Tk()
 
     width = 300
@@ -25,6 +28,9 @@ def no_config_file_error():
     ui.mainloop()
 
 def corrupted_config_file_error():
+    """
+    `config.json` 파일의 일부 데이터가 손상되었을 경우 해당 ui 출력
+    """
     ui = tk.Tk()
 
     width = 300
@@ -47,6 +53,9 @@ def corrupted_config_file_error():
     ui.mainloop()
 
 def chrome_driver_version_error():
+    """
+    Chrome 버전과 `Omikron.exe`의 Chrome Driver 버전이 일치하지 않을 경우 해당 ui 출력
+    """
     ui = tk.Tk()
 
     width = 300

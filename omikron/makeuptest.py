@@ -41,34 +41,41 @@ def make_file() -> bool:
 def open(data_only:bool=False) -> xl.Workbook:
     return xl.load_workbook(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx", data_only=data_only)
 
-def open_worksheet(makeup_test_wb:xl.Workbook):
+def open_worksheet(wb:xl.Workbook):
     try:
-        return True, makeup_test_wb[MakeupTestList.DEFAULT_NAME]
+        return True, wb[MakeupTestList.DEFAULT_NAME]
     except:
         OmikronLog.error(r"'재시험 명단.xlsx'의 시트명을 '재시험 명단'으로 변경해 주세요.")
         return False, None
 
-def save(makeup_test_wb:xl.Workbook):
-    makeup_test_wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
-    makeup_test_wb.close()
+def save(wb:xl.Workbook):
+    wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
+    wb.close()
 
-def close(makeup_test_wb:xl.Workbook):
-    makeup_test_wb.close()
+def close(wb:xl.Workbook):
+    wb.close()
 
 def isopen() -> bool:
     return os.path.isfile(f"./data/~${MakeupTestList.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
 def get_studnet_test_index_dict():
-    makeup_test_wb = open()
-    complete, makeup_test_ws = open_worksheet(makeup_test_wb)
+    """
+    1st key: 학생 이름
+
+    2nd key: 시험명
+
+    value: 행 인덱스
+    """
+    wb = open(True)
+    complete, ws = open_worksheet(wb)
     if not complete: return False, None
 
     student_test_index_dict:dict[str, dict[str, int]] = {}
-    for row in range(2, makeup_test_ws.max_row+1):
-        if makeup_test_ws.cell(row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value is None:
-            student_name     = makeup_test_ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value
-            makeup_test_name = makeup_test_ws.cell(row, MakeupTestList.TEST_NAME_COLUMN).value
+    for row in range(2, ws.max_row+1):
+        if ws.cell(row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value is None:
+            student_name     = ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value
+            makeup_test_name = ws.cell(row, MakeupTestList.TEST_NAME_COLUMN).value
             try:
                 student_test_index_dict[student_name]
             except:
@@ -76,7 +83,7 @@ def get_studnet_test_index_dict():
             
             student_test_index_dict[student_name][makeup_test_name] = row
 
-    close(makeup_test_wb)
+    close(wb)
 
     return True, student_test_index_dict
 
@@ -89,8 +96,8 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
     # 재시험 정보
     if not os.path.isfile(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
         make_file()
-    makeup_test_wb = open()
-    complete, makeup_test_ws = open_worksheet(makeup_test_wb)
+    wb = open()
+    complete, ws = open_worksheet(wb)
     if not complete: return False, None
 
     # 학생 정보
@@ -99,8 +106,8 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
     if not complete: return False, None
 
     # 데이터 작성 시작 위치 탐색
-    for row in range(makeup_test_ws.max_row+1, 1, -1):
-        if makeup_test_ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
+    for row in range(ws.max_row+1, 1, -1):
+        if ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
             MAKEUP_TEST_RANGE = MAKEUP_TEST_WRITE_ROW = row
             break
 
@@ -131,16 +138,16 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
                 continue
 
             # 재시험 중복 작성 검사
-            check      = makeup_test_ws.max_row
+            check      = ws.max_row
             duplicated = False
             while check > 1:
-                test_date = makeup_test_ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value
+                test_date = ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value
                 if test_date is None or type(test_date) != datetime:
                     check -= 1
                     continue
                 elif test_date.strftime("%y%m%d") == datetime.today().strftime("%y%m%d"):
-                    if makeup_test_ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == student_name:
-                        if makeup_test_ws.cell(check, MakeupTestList.CLASS_NAME_COLUMN).value == class_name:
+                    if ws.cell(check, MakeupTestList.STUDENT_NAME_COLUMN).value == student_name:
+                        if ws.cell(check, MakeupTestList.CLASS_NAME_COLUMN).value == class_name:
                             duplicated = True
                             break
                 elif test_date.strftime("%y%m%d") < datetime.today().strftime("%y%m%d"):
@@ -154,57 +161,57 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
             if not complete:
                 OmikronLog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value    = datetime.today().date()
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value   = class_name
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_NAME_COLUMN).value = teacher_name
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student_name
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value    = test_name
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value   = test_score
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value    = datetime.today().date()
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value   = class_name
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_NAME_COLUMN).value = teacher_name
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student_name
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value    = test_name
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value   = test_score
 
             if new_student:
-                makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+                ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
 
             if makeup_test_weekday is not None:
-                makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
+                ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
 
                 complete, calculated_schedule, _ = calculate_makeup_test_schedule(makeup_test_weekday, makeup_test_date)
                 if not complete:
                     OmikronLog.warning(f"{student_name}의 재시험 일정이 올바른 양식이 아닙니다.")
 
-                makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value         = calculated_schedule
-                makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
+                ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value         = calculated_schedule
+                ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
 
                 if makeup_test_time is not None:
-                    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
+                    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
 
             MAKEUP_TEST_WRITE_ROW += 1
 
     # 정렬 및 테두리
-    for row in range(MAKEUP_TEST_RANGE, makeup_test_ws.max_row+1):
-        if makeup_test_ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value is None:
+    for row in range(MAKEUP_TEST_RANGE, ws.max_row+1):
+        if ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value is None:
             break
-        for col in range(1, makeup_test_ws.max_column + 1):
-            makeup_test_ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
-            makeup_test_ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        for col in range(1, ws.max_column + 1):
+            ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+            ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     omikron.dataform.close(form_wb)
 
-    return True, makeup_test_wb
+    return True, wb
 
 def save_makeup_test_result(target_row:int, makeup_test_score:str) -> bool:
-    makeup_test_wb = open()
-    complete, makeup_test_ws = open_worksheet(makeup_test_wb)
+    wb = open()
+    complete, ws = open_worksheet(wb)
     if not complete: return False
 
-    makeup_test_ws.cell(target_row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value = makeup_test_score
+    ws.cell(target_row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value = makeup_test_score
 
-    save(makeup_test_wb)
+    save(wb)
 
     return True
 
 def save_individual_makeup_test(student_name:str, class_name:str, test_name:str, test_score:int|float, makeup_test_date:dict):
-    makeup_test_wb = open()
-    complete, makeup_test_ws = open_worksheet(makeup_test_wb)
+    wb = open()
+    complete, ws = open_worksheet(wb)
     if not complete: return False, None
 
     student_wb = omikron.studentinfo.open(True)
@@ -215,8 +222,8 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
     complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
     if not complete: return False, None
 
-    for row in range(makeup_test_ws.max_row+1, 1, -1):
-        if makeup_test_ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
+    for row in range(ws.max_row+1, 1, -1):
+        if ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
             MAKEUP_TEST_WRITE_ROW = row
             break
 
@@ -228,35 +235,35 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
     if not complete:
         OmikronLog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
-    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value    = datetime.today().date()
-    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value   = class_name
-    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_NAME_COLUMN).value = teacher_name
-    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student_name
-    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value    = test_name
-    makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value   = test_score
+    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value    = datetime.today().date()
+    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value   = class_name
+    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_NAME_COLUMN).value = teacher_name
+    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student_name
+    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value    = test_name
+    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value   = test_score
 
     if new_student:
-        makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
 
     if makeup_test_weekday is not None:
-        makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
 
         complete, calculated_schedule, _ = calculate_makeup_test_schedule(makeup_test_weekday, makeup_test_date)
         if not complete:
             OmikronLog.warning(f"{student_name}의 재시험 일정이 올바른 양식이 아닙니다.")
 
-        makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value         = calculated_schedule
-        makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value         = calculated_schedule
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
 
         if makeup_test_time is not None:
-            makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
     
-    for col in range(1, makeup_test_ws.max_column + 1):
-        makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
-        makeup_test_ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    for col in range(1, ws.max_column + 1):
+        ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
     
     omikron.studentinfo.close(student_wb)
     omikron.classinfo.close(class_wb)
-    # save(makeup_test_wb)
+    # save(wb)
 
-    return True, makeup_test_wb
+    return True, wb

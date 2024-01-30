@@ -365,4 +365,6 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
 
     tds[1].find_element(By.TAG_NAME, "input").send_keys(' \b')
 
+    driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
+
     return True

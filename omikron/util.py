@@ -7,7 +7,7 @@ def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dic
     """
     학생의 재시험 응시 희망 요일에 따라 가장 가까운 재시험 일정을 계산
 
-    return 계산 성공 여부, 계산된 날짜, 계산된 시간
+    return `계산 성공 여부`, `계산된 날짜`, `계산된 시간`
     """
 
     try:
@@ -25,7 +25,8 @@ def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dic
 
 def date_to_kor_date(schedule:datetime) -> str:
     """
-    strftime 한글 인코딩 오류 우회
+    `datetime.strftime` 한글 인코딩 오류 우회
+    `mm월 dd일`
     """
     month, day = schedule.strftime("%m %d").split()
 
@@ -40,6 +41,9 @@ def copy_cell(dst:Cell, src:Cell):
     dst.number_format = copy(src.number_format)
 
 def class_average_color(score:int|float) -> PatternFill:
+    """
+    반 전체 평균에 대한 점수 기반 색 채우기 (`시험 평균` 행)
+    """
     if score < 60:
         return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
     elif score < 70:
@@ -50,6 +54,9 @@ def class_average_color(score:int|float) -> PatternFill:
         return PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
 
 def student_average_color(score:int|float) -> PatternFill:
+    """
+    학생 별 평균에 대한 점수 기반 색 채우기 (`학생 평균` 열 (`시험 평균` 행 제외))
+    """
     if score < 60:
         return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
     elif score < 70:
@@ -60,6 +67,9 @@ def student_average_color(score:int|float) -> PatternFill:
         return PatternFill(fill_type="solid", fgColor=Color("E2EFDA"))
 
 def test_score_color(score:int|float) -> PatternFill:
+    """
+    각 시험 결과에 대한 점수 기반 색 채우기
+    """
     if score < 60:
         return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
     elif score < 70:

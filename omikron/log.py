@@ -20,9 +20,7 @@ class OmikronLog:
                 OmikronLog.log(message[LOG_LINE_LENGTH:])
 
     def error(message:str):
-        message = "[오류] " + message
-        OmikronLog.log(message)
+        OmikronLog.log("[오류] " + message)
 
     def warning(message:str):
-        message = "[경고] " + message
-        OmikronLog.log(message)
+        OmikronLog.log("[경고] " + message)

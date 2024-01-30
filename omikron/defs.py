@@ -1,12 +1,12 @@
 VERSION = "Omikron v2.0.0"
 
 class Chrome:
-    ACTUAL_CLASS_START_INDEX   =  3   # 아이소식 내 실제 반이 시작되는 테이블 인덱스
+    ACTUAL_CLASS_START_INDEX   =  3 # 아이소식 내 실제 반이 시작되는 테이블 인덱스
 
-    DAILYTEST_RESULT_TAB       =  0   # 시험 결과 탭
-    MAKEUPTEST_NO_SCHEDULE_TAB =  1   # 재시험 고지 탭(날짜 미지정)
-    MAKEUPTEST_SCHEDULE_TAB    =  2   # 재시험 고지 탭(날짜 지정)
-    INDIVIDUAL_MAKEUPTEST_TAB  =  1   # 개별 시험 결과 메시지 탭
+    DAILYTEST_RESULT_TAB       =  0 # 시험 결과 탭
+    MAKEUPTEST_NO_SCHEDULE_TAB =  1 # 재시험 고지 탭(날짜 미지정)
+    MAKEUPTEST_SCHEDULE_TAB    =  2 # 재시험 고지 탭(날짜 지정)
+    INDIVIDUAL_MAKEUPTEST_TAB  =  1 # 개별 시험 결과 메시지 탭
 
 class DataFile:
     TEMP_FILE_NAME             = "9IwTEoG59MS6h2UoqveD"
@@ -43,8 +43,8 @@ class MakeupTestList:
     STUDENT_NAME_COLUMN        =  4
     TEST_NAME_COLUMN           =  5
     TEST_SCORE_COLUMN          =  6
-    MAKEUPTEST_WEEKDAY_COLUMN  =  7
-    MAKEUPTEST_TIME_COLUMN     =  8
+    MAKEUPTEST_WEEKDAY_COLUMN  =  7 # 삭제 예정
+    MAKEUPTEST_TIME_COLUMN     =  8 # 삭제 예정
     MAKEUPTEST_DATE_COLUMN     =  9
     MAKEUPTEST_SCORE_COLUMN    = 10
     ETC_COLUMN                 = 11
@@ -62,8 +62,8 @@ class ClassInfo:
 class StudentInfo: 
     DEFAULT_NAME               = "학생 정보"
     STUDENT_NAME_COLUMN        =  1
-    # CLASS_NAME_COLUMN        =  2
-    # TEACHER_NAME_COLUMN      =  3
+    # CLASS_NAME_COLUMN        =  2 # 삭제
+    # TEACHER_NAME_COLUMN      =  3 # 삭제
     MAKEUPTEST_WEEKDAY_COLUMN  =  2
     MAKEUPTEST_TIME_COLUMN     =  3
     NEW_STUDENT_CHECK_COLUMN   =  4
