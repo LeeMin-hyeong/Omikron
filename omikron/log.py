@@ -1,4 +1,3 @@
-import sys
 import queue
 
 LOG_LINE_LENGTH = 35

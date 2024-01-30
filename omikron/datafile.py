@@ -11,12 +11,12 @@ from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
 
 import omikron.chrome
 import omikron.classinfo
+import omikron.config
 import omikron.datafile
 import omikron.dataform
 import omikron.makeuptest
 import omikron.studentinfo
 
-from omikron.config import DATA_FILE_NAME
 from omikron.defs import DataFile, DataForm
 from omikron.log import OmikronLog
 from omikron.util import copy_cell, class_average_color, student_average_color, test_score_color
@@ -113,13 +113,13 @@ def make_file() -> bool:
     return True
 
 def open(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"./data/{DATA_FILE_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx", data_only=data_only)
 
 def open_temp(data_only:bool=False) -> xl.Workbook:
     return xl.load_workbook(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only)
 
 def save(wb:xl.Workbook):
-    wb.save(f"./data/{DATA_FILE_NAME}.xlsx")
+    wb.save(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx")
     wb.close()
 
 def save_to_temp(wb:xl.Workbook):
@@ -133,12 +133,12 @@ def close(wb:xl.Workbook):
     wb.close()
 
 def isopen() -> bool:
-    return os.path.isfile(f"./data/~${DATA_FILE_NAME}.xlsx")
+    return os.path.isfile(f"./data/~${omikron.config.DATA_FILE_NAME}.xlsx")
 
 # 파일 유틸리티
 def make_backup_file():
     wb = open()
-    wb.save(f"./data/backup/{DATA_FILE_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    wb.save(f"./data/backup/{omikron.config.DATA_FILE_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
     wb.close()
 
 def get_data_sorted_dict():
@@ -508,7 +508,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 def conditional_formatting():
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{DATA_FILE_NAME}.xlsx")
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{omikron.config.DATA_FILE_NAME}.xlsx")
     wb.Save()
     wb.Close()
     excel.Quit()
@@ -610,7 +610,7 @@ def update_class():
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
     excel = win32com.client.gencache.EnsureDispatch("Excel.Application")
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{DATA_FILE_NAME}.xlsx")
+    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{omikron.config.DATA_FILE_NAME}.xlsx")
     wb.Save()
     wb.Close()
     excel.Quit()

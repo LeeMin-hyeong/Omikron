@@ -12,13 +12,13 @@ from webbrowser import open_new
 
 import omikron.chrome
 import omikron.classinfo
+import omikron.config
 import omikron.datafile
 import omikron.dataform
 import omikron.makeuptest
 import omikron.studentinfo
 import omikron.thread
 
-from omikron.config import DATA_FILE_NAME
 from omikron.defs import VERSION, ClassInfo, StudentInfo, MakeupTestList
 from omikron.log import OmikronLog
 
@@ -68,7 +68,7 @@ class GUI():
         self.make_class_info_file_button = tk.Button(self.ui, cursor="hand2", text="반 정보 기록 양식 생성", width=40, command=self.make_class_info_file_task)
         self.make_class_info_file_button.pack()
 
-        self.make_data_file_button = tk.Button(self.ui, cursor="hand2", text="데이터 파일 생성", width=40, command=self.make_data_file_task)
+        self.make_data_file_button = tk.Button(self.ui, cursor="hand2", text="데이터 파일 생성", width=40, command=self.data_file_task)
         self.make_data_file_button.pack()
 
         self.make_student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=self.student_info_file_task)
@@ -82,7 +82,7 @@ class GUI():
         self.make_data_form_button = tk.Button(self.ui, cursor="hand2", text="데일리 테스트 기록 양식 생성", width=40, command=self.make_data_form_task)
         self.make_data_form_button.pack()
 
-        self.save_test_data_button = tk.Button(self.ui, cursor="hand2", text="데이터 엑셀 파일에 저장", width=40, command=self.save_test_data_task)
+        self.save_test_data_button = tk.Button(self.ui, cursor="hand2", text="데이터 저장", width=40, command=self.save_test_data_task)
         self.save_test_data_button.pack()
 
         self.send_message_button = tk.Button(self.ui, cursor="hand2", text="시험 결과 전송", width=40, command=self.send_message_task)
@@ -96,7 +96,7 @@ class GUI():
 
         tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
 
-        self.apply_color_button = tk.Button(self.ui, cursor="hand2", text="데이터 엑셀 파일 조건부 서식 재지정", width=40, command=self.conditional_formatting_task)
+        self.apply_color_button = tk.Button(self.ui, cursor="hand2", text="데이터 파일 조건부 서식 재지정", width=40, command=self.conditional_formatting_task)
         self.apply_color_button.pack()
 
         tk.Label(self.ui, text="< 학생 관리 >").pack()
@@ -146,11 +146,11 @@ class GUI():
             studentinfo_check = True
         else: 
             self.make_student_info_file_button["text"] = "학생 정보 기록 양식 생성"
-        if os.path.isfile(f"./data/{DATA_FILE_NAME}.xlsx"):
-            self.make_data_file_button["state"] = tk.DISABLED
+        if os.path.isfile(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx"):
+            self.make_data_file_button["text"] = "데이터 파일 이름 변경"
             datafile_check = True
         else:
-            self.make_data_file_button["state"] = tk.NORMAL
+            self.make_data_file_button["text"] = "데이터 파일 생성"
 
         if classinfo_check and studentinfo_check and datafile_check:
             self.update_class_button["state"]            = tk.NORMAL
@@ -198,6 +198,33 @@ class GUI():
         self.ui.after(100, self.check_thread_end)
 
     # dialogs
+    def change_data_file_name_dialog(self):
+        def quit_event():
+            popup.quit()
+            popup.destroy()
+
+        popup = tk.Toplevel(self.ui)
+        width = 250
+        height = 120
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.title("데이터 파일 이름 변경")
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
+
+        tk.Label(popup, text=f"기존 파일명: {omikron.config.DATA_FILE_NAME}", pady=10).pack()
+
+        new_filename_var = tk.StringVar()
+        tk.Entry(popup, textvariable=new_filename_var, width=28).pack()
+
+        tk.Label(popup).pack()
+        tk.Button(popup, text="데이터 파일 이름 변경", width=20 , command=quit_event).pack()
+        
+        popup.mainloop()
+
+        return new_filename_var.get()
+
     def holiday_dialog(self):
         """
         휴일 지정 팝업창
@@ -581,9 +608,17 @@ class GUI():
         thread = threading.Thread(target=omikron.thread.make_class_info_file_thread, daemon=True)
         thread.start()
 
-    def make_data_file_task(self):
-        thread = threading.Thread(target=omikron.thread.make_data_file_thread, daemon=True)
-        thread.start()
+    def data_file_task(self):
+        if self.make_data_file_button["text"] == "데이터 파일 생성":
+            thread = threading.Thread(target=omikron.thread.make_data_file_thread, daemon=True)
+            thread.start()
+        else:
+            new_filename = self.change_data_file_name_dialog()
+            if new_filename is None: return
+
+            # if askokcancel("데이터 파일 이름 변경", f"데이터 파일 이름을 {new_filename}으로 변경하시겠습니까?"):
+
+            omikron.config.change_data_file_name(new_filename)
 
     def student_info_file_task(self):
         if self.make_student_info_file_button["text"] == "학생 정보 기록 양식 생성":
