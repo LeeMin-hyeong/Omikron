@@ -616,9 +616,8 @@ class GUI():
             new_filename = self.change_data_file_name_dialog()
             if new_filename is None: return
 
-            # if askokcancel("데이터 파일 이름 변경", f"데이터 파일 이름을 {new_filename}으로 변경하시겠습니까?"):
-
-            omikron.config.change_data_file_name(new_filename)
+            if askokcancel("데이터 파일 이름 변경", f"데이터 파일 이름을 {new_filename}으로 변경하시겠습니까?"):
+                omikron.config.change_data_file_name(new_filename)
 
     def student_info_file_task(self):
         if self.make_student_info_file_button["text"] == "학생 정보 기록 양식 생성":
