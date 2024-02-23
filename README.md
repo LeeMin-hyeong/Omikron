@@ -21,11 +21,11 @@
 * Google Chrome
 * Microsoft Excel
 
-[INSTRUCTION](https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4)
+[사용법 및 도움말](https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4)
 
 ## 업데이트 내역
 
-[UPDATE NOTE](https://omikron-db.notion.site/607251ce161946a5910623d4d906adf3?v=4a145775c66545608f200ca2c2ad93ec&pvs=4)
+[업데이트 노트](https://omikron-db.notion.site/607251ce161946a5910623d4d906adf3?v=4a145775c66545608f200ca2c2ad93ec&pvs=4)
 
 ## 정보
 
