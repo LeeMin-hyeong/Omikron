@@ -141,6 +141,11 @@ def check_difference_between():
 
 # 파일 작업
 def make_temp_file_for_update():
+    """
+    반 업데이트 작업에 필요한 임시 반 정보 파일 생성
+
+    등록되지 않은 반을 반 리스트 최하단에 작성
+    """
     wb = open()
     complete, ws = open_worksheet(wb)
     if not complete: return False

@@ -8,7 +8,6 @@ import omikron.thread
 
 from omikron.log import OmikronLog
 
-global thread_end_flag
 thread_end_flag = False
 """thread 종료 플래그"""
 
@@ -114,7 +113,7 @@ def send_message_thread(filepath:str, makeup_test_date:dict):
     global thread_end_flag
     thread_end_flag = True
 
-def save_individual_test_thread(student_name, class_name, test_name, target_row, target_col, test_score, makeup_test_check, makeup_test_date):
+def save_individual_test_thread(student_name:str, class_name:str, test_name:str, target_row:int, target_col:int, test_score:int|float, makeup_test_check:bool, makeup_test_date:dict):
     OmikronLog.log(f"{student_name} 개별 시험 결과 저장 중...")
     complete, test_average, data_file_wb = omikron.datafile.save_individual_test_data(target_row, target_col, test_score)
     if not complete: return

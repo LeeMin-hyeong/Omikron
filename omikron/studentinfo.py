@@ -34,9 +34,7 @@ def make_file() -> bool:
         ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
         ws.cell(1, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    save(wb)
-
-    return update_student()
+    return update_student(wb)
 
 def open(data_only:bool=False) -> xl.Workbook:
     return xl.load_workbook(f"./{StudentInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
@@ -103,7 +101,6 @@ def delete_student(target_student_name:str):
     """
     학생 정보 파일에서 학생 정보 삭제
     """
-
     wb = open()
     complete, ws = open_worksheet(wb)
     if not complete: return False, None
@@ -114,10 +111,12 @@ def delete_student(target_student_name:str):
 
     return True, wb
 
-def update_student():
+def update_student(wb:xl.Workbook=None):
     latest_student_names = omikron.chrome.get_student_names()
 
-    wb = open()
+    if wb is None:
+        wb = open()
+
     complete, ws = open_worksheet(wb)
     if not complete: return False
 

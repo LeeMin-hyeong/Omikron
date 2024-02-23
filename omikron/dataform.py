@@ -69,9 +69,9 @@ def make_file() -> bool:
         end = WRITE_LOCATION - 1
 
         # 시험 평균
-        ws.cell(start, DataForm.DAILYTEST_AVERAGE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataForm.DAILYTEST_SCORE_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_SCORE_COLUMN)+str(end)}), 0)"
+        ws.cell(start, DataForm.DAILYTEST_AVERAGE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataForm.DAILYTEST_SCORE_COLUMN)}{start}:{gcl(DataForm.DAILYTEST_SCORE_COLUMN)}{end}), 0)"
         # 모의고사 평균
-        ws.cell(start, DataForm.MOCKTEST_AVERAGE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataForm.MOCKTEST_SCORE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_SCORE_COLUMN)+str(end)}), 0)"
+        ws.cell(start, DataForm.MOCKTEST_AVERAGE_COLUMN).value  = f"=ROUND(AVERAGE({gcl(DataForm.MOCKTEST_SCORE_COLUMN)}{start}:{gcl(DataForm.MOCKTEST_SCORE_COLUMN)}{end}), 0)"
         
         # 정렬 및 테두리
         for row in range(start, end + 1):
@@ -81,12 +81,12 @@ def make_file() -> bool:
         
         # 셀 병합
         if start < end:
-            ws.merge_cells(f"{gcl(DataForm.CLASS_NAME_COLUMN)+str(start)}:{gcl(DataForm.CLASS_NAME_COLUMN)+str(end)}")
-            ws.merge_cells(f"{gcl(DataForm.TEACHER_NAME_COLUMN)+str(start)}:{gcl(DataForm.TEACHER_NAME_COLUMN)+str(end)}")
-            ws.merge_cells(f"{gcl(DataForm.DAILYTEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_NAME_COLUMN)+str(end)}")
-            ws.merge_cells(f"{gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)+str(end)}")
-            ws.merge_cells(f"{gcl(DataForm.MOCKTEST_NAME_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_NAME_COLUMN)+str(end)}")
-            ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(start)}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)+str(end)}")
+            ws.merge_cells(f"{gcl(DataForm.CLASS_NAME_COLUMN)}{start}:{gcl(DataForm.CLASS_NAME_COLUMN)}{end}")
+            ws.merge_cells(f"{gcl(DataForm.TEACHER_NAME_COLUMN)}{start}:{gcl(DataForm.TEACHER_NAME_COLUMN)}{end}")
+            ws.merge_cells(f"{gcl(DataForm.DAILYTEST_NAME_COLUMN)}{start}:{gcl(DataForm.DAILYTEST_NAME_COLUMN)}{end}")
+            ws.merge_cells(f"{gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)}{start}:{gcl(DataForm.DAILYTEST_AVERAGE_COLUMN)}{end}")
+            ws.merge_cells(f"{gcl(DataForm.MOCKTEST_NAME_COLUMN)}{start}:{gcl(DataForm.MOCKTEST_NAME_COLUMN)}{end}")
+            ws.merge_cells(f"{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)}{start}:{gcl(DataForm.MOCKTEST_AVERAGE_COLUMN)}{end}")
         
     ws.protection.sheet         = True
     ws.protection.autoFilter    = False

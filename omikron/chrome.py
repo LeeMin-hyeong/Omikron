@@ -45,8 +45,8 @@ def get_class_names() -> list[str]:
     """
     driver = open_web_background()
 
-    table_names = driver.find_elements(By.CLASS_NAME, "style1")
-    class_names = [table_name.text.strip() for table_name in table_names[Chrome.ACTUAL_CLASS_START_INDEX:]]
+    table_names = driver.find_elements(By.CLASS_NAME, "style1")[Chrome.ACTUAL_CLASS_START_INDEX:]
+    class_names = [table_name.text.strip() for table_name in table_names]
 
     close_web_background(driver)
 
@@ -73,6 +73,9 @@ def get_student_names() -> list[str]:
     return sorted(list(set(student_names)))
 
 def get_class_student_dict() -> dict[str:list[str]]:
+    """
+    실제 반 정보를 담고 있는 테이블부터 반 : 학생 리스트의 dict 생성
+    """
     class_student_dict = {}
 
     driver = open_web_background()
@@ -111,6 +114,9 @@ def check_student_exists(student_name:str, target_class_name:str) -> bool:
 
 # 크롬 작업
 def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
+    """
+    기록 양식의 데이터를 추출하여 아이소식 스크립트 작성
+    """
     form_wb = omikron.dataform.open(filepath)
     complete, form_ws = omikron.dataform.open_worksheet(form_wb)
     if not complete: return False
@@ -268,6 +274,9 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     return True
 
 def send_individual_test_message(student_name:str, class_name:int, test_name:int, test_score:int, test_average:int, makeup_test_check:bool, makeup_test_date:dict) -> bool:
+    """
+    개별 시험에 대한 결과 메시지 전송
+    """
     student_wb = omikron.studentinfo.open()
     complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
     if not complete: return False

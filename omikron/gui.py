@@ -135,7 +135,9 @@ class GUI():
         classinfo_check = studentinfo_check = datafile_check = False
 
         if os.path.isfile(f"{ClassInfo.DEFAULT_NAME}.xlsx"):
-            self.make_class_info_file_button["state"] = tk.DISABLED
+            self.make_class_info_file_button["state"]   = tk.DISABLED
+            self.make_student_info_file_button["state"] = tk.NORMAL
+            self.make_data_file_button["state"]         = tk.NORMAL
             classinfo_check = True
         else:
             self.make_class_info_file_button["state"]   = tk.NORMAL
@@ -157,7 +159,7 @@ class GUI():
             self.make_data_form_button["state"]          = tk.NORMAL
             self.save_test_data_button["state"]          = tk.NORMAL
             self.send_message_button["state"]            = tk.NORMAL
-            self.save_individual_test_button["state"]       = tk.NORMAL
+            self.save_individual_test_button["state"]    = tk.NORMAL
             self.apply_color_button["state"]             = tk.NORMAL
             self.add_student_button["state"]             = tk.NORMAL
             self.delete_student_button["state"]          = tk.NORMAL
@@ -171,7 +173,7 @@ class GUI():
             self.make_data_form_button["state"]          = tk.DISABLED
             self.save_test_data_button["state"]          = tk.DISABLED
             self.send_message_button["state"]            = tk.DISABLED
-            self.save_individual_test_button["state"]       = tk.DISABLED
+            self.save_individual_test_button["state"]    = tk.DISABLED
             self.save_makeup_test_result_button["state"] = tk.DISABLED
             self.apply_color_button["state"]             = tk.DISABLED
             self.add_student_button["state"]             = tk.DISABLED
@@ -266,7 +268,7 @@ class GUI():
         tk.Label(popup, text="\n다음 중 휴일을 선택해주세요\n").pack()
         sort = today.weekday()+1
         for i in range(7):
-            tk.Checkbutton(popup, text=f"{str(makeup_test_date[weekday[(sort+i)%7]])} {weekday[(sort+i)%7]}", variable=var_list[(sort+i)%7]).pack()
+            tk.Checkbutton(popup, text=f"{makeup_test_date[weekday[(sort+i)%7]]} {weekday[(sort+i)%7]}", variable=var_list[(sort+i)%7]).pack()
         tk.Label(popup, text="\n").pack()
         tk.Button(popup, text="확인", width=10 , command=quit_event).pack()
         
@@ -631,6 +633,9 @@ class GUI():
         if omikron.datafile.isopen():
             OmikronLog.log(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
             return
+        
+        if not omikron.datafile.file_validation():
+            return
 
         if self.update_class_button["text"] == "반 업데이트":
             if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
@@ -681,6 +686,9 @@ class GUI():
         if self.makeup_test_date is None:
             self.holiday_dialog()
 
+        if not omikron.datafile.file_validation():
+            return
+
         filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
         if filepath == "": return
 
@@ -714,6 +722,9 @@ class GUI():
         if self.makeup_test_date is None:
             self.holiday_dialog()
 
+        if not omikron.datafile.file_validation():
+            return
+
         complete, target_student_name, target_class_name, target_test_name, target_row, target_col, test_score, makeup_test_check = self.save_individual_test_dialog()
         if not complete: return
 
@@ -731,6 +742,9 @@ class GUI():
             OmikronLog.error(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         complete, target_row, makeup_test_score = self.save_makeup_test_result_dialog()
         if not complete: return
 
@@ -742,6 +756,9 @@ class GUI():
             OmikronLog.error(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         thread = threading.Thread(target=omikron.thread.conditional_formatting_thread, daemon=True)
         thread.start()
 
@@ -751,6 +768,9 @@ class GUI():
             return
         if omikron.studentinfo.isopen():
             OmikronLog.error(r"학생 정보 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+
+        if not omikron.datafile.file_validation():
             return
 
         complete, target_student_name, target_class_name = self.add_student_dialog()
@@ -771,6 +791,9 @@ class GUI():
             OmikronLog.error(r"학생 정보 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         complete, target_student_name = self.delete_student_dialog()
         if not complete: return
 
@@ -787,6 +810,9 @@ class GUI():
             return
         if omikron.studentinfo.isopen():
             OmikronLog.error(r"학생 정보 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+
+        if not omikron.datafile.file_validation():
             return
 
         complete, target_student_name, target_class_name, current_class_name = self.move_student_dialog()

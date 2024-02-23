@@ -25,7 +25,7 @@ from omikron.util import copy_cell, class_average_color, student_average_color, 
 def make_file() -> bool:
     wb = xl.Workbook()
     ws = wb.worksheets[0]
-    ws.title = "데일리테스트"
+    ws.title = DataFile.FIRST_SHEET_NAME
     ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
     ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
     ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
@@ -79,7 +79,7 @@ def make_file() -> bool:
             ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
             ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = student_name
-            ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(G{str(WRITE_LOCATION)}:XFD{str(WRITE_LOCATION)}), 0)"
+            ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(G{WRITE_LOCATION}:XFD{WRITE_LOCATION}), 0)"
             ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font  = Font(bold=True)
         
         # 시험별 평균
@@ -90,7 +90,7 @@ def make_file() -> bool:
         ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
         ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
         ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험 평균"
-        ws[f"F{str(WRITE_LOCATION)}"] = ArrayFormula(f"F{str(WRITE_LOCATION)}", f"=ROUND(AVERAGE(IFERROR(F{str(class_start)}:F{str(class_end)}, \"\")), 0)")
+        ws[f"F{WRITE_LOCATION}"] = ArrayFormula(f"F{WRITE_LOCATION}", f"=ROUND(AVERAGE(IFERROR(F{class_start}:F{class_end}, \"\")), 0)")
         ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
         for col in range(1, DataFile.DATA_COLUMN):
@@ -102,8 +102,8 @@ def make_file() -> bool:
             ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
     
     # 모의고사 sheet 생성
-    copy_ws                 = wb.copy_worksheet(wb["데일리테스트"])
-    copy_ws.title           = "모의고사"
+    copy_ws                 = wb.copy_worksheet(wb[DataFile.FIRST_SHEET_NAME])
+    copy_ws.title           = DataFile.SECOND_SHEET_NAME
     copy_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
     copy_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
@@ -152,7 +152,8 @@ def get_data_sorted_dict():
     return : {반 : {학생 : 인덱스}}, {반 : {시험 : 인덱스}}
     """
     wb = open()
-    ws = wb["데일리테스트"]
+
+    ws = wb[DataFile.FIRST_SHEET_NAME]
 
     complete, _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
     if not complete: return False, None, None
@@ -271,7 +272,8 @@ def is_cell_empty(row:int, col:int) -> bool:
     """
 
     wb = open(data_only=True)
-    ws = wb["데일리테스트"]
+
+    ws = wb[DataFile.FIRST_SHEET_NAME]
 
     if ws.cell(row, col).value is None:
         return True, None
@@ -280,6 +282,21 @@ def is_cell_empty(row:int, col:int) -> bool:
     close(wb)
 
     return False, value
+
+def file_validation() -> bool:
+    wb = open()
+
+    if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
+        OmikronLog.error(f"'{DataFile.FIRST_SHEET_NAME}' 시트가 존재하지 않습니다.")
+        return False
+
+    if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
+        OmikronLog.error(f"'{DataFile.SECOND_SHEET_NAME}' 시트가 존재하지 않습니다.")
+        return False
+
+    close(wb)
+
+    return True
 
 # 파일 작업
 def save_test_data(filepath:str):
@@ -301,23 +318,18 @@ def save_test_data(filepath:str):
 
     wb = open()
 
-    if "데일리테스트" not in wb.sheetnames:
-        return False, None
-    if "모의고사" not in wb.sheetnames:
-        return False, None
-
     for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        if sheet_name == "데일리테스트":
+        if sheet_name == DataFile.FIRST_SHEET_NAME:
             TEST_NAME_COLUMN    = DataForm.DAILYTEST_NAME_COLUMN
             TEST_SCORE_COLUMN   = DataForm.DAILYTEST_SCORE_COLUMN
             TEST_AVERAGE_COLUMN = DataForm.DAILYTEST_AVERAGE_COLUMN
-        elif sheet_name == "모의고사":
+        elif sheet_name == DataFile.SECOND_SHEET_NAME:
             TEST_NAME_COLUMN    = DataForm.MOCKTEST_NAME_COLUMN
             TEST_SCORE_COLUMN   = DataForm.MOCKTEST_SCORE_COLUMN
             TEST_AVERAGE_COLUMN = DataForm.MOCKTEST_AVERAGE_COLUMN
         else:
             continue
+        ws = wb[sheet_name]
 
         complete, _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
         if not complete: return False, None
@@ -390,7 +402,7 @@ def save_test_data(filepath:str):
             else:
                 OmikronLog.warning(f"{sheet_name} 시트: {class_name} 반에 {student_name} 학생이 존재하지 않습니다.")
 
-    ws = wb["데일리테스트"]
+    ws = wb[DataFile.FIRST_SHEET_NAME]
     save_to_temp(wb)
 
     # 조건부 서식 수식 로딩
@@ -406,7 +418,7 @@ def save_test_data(filepath:str):
     data_only_wb = open_temp(data_only=True)
 
     for sheet_name in wb.sheetnames:
-        if sheet_name not in ("데일리테스트", "모의고사"):
+        if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
         ws           = wb[sheet_name]
@@ -445,7 +457,7 @@ def save_test_data(filepath:str):
                 ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
                 OmikronLog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
-    ws = wb["데일리테스트"]
+    ws = wb[DataFile.FIRST_SHEET_NAME]
     close(data_only_wb)
     omikron.dataform.close(form_wb)
 
@@ -457,13 +469,10 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 
     wb = open()
 
-    if "데일리테스트" not in wb.sheetnames:
-        return False, None, None
+    ws = wb[DataFile.FIRST_SHEET_NAME]
 
-    ws = wb["데일리테스트"]
-
-    ws.cell(target_row, target_col).value = test_score
-    ws.cell(target_row, target_col).fill = test_score_color(test_score)
+    ws.cell(target_row, target_col).value     = test_score
+    ws.cell(target_row, target_col).fill      = test_score_color(test_score)
     ws.cell(target_row, target_col).alignment = Alignment(horizontal="center", vertical="center")
 
     save_to_temp(wb)
@@ -479,8 +488,8 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     wb           = open_temp()
     data_only_wb = open_temp(True)
 
-    ws       = wb["데일리테스트"]
-    data_only_ws = data_only_wb["데일리테스트"]
+    ws           = wb[DataFile.FIRST_SHEET_NAME]
+    data_only_ws = data_only_wb[DataFile.FIRST_SHEET_NAME]
 
     complete, _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
     if not complete: return False, None, None
@@ -514,13 +523,16 @@ def conditional_formatting():
     excel.Quit()
     pythoncom.CoUninitialize()
 
-    wb           = open()
-    data_only_wb = open(data_only=True)
+    wb                   = open()
+    data_only_wb         = open(data_only=True)
     student_wb           = omikron.studentinfo.open()
     complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
     if not complete: return False
 
     for sheet_name in wb.sheetnames:
+        if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
         ws           = wb[sheet_name]
         data_only_ws = data_only_wb[sheet_name]
 
@@ -622,7 +634,7 @@ def update_class():
         if not os.path.isfile("./data/지난 데이터.xlsx"):
             wb = xl.Workbook()
             ws = wb.worksheets[0]
-            ws.title = "데일리테스트"
+            ws.title = DataFile.FIRST_SHEET_NAME
             ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
             ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
             ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
@@ -637,8 +649,8 @@ def update_class():
                 ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
             
             # 모의고사 sheet 생성
-            copy_ws                 = wb.copy_worksheet(wb["데일리테스트"])
-            copy_ws.title           = "모의고사"
+            copy_ws                 = wb.copy_worksheet(wb[DataFile.FIRST_SHEET_NAME])
+            copy_ws.title           = DataFile.SECOND_SHEET_NAME
             copy_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
             copy_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
@@ -647,6 +659,9 @@ def update_class():
         data_only_wb = open(data_only=True)
         post_data_wb = xl.load_workbook("./data/지난 데이터.xlsx")
         for sheet_name in wb.sheetnames:
+            if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+                continue
+
             data_only_ws = data_only_wb[sheet_name]
             post_data_ws = post_data_wb[sheet_name]
             ws = wb[sheet_name]
@@ -680,11 +695,14 @@ def update_class():
     if len(unregistered_class_names) > 0:
         class_wb = omikron.classinfo.open_temp()
         complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-        if not complete: return False
+        if not complete: return False, None
 
         class_student_dict = omikron.chrome.get_class_student_dict()
 
         for sheet_name in wb.sheetnames:
+            if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+                continue
+
             ws           = wb[sheet_name]
             post_data_ws = post_data_wb[sheet_name]
 
@@ -755,6 +773,9 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
         wb = open()
 
     for ws in wb.worksheets:
+        if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
         complete, TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
         if not complete: return False, None
 
@@ -804,9 +825,11 @@ def delete_student(student_name:str):
     
     퇴원 처리된 학생은 모든 데이터에 취소선 적용
     """
-
     wb = open()
     for ws in wb.worksheets:
+        if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
         complete, _, _, _, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
         if not complete: return False, None
 
@@ -814,8 +837,6 @@ def delete_student(student_name:str):
             if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name:
                 for col in range(1, ws.max_column+1):
                     ws.cell(row, col).font = Font(strike=True)
-    
-    # save(wb)
 
     return True, wb
 
@@ -823,6 +844,9 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
     wb = open()
 
     for ws in wb.worksheets:
+        if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
         complete, _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
         if not complete: return False, None
 
@@ -842,8 +866,10 @@ def rescoping_formula(wb:xl.Workbook):
     """
     데이터 파일 내 평균 산출 수식의 범위 재조정
     """
-
     for ws in wb.worksheets:
+        if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
         complete, _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
         if not complete: return False, None
 
@@ -864,18 +890,18 @@ def rescoping_formula(wb:xl.Workbook):
                 CLASS_START = row+2
             elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
                 CLASS_END = row-1
-                ws[f"{gcl(AVERAGE_SCORE_COLUMN)}{str(row)}"] = ArrayFormula(f"{gcl(AVERAGE_SCORE_COLUMN)}{str(row)}", f"=ROUND(AVERAGE(IFERROR({gcl(AVERAGE_SCORE_COLUMN)}{str(CLASS_START)}:{gcl(AVERAGE_SCORE_COLUMN)}{str(CLASS_END)}, \"\")), 0)")
+                ws[f"{gcl(AVERAGE_SCORE_COLUMN)}{row}"] = ArrayFormula(f"{gcl(AVERAGE_SCORE_COLUMN)}{row}", f"=ROUND(AVERAGE(IFERROR({gcl(AVERAGE_SCORE_COLUMN)}{CLASS_START}:{gcl(AVERAGE_SCORE_COLUMN)}{CLASS_END}, \"\")), 0)")
                 if CLASS_START >= CLASS_END:
                     continue
                 for col in range(AVERAGE_SCORE_COLUMN+1, ws.max_column+1):
                     if ws.cell(DATE_ROW, col).value is None:
                         break
-                    ws.cell(row, col).value = f"=ROUND(AVERAGE({gcl(col)}{str(CLASS_START)}:{gcl(col)}{str(CLASS_END)}), 0)"
+                    ws.cell(row, col).value = f"=ROUND(AVERAGE({gcl(col)}{CLASS_START}:{gcl(col)}{CLASS_END}), 0)"
                     ws.cell(row, col).font  = Font(bold=True)
             elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
                 continue
             else:
-                ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{str(row)}:XFD{str(row)}), 0)"
+                ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{row}:XFD{row}), 0)"
 
             if striked:
                 ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)

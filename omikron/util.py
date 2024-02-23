@@ -23,12 +23,12 @@ def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dic
 
     return True, makeup_test_date[weekday_list[time_index]], time_index
 
-def date_to_kor_date(schedule:datetime) -> str:
+def date_to_kor_date(date:datetime) -> str:
     """
     `datetime.strftime` 한글 인코딩 오류 우회
     `mm월 dd일`
     """
-    month, day = schedule.strftime("%m %d").split()
+    month, day = date.strftime("%m %d").split()
 
     return f"{month}월 {day}일"
 

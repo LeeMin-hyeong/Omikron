@@ -10,6 +10,8 @@ class Chrome:
 
 class DataFile:
     TEMP_FILE_NAME             = "9IwTEoG59MS6h2UoqveD"
+    FIRST_SHEET_NAME           = "데일리테스트"
+    SECOND_SHEET_NAME          = "모의고사"
     TEST_TIME_COLUMN           =  1
     CLASS_WEEKDAY_COLUMN       =  2
     CLASS_NAME_COLUMN          =  3
@@ -42,7 +44,7 @@ class MakeupTestList:
     TEACHER_NAME_COLUMN        =  3
     STUDENT_NAME_COLUMN        =  4
     TEST_NAME_COLUMN           =  5
-    TEST_SCORE_COLUMN          =  6
+    TEST_SCORE_COLUMN          =  6 # 삭제 예정
     MAKEUPTEST_WEEKDAY_COLUMN  =  7 # 삭제 예정
     MAKEUPTEST_TIME_COLUMN     =  8 # 삭제 예정
     MAKEUPTEST_DATE_COLUMN     =  9
@@ -62,8 +64,6 @@ class ClassInfo:
 class StudentInfo: 
     DEFAULT_NAME               = "학생 정보"
     STUDENT_NAME_COLUMN        =  1
-    # CLASS_NAME_COLUMN        =  2 # 삭제
-    # TEACHER_NAME_COLUMN      =  3 # 삭제
     MAKEUPTEST_WEEKDAY_COLUMN  =  2
     MAKEUPTEST_TIME_COLUMN     =  3
     NEW_STUDENT_CHECK_COLUMN   =  4
