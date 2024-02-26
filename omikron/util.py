@@ -9,7 +9,6 @@ def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dic
 
     return `계산 성공 여부`, `계산된 날짜`, `계산된 시간`
     """
-
     try:
         weekday_list = makeup_test_weekday.split("/")
         calculated_date = makeup_test_date[weekday_list[0].replace(" ", "")]
@@ -26,7 +25,8 @@ def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dic
 def date_to_kor_date(date:datetime) -> str:
     """
     `datetime.strftime` 한글 인코딩 오류 우회
-    `mm월 dd일`
+
+    return `mm월 dd일`
     """
     month, day = date.strftime("%m %d").split()
 
@@ -55,7 +55,7 @@ def class_average_color(score:int|float) -> PatternFill:
 
 def student_average_color(score:int|float) -> PatternFill:
     """
-    학생 별 평균에 대한 점수 기반 색 채우기 (`학생 평균` 열 (`시험 평균` 행 제외))
+    학생 평균에 대한 점수 기반 색 채우기 (`학생 평균` 열 중 `시험 평균` 행 제외)
     """
     if score < 60:
         return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))

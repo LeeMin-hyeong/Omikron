@@ -33,7 +33,7 @@ class GUI():
         self.thread_end_flag = omikron.thread.thread_end_flag
 
         # 창 크기
-        self.width = 320
+        self.width  = 320
         self.height = 585 # button +25
 
         # 창 위치
@@ -136,12 +136,10 @@ class GUI():
 
         if os.path.isfile(f"{ClassInfo.DEFAULT_NAME}.xlsx"):
             self.make_class_info_file_button["state"]   = tk.DISABLED
-            self.make_student_info_file_button["state"] = tk.NORMAL
             self.make_data_file_button["state"]         = tk.NORMAL
             classinfo_check = True
         else:
             self.make_class_info_file_button["state"]   = tk.NORMAL
-            self.make_student_info_file_button["state"] = tk.DISABLED
             self.make_data_file_button["state"]         = tk.DISABLED
         if os.path.isfile(f"{StudentInfo.DEFAULT_NAME}.xlsx"):
             self.make_student_info_file_button["text"] = "학생 정보 업데이트"
@@ -206,7 +204,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 120
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -241,7 +240,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 200
+
+        width  = 200
         height = 300
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -287,7 +287,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 140
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -340,7 +341,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 160
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -402,7 +404,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 140
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -416,7 +419,6 @@ class GUI():
         if not complete: return False, None, None
 
         class_names = omikron.classinfo.get_class_names(class_ws)
-        omikron.classinfo.close(class_wb)
 
         tk.Label(popup).pack()
         target_class_var = tk.StringVar()
@@ -453,7 +455,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 170
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -537,7 +540,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 150
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -615,6 +619,10 @@ class GUI():
             thread = threading.Thread(target=omikron.thread.make_data_file_thread, daemon=True)
             thread.start()
         else:
+            if omikron.datafile.isopen():
+                OmikronLog.log(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
+                return
+
             new_filename = self.change_data_file_name_dialog()
             if new_filename is None: return
 
@@ -641,16 +649,15 @@ class GUI():
             if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                 omikron.classinfo.delete_temp()
 
-            try:
-                excel = win32com.client.gencache.EnsureDispatch("Excel.Application")
-                excel.Visible = True
-            except:
-                OmikronLog.error("모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
-
             if not omikron.classinfo.make_temp_file_for_update():
                 return
 
-            wb = excel.Workbooks.Open(f"{os.getcwd()}\\{ClassInfo.TEMP_FILE_NAME}.xlsx")
+            try:
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = True
+                wb = excel.Workbooks.Open(f"{os.getcwd()}\\{ClassInfo.TEMP_FILE_NAME}.xlsx")
+            except:
+                OmikronLog.error("모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
 
             if not askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
                 wb.Close()

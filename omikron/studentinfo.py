@@ -18,8 +18,6 @@ def make_file() -> bool:
     ws.title = StudentInfo.DEFAULT_NAME
 
     ws[gcl(StudentInfo.STUDENT_NAME_COLUMN)+"1"]       = "이름"
-    # ws[gcl(StudentInfo.CLASS_NAME_COLUMN)+"1"]       = "반명"
-    # ws[gcl(StudentInfo.TEACHER_NAME_COLUMN)+"1"]     = "담당"
     ws[gcl(StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN)+"1"] = "재시험 응시 요일"
     ws[gcl(StudentInfo.MAKEUPTEST_TIME_COLUMN)+"1"]    = "재시험 응시 시간"
     ws[gcl(StudentInfo.NEW_STUDENT_CHECK_COLUMN)+"1"]  = "기수 신규생"
@@ -49,9 +47,6 @@ def open_worksheet(wb:xl.Workbook):
 def save(wb:xl.Workbook):
     wb.save(f"./{StudentInfo.DEFAULT_NAME}.xlsx")
 
-def close(wb:xl.Workbook):
-    wb.close()
-
 def isopen() -> bool:
     return os.path.isfile(f"./data/~${StudentInfo.DEFAULT_NAME}.xlsx")
 
@@ -62,7 +57,6 @@ def get_student_info(ws:Worksheet, student_name:str):
 
     return 파일 내 학생 존재 여부, 재시험 요일, 재시험 시간, 신규생 여부
     """
-
     for row in range(2, ws.max_row+1):
         if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == student_name:
             makeup_test_weekday = ws.cell(row, StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN).value
@@ -149,5 +143,5 @@ def update_student(wb:xl.Workbook=None):
             ws.delete_rows(row)
 
     save(wb)
-    
+
     return True

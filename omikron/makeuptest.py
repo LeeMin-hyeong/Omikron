@@ -15,26 +15,30 @@ from omikron.util import calculate_makeup_test_schedule
 
 # 파일 기본 작업
 def make_file() -> bool:
-    ini_wb = xl.Workbook()
-    ini_ws = ini_wb.worksheets[0]
-    ini_ws.title = MakeupTestList.DEFAULT_NAME
-    ini_ws[gcl(MakeupTestList.TEST_DATE_COLUMN)+"1"]          = "응시일"
-    ini_ws[gcl(MakeupTestList.CLASS_NAME_COLUMN)+"1"]         = "반"
-    ini_ws[gcl(MakeupTestList.TEACHER_NAME_COLUMN)+"1"]       = "담당T"
-    ini_ws[gcl(MakeupTestList.STUDENT_NAME_COLUMN)+"1"]       = "이름"
-    ini_ws[gcl(MakeupTestList.TEST_NAME_COLUMN)+"1"]          = "시험명"
-    ini_ws[gcl(MakeupTestList.TEST_SCORE_COLUMN)+"1"]         = "시험 점수"
-    ini_ws[gcl(MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN)+"1"] = "재시 요일"
-    ini_ws[gcl(MakeupTestList.MAKEUPTEST_TIME_COLUMN)+"1"]    = "재시 시간"
-    ini_ws[gcl(MakeupTestList.MAKEUPTEST_DATE_COLUMN)+"1"]    = "재시 날짜"
-    ini_ws[gcl(MakeupTestList.MAKEUPTEST_SCORE_COLUMN)+"1"]   = "재시 점수"
-    ini_ws[gcl(MakeupTestList.ETC_COLUMN)+"1"]                = "비고"
+    wb = xl.Workbook()
+    ws = wb.worksheets[0]
+    ws.title = MakeupTestList.DEFAULT_NAME
+    ws[gcl(MakeupTestList.TEST_DATE_COLUMN)+"1"]          = "응시일"
+    ws[gcl(MakeupTestList.CLASS_NAME_COLUMN)+"1"]         = "반"
+    ws[gcl(MakeupTestList.TEACHER_NAME_COLUMN)+"1"]       = "담당T"
+    ws[gcl(MakeupTestList.STUDENT_NAME_COLUMN)+"1"]       = "이름"
+    ws[gcl(MakeupTestList.TEST_NAME_COLUMN)+"1"]          = "시험명"
+    ws[gcl(MakeupTestList.TEST_SCORE_COLUMN)+"1"]         = "시험 점수"
+    ws[gcl(MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN)+"1"] = "재시 요일"
+    ws[gcl(MakeupTestList.MAKEUPTEST_TIME_COLUMN)+"1"]    = "재시 시간"
+    ws[gcl(MakeupTestList.MAKEUPTEST_DATE_COLUMN)+"1"]    = "재시 날짜"
+    ws[gcl(MakeupTestList.MAKEUPTEST_SCORE_COLUMN)+"1"]   = "재시 점수"
+    ws[gcl(MakeupTestList.ETC_COLUMN)+"1"]                = "비고"
 
-    ini_ws.column_dimensions.group("L", "M", hidden=True)
-    ini_ws.auto_filter.ref = "A:"+gcl(MakeupTestList.MAX)
-    ini_ws.freeze_panes    = "A2"
+    ws.column_dimensions[gcl(MakeupTestList.TEST_DATE_COLUMN)].width = 14
+    ws.auto_filter.ref = "A:"+gcl(MakeupTestList.MAX)
+    ws.freeze_panes    = "A2"
 
-    ini_wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
+    for col in range(1, DataForm.MAX+1):
+        ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ws.cell(1, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+
+    wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
 
     return True
 
@@ -50,10 +54,6 @@ def open_worksheet(wb:xl.Workbook):
 
 def save(wb:xl.Workbook):
     wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
-    wb.close()
-
-def close(wb:xl.Workbook):
-    wb.close()
 
 def isopen() -> bool:
     return os.path.isfile(f"./data/~${MakeupTestList.DEFAULT_NAME}.xlsx")
@@ -83,8 +83,6 @@ def get_studnet_test_index_dict():
             
             student_test_index_dict[student_name][makeup_test_name] = row
 
-    close(wb)
-
     return True, student_test_index_dict
 
 # 파일 작업
@@ -105,7 +103,7 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
     complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
     if not complete: return False, None
 
-    # 데이터 작성 시작 위치 탐색
+    # 재시험 데이터 작성 시작 위치 탐색
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
             MAKEUP_TEST_RANGE = MAKEUP_TEST_WRITE_ROW = row
@@ -132,7 +130,9 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
 
             if test_score is None:
                 continue
-            if type(test_score) in (int, float) and test_score >= 80:
+            if type(test_score) not in (int, float):
+                continue
+            if test_score >= 80:
                 continue
             if makeup_test_check in ("x", "X"):
                 continue
@@ -193,8 +193,6 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
         for col in range(1, ws.max_column + 1):
             ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-
-    omikron.dataform.close(form_wb)
 
     return True, wb
 
@@ -257,13 +255,9 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
 
         if makeup_test_time is not None:
             ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
-    
+
     for col in range(1, ws.max_column + 1):
         ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
         ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-    
-    omikron.studentinfo.close(student_wb)
-    omikron.classinfo.close(class_wb)
-    # save(wb)
 
     return True, wb

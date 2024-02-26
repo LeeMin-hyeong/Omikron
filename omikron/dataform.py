@@ -37,7 +37,7 @@ def make_file() -> bool:
     
     for col in range(1, DataForm.MAX+1):
         ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ws.cell(1, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        ws.cell(1, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     class_wb = omikron.classinfo.open(True)
     complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
@@ -105,7 +105,7 @@ def make_file() -> bool:
         i = 1
         while True:
             if not os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx"):
-                wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')})({i}).xlsx")
+                wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx")
                 break
             i += 1
     else:
@@ -122,9 +122,6 @@ def open_worksheet(wb:xl.Workbook):
     except:
         OmikronLog.error(f"'{DataForm.DEFAULT_NAME}.xlsx'의 시트명을 '{DataForm.DEFAULT_NAME}'로 변경해 주세요.")
         return False, None
-
-def close(wb:xl.Workbook):
-    wb.close()
 
 # 파일 유틸리티
 def data_validation(filepath:str) -> bool:
@@ -156,7 +153,5 @@ def data_validation(filepath:str) -> bool:
             OmikronLog.error(f"{class_name}의 모의고사명이 작성되지 않았습니다.")
             mocktest_checked = True
             form_checked     = False
-
-    wb.close()
 
     return form_checked
