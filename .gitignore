@@ -128,8 +128,17 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# vscode
+.vscode
+
+# Mac OS
+.DS_Store
+
+# Omikron files
+data
 *.xlsx
 config.json
-.DS_Store
-.vscode
-data
+init.bat
+
+# EXE files
+*.exe
