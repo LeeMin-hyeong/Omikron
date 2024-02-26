@@ -105,7 +105,7 @@ def make_file() -> bool:
         i = 1
         while True:
             if not os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx"):
-                wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')})({i}).xlsx")
+                wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx")
                 break
             i += 1
     else:
