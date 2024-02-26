@@ -204,7 +204,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 120
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -239,7 +240,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 200
+
+        width  = 200
         height = 300
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -285,7 +287,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 140
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -338,7 +341,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 160
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -400,7 +404,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 140
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -450,7 +455,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 170
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -534,7 +540,8 @@ class GUI():
             popup.destroy()
 
         popup = tk.Toplevel(self.ui)
-        width = 250
+
+        width  = 250
         height = 150
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
@@ -645,12 +652,12 @@ class GUI():
             if not omikron.classinfo.make_temp_file_for_update():
                 return
 
-            # try:
-            excel = win32com.client.gencache.EnsureDispatch("Excel.Application")
-            excel.Visible = True
-            wb = excel.Workbooks.Open(f"{os.getcwd()}\\{ClassInfo.TEMP_FILE_NAME}.xlsx")
-            # except:
-            #     OmikronLog.error("모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
+            try:
+                excel = win32com.client.Dispatch("Excel.Application")
+                excel.Visible = True
+                wb = excel.Workbooks.Open(f"{os.getcwd()}\\{ClassInfo.TEMP_FILE_NAME}.xlsx")
+            except:
+                OmikronLog.error("모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
 
             if not askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
                 wb.Close()

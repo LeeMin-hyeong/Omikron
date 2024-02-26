@@ -55,7 +55,7 @@ def class_average_color(score:int|float) -> PatternFill:
 
 def student_average_color(score:int|float) -> PatternFill:
     """
-    학생 별 평균에 대한 점수 기반 색 채우기 (`학생 평균` 열, `시험 평균` 행 제외)
+    학생 평균에 대한 점수 기반 색 채우기 (`학생 평균` 열 중 `시험 평균` 행 제외)
     """
     if score < 60:
         return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))

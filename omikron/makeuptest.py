@@ -103,7 +103,7 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
     complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
     if not complete: return False, None
 
-    # 데이터 작성 시작 위치 탐색
+    # 재시험 데이터 작성 시작 위치 탐색
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
             MAKEUP_TEST_RANGE = MAKEUP_TEST_WRITE_ROW = row
@@ -130,7 +130,9 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
 
             if test_score is None:
                 continue
-            if type(test_score) in (int, float) and test_score >= 80:
+            if type(test_score) not in (int, float):
+                continue
+            if test_score >= 80:
                 continue
             if makeup_test_check in ("x", "X"):
                 continue

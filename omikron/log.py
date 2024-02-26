@@ -6,10 +6,10 @@ class OmikronLog:
     log_queue = queue.Queue()
 
     def log(message:str):
-        if len(message) <= LOG_LINE_LENGTH:
+        if len(message) < LOG_LINE_LENGTH:
             OmikronLog.log_queue.put(message)
         else:
-            for index in range(LOG_LINE_LENGTH, 0, -1):
+            for index in range(LOG_LINE_LENGTH, -1, -1):
                 if message[index] == " ":
                     OmikronLog.log(message[:index])
                     OmikronLog.log(message[index+1:])
