@@ -52,17 +52,12 @@ def open_worksheet(wb:xl.Workbook):
 
 def save(wb:xl.Workbook):
     wb.save(f"./{ClassInfo.DEFAULT_NAME}.xlsx")
-    wb.close()
 
 def save_to_temp(wb:xl.Workbook):
     wb.save(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
-    wb.close()
 
 def delete_temp():
     os.remove(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
-
-def close(wb:xl.Workbook):
-    wb.close()
 
 def isopen() -> bool:
     return os.path.isfile(f"./data/~${ClassInfo.DEFAULT_NAME}.xlsx")
@@ -72,7 +67,7 @@ def get_class_info(ws:Worksheet, class_name:str):
     """
     반 정보 파일로부터 특정 반의 정보 추출
 
-    return `존재 여부`, `담당 선생님`, `수업 요일`, `테스트 응시 시간`
+    return `반 정보 존재 여부`, `담당 선생님`, `수업 요일`, `테스트 응시 시간`
     """
     for row in range(2, ws.max_row + 1):
         if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
@@ -100,26 +95,21 @@ def get_class_names(ws:Worksheet) -> list[str]:
 def check_updated_class(ws:Worksheet):
     """
     아이소식에 존재하지만 반 정보 파일에 없는 반 목록 리턴
-
-    return `미등록 반 여부`, `미등록 반 리스트`
     """
     latest_class_names = omikron.chrome.get_class_names()
     class_names        = get_class_names(ws)
 
     unregistered_class_names = list(set(latest_class_names).difference(class_names))
 
-    if len(unregistered_class_names) == 0:
-        return False, None
-
-    return True, unregistered_class_names
+    return unregistered_class_names
 
 def check_difference_between():
     """
-    반 정보 파일과 임시 파일의 반 목록을 비교
+    반 정보 파일과 임시 반 정보 파일의 반 목록을 비교
 
-    return `성공 여부`, `반 정보 파일에만 존재하는 반 리스트`, `임시 파일에만 존재하는 반 리스트`
+    return `성공 여부`, `반 정보 파일에만 존재하는 반 리스트`, `임시 반 정보 파일에만 존재하는 반 리스트`
     """
-    wb = open()
+    wb       = open()
     temp_wb  = open_temp()
 
     complete, ws = open_worksheet(wb)
@@ -134,13 +124,10 @@ def check_difference_between():
     deleted_class_names      = list(set(class_names).difference(latest_class_names))
     unregistered_class_names = list(set(latest_class_names).difference(class_names))
 
-    close(wb)
-    close(temp_wb)
-
     return True, deleted_class_names, unregistered_class_names
 
 # 파일 작업
-def make_temp_file_for_update():
+def make_temp_file_for_update() -> bool:
     """
     반 업데이트 작업에 필요한 임시 반 정보 파일 생성
 
@@ -150,8 +137,10 @@ def make_temp_file_for_update():
     complete, ws = open_worksheet(wb)
     if not complete: return False
 
-    complete, unregistered_class_names = check_updated_class(ws)
-    if not complete: return False
+    unregistered_class_names = check_updated_class(ws)
+    if len(unregistered_class_names) == 0:
+        save_to_temp(wb)
+        return True
 
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, ClassInfo.CLASS_NAME_COLUMN).value is not None:

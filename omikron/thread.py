@@ -128,11 +128,12 @@ def save_individual_test_thread(student_name:str, class_name:str, test_name:str,
     except:
         OmikronLog.error(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
         return
-    try:
-        omikron.makeuptest.save(makeup_test_wb)
-    except:
-        OmikronLog.error(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
-        return
+    if test_score < 80 and not makeup_test_check:
+        try:
+            omikron.makeuptest.save(makeup_test_wb)
+        except:
+            OmikronLog.error(r"재시험 명단 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
 
     if omikron.chrome.send_individual_test_message(student_name, class_name, test_name, test_score, test_average, makeup_test_check, makeup_test_date):
         OmikronLog.log("테스트 결과 메시지 작성을 완료했습니다.")
@@ -160,7 +161,7 @@ def conditional_formatting_thread():
     thread_end_flag = True
 
 def add_student_thread(target_student_name:str, target_class_name:str):
-    OmikronLog.log("학생 추가 중...")
+    OmikronLog.log(f"{target_student_name} 학생 추가 중...")
 
     if not omikron.chrome.check_student_exists(target_student_name, target_class_name):
         OmikronLog.error(f"아이소식에 {target_student_name} 학생이 {target_class_name} 반에 업데이트 되지 않아 중단되었습니다.")
@@ -189,7 +190,7 @@ def add_student_thread(target_student_name:str, target_class_name:str):
     thread_end_flag = True
 
 def delete_student_thread(target_student_name:str):
-    OmikronLog.log("학생 퇴원 처리 중...")
+    OmikronLog.log(f"{target_student_name} 학생 퇴원 처리 중...")
 
     complete, data_file_wb = omikron.datafile.delete_student(target_student_name)
     if not complete: return
@@ -214,7 +215,7 @@ def delete_student_thread(target_student_name:str):
     thread_end_flag = True
 
 def move_student_thread(target_student_name:str, target_class_name:str, current_class_name:str):
-    OmikronLog.log("학생 반 이동 중...")
+    OmikronLog.log(f"{target_student_name} 학생 반 이동 중...")
 
     if not omikron.chrome.check_student_exists(target_student_name, target_class_name):
         OmikronLog.error(f"아이소식에 {target_student_name} 학생이 {target_class_name} 반에 업데이트 되지 않아 중단되었습니다.")
