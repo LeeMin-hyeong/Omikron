@@ -33,7 +33,7 @@ class GUI():
         self.thread_end_flag = omikron.thread.thread_end_flag
 
         # 창 크기
-        self.width = 320
+        self.width  = 320
         self.height = 585 # button +25
 
         # 창 위치
