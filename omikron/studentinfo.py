@@ -41,7 +41,7 @@ def open_worksheet(wb:xl.Workbook):
     try:
         return True, wb[StudentInfo.DEFAULT_NAME]
     except:
-        OmikronLog.error(r"'학생 정보.xlsx'의 시트명을 '학생 정보'으로 변경해 주세요.")
+        OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{StudentInfo.DEFAULT_NAME}'으로 변경해 주세요.")
         return False, None
 
 def save(wb:xl.Workbook):

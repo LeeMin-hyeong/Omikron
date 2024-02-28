@@ -44,7 +44,7 @@ def make_data_file_thread():
     thread_end_flag = True
 
 def update_class_thread():
-    OmikronLog.log("반 업데이트 진행중...")
+    OmikronLog.log("반 업데이트 진행 중...")
 
     complete, data_file_wb = omikron.datafile.update_class()
     if not complete: return
@@ -77,7 +77,7 @@ def make_data_form_thread():
     global thread_end_flag
     thread_end_flag = True
 
-def save_test_data_thread(filepath:str, makeup_test_date:dict):
+def save_test_result_thread(filepath:str, makeup_test_date:dict):
     OmikronLog.log("데이터 저장 및 재시험 명단 작성중...")
 
     complete, data_file_wb = omikron.datafile.save_test_data(filepath)

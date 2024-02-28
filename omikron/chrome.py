@@ -160,12 +160,11 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
             mock_test_average  = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
 
             # 반 전체가 시험을 응시하지 않은 경우
+            keep_continue = False
             if daily_test_name is None and mock_test_name is None:
                 keep_continue = True
                 continue
 
-            keep_continue = False
-            
             # 테이블 인덱스
             class_index = table_index_dict[class_name]
 
