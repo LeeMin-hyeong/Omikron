@@ -60,7 +60,7 @@ def delete_temp():
     os.remove(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
 
 def isopen() -> bool:
-    return os.path.isfile(f"./data/~${ClassInfo.DEFAULT_NAME}.xlsx")
+    return os.path.isfile(f"./~${ClassInfo.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
 def get_class_info(ws:Worksheet, class_name:str):

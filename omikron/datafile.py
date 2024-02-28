@@ -265,24 +265,6 @@ def is_cell_empty(row:int, col:int) -> bool:
 
     return False, value
 
-def file_validation() -> bool:
-    """
-    데이터 파일의 필수 시트 존재 여부 검사
-
-    `omikron.defs.DataFile`에 시트명 정의
-    """
-    wb = open()
-
-    if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
-        OmikronLog.error(f"'{DataFile.FIRST_SHEET_NAME}' 시트가 존재하지 않습니다.")
-        return False
-
-    if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
-        OmikronLog.error(f"'{DataFile.SECOND_SHEET_NAME}' 시트가 존재하지 않습니다.")
-        return False
-
-    return True
-
 # 파일 작업
 def save_test_data(filepath:str):
     """
