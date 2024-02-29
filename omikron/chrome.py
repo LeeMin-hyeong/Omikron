@@ -74,7 +74,7 @@ def get_student_names() -> list[str]:
 
 def get_class_student_dict() -> dict[str:list[str]]:
     """
-    실제 반 정보를 담고 있는 테이블부터 반 : 학생 리스트의 dict 생성
+    실제 반 정보를 담고 있는 테이블부터 '반 : 학생 리스트'의 dict 생성
     """
     class_student_dict = {}
 
@@ -160,12 +160,11 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
             mock_test_average  = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
 
             # 반 전체가 시험을 응시하지 않은 경우
+            keep_continue = False
             if daily_test_name is None and mock_test_name is None:
                 keep_continue = True
                 continue
 
-            keep_continue = False
-            
             # 테이블 인덱스
             class_index = table_index_dict[class_name]
 
@@ -333,7 +332,6 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
             driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
             calculated_schedule_str = date_to_kor_date(calculated_schedule)
 
-            driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_SCHEDULE_TAB])
             trs = driver.find_element(By.ID, f"table_{str(class_index)}").find_elements(By.CLASS_NAME, "style12")
             tds = trs[student_index].find_elements(By.TAG_NAME, "td")
             driver.execute_script(f"arguments[0].value = '{test_name}'", tds[0].find_element(By.TAG_NAME, "input"))
@@ -346,19 +344,26 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
                         driver.execute_script(f"arguments[0].value = '{calculated_schedule_str} {str(makeup_test_time).split('/')[time_index]}시'", tds[1].find_element(By.TAG_NAME, "input"))
                         tds[2].find_element(By.TAG_NAME, "input").send_keys(' \b')
 
+                        driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
+
                         return True
                     else:
                         OmikronLog.warning(f"{student_name}의 재시험 시간이 올바른 양식이 아닙니다.")
+
                 else:
                     # 단일 재시험 시간
                     driver.execute_script(f"arguments[0].value = '{calculated_schedule_str} {str(makeup_test_time)}시'", tds[1].find_element(By.TAG_NAME, "input"))
                     tds[2].find_element(By.TAG_NAME, "input").send_keys(' \b')
+
+                    driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
                     return True
 
             # 날짜 지정 / 시간 미지정
             driver.execute_script(f"arguments[0].value = '{calculated_schedule_str}'", tds[1].find_element(By.TAG_NAME, "input"))
             tds[2].find_element(By.TAG_NAME, "input").send_keys(' \b')
+
+            driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
             return True
         else:

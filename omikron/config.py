@@ -22,7 +22,6 @@ def change_data_file_name(new_filename:str):
 
     os.rename(f"./data/{DATA_FILE_NAME}.xlsx", f"./data/{new_filename}.xlsx")
 
-    DATA_FILE_NAME = new_filename
+    DATA_FILE_NAME = config["dataFileName"] = new_filename
 
-    config["dataFileName"] = new_filename
     json.dump(config, open("./config.json", 'w', encoding="UTF8"), ensure_ascii=False, indent="    ")

@@ -265,29 +265,15 @@ def is_cell_empty(row:int, col:int) -> bool:
 
     return False, value
 
-def file_validation() -> bool:
-    """
-    데이터 파일의 필수 시트 존재 여부 검사
-
-    `omikron.defs.DataFile`에 시트명 정의
-    """
-    wb = open()
-
-    if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
-        OmikronLog.error(f"'{DataFile.FIRST_SHEET_NAME}' 시트가 존재하지 않습니다.")
-        return False
-
-    if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
-        OmikronLog.error(f"'{DataFile.SECOND_SHEET_NAME}' 시트가 존재하지 않습니다.")
-        return False
-
-    return True
-
 # 파일 작업
 def save_test_data(filepath:str):
     """
     데이터 양식에 작성된 데이터를 데이터 파일에 저장
     """
+    # 임시 파일 삭제
+    if os.path.isfile("./data/9IwTEoG59MS6h2UoqveD.xlsx"):
+        delete_temp()
+
     form_wb = omikron.dataform.open(filepath)
     complete, form_ws = omikron.dataform.open_worksheet(form_wb)
     if not complete: return False, None
@@ -325,6 +311,8 @@ def save_test_data(filepath:str):
                 test_name    = form_ws.cell(i, TEST_NAME_COLUMN).value
                 test_average = form_ws.cell(i, TEST_AVERAGE_COLUMN).value
 
+                no_class = False
+
                 #반 시작 찾기
                 for row in range(2, ws.max_row+1):
                     if ws.cell(row, CLASS_NAME_COLUMN).value == class_name:
@@ -332,6 +320,7 @@ def save_test_data(filepath:str):
                         break
                 else:
                     OmikronLog.warning(f"{sheet_name} 시트: {class_name} 반이 존재하지 않습니다.")
+                    no_class = True
                     continue
 
                 # 반 끝 찾기
@@ -374,7 +363,9 @@ def save_test_data(filepath:str):
             student_name = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
 
             if test_score is None:
-                continue # 점수 없으면 미응시 처리
+                continue
+            if no_class:
+                continue
 
             # 학생 찾기
             for row in range(CLASS_START + 2, CLASS_END):
@@ -448,6 +439,10 @@ def save_test_data(filepath:str):
     return True, wb
 
 def save_individual_test_data(target_row:int, target_col:int, test_score:int|float):
+    # 임시 파일 삭제
+    if os.path.isfile("./data/9IwTEoG59MS6h2UoqveD.xlsx"):
+        delete_temp()
+
     # 백업 생성
     make_backup_file()
 
@@ -618,29 +613,29 @@ def update_class():
 
     if len(deleted_class_names) > 0:
         if not os.path.isfile(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
-            wb = xl.Workbook()
-            ws = wb.worksheets[0]
-            ws.title = DataFile.FIRST_SHEET_NAME
-            ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
-            ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
-            ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
-            ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
-            ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
-            ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
-            ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-            ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+            post_data_wb = xl.Workbook()
+            post_data_ws = post_data_wb.worksheets[0]
+            post_data_ws.title = DataFile.FIRST_SHEET_NAME
+            post_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
+            post_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
+            post_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
+            post_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
+            post_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
+            post_data_ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
+            post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
+            post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
             for col in range(1, DataFile.DATA_COLUMN):
-                ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
+                post_data_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
+                post_data_ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
             
             # 모의고사 sheet 생성
-            copy_ws                 = wb.copy_worksheet(wb[DataFile.FIRST_SHEET_NAME])
-            copy_ws.title           = DataFile.SECOND_SHEET_NAME
-            copy_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-            copy_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+            copy_post_data_ws                 = post_data_wb.copy_worksheet(post_data_wb[DataFile.FIRST_SHEET_NAME])
+            copy_post_data_ws.title           = DataFile.SECOND_SHEET_NAME
+            copy_post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
+            copy_post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
-            wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+            post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
 
         data_only_wb = open(data_only=True)
         post_data_wb = xl.load_workbook(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
@@ -671,7 +666,7 @@ def update_class():
                     POST_DATA_WRITE_COLUMN = DataFile.MAX+1
                     for col in range(AVERAGE_SCORE_COLUMN+1, data_only_ws.max_column+1):
                         copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, POST_DATA_WRITE_COLUMN), data_only_ws.cell(row, col))
-                        ws.column_dimensions[gcl(POST_DATA_WRITE_COLUMN)].width = 14
+                        post_data_ws.column_dimensions[gcl(POST_DATA_WRITE_COLUMN)].width = 14
                         POST_DATA_WRITE_COLUMN += 1
             
             ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
@@ -695,7 +690,7 @@ def update_class():
             if not complete: return False, None
 
             for row in range(ws.max_row+1, 1, -1):
-                if ws.cell(row-1, DataFile.STUDENT_NAME_COLUMN).value is not None:
+                if ws.cell(row-1, STUDENT_NAME_COLUMN).value is not None:
                     WRITE_RANGE = WRITE_LOCATION = row
                     break
 

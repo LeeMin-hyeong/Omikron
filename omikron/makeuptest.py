@@ -49,7 +49,7 @@ def open_worksheet(wb:xl.Workbook):
     try:
         return True, wb[MakeupTestList.DEFAULT_NAME]
     except:
-        OmikronLog.error(r"'재시험 명단.xlsx'의 시트명을 '재시험 명단'으로 변경해 주세요.")
+        OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}.xlsx'의 시트명을 '{MakeupTestList.DEFAULT_NAME}'으로 변경해 주세요.")
         return False, None
 
 def save(wb:xl.Workbook):
@@ -94,6 +94,7 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
     # 재시험 정보
     if not os.path.isfile(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
         make_file()
+
     wb = open()
     complete, ws = open_worksheet(wb)
     if not complete: return False, None
@@ -154,7 +155,8 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
                     break
                 check -= 1
 
-            if duplicated: continue
+            if duplicated:
+                continue
             
             # 학생 재시험 정보 검색
             complete, makeup_test_weekday, makeup_test_time, new_student = omikron.studentinfo.get_student_info(student_ws, student_name)
@@ -190,7 +192,7 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict):
     for row in range(MAKEUP_TEST_RANGE, ws.max_row+1):
         if ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value is None:
             break
-        for col in range(1, ws.max_column + 1):
+        for col in range(1, MakeupTestList.MAX + 1):
             ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
@@ -256,7 +258,7 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
         if makeup_test_time is not None:
             ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
 
-    for col in range(1, ws.max_column + 1):
+    for col in range(1, MakeupTestList.MAX + 1):
         ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
         ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
