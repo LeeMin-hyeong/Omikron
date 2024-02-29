@@ -1,6 +1,7 @@
 import os
 import openpyxl as xl
 
+from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment, Border, Side
@@ -63,6 +64,10 @@ def isopen() -> bool:
     return os.path.isfile(f"./~${ClassInfo.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
+def make_backup_file():
+    wb = open()
+    wb.save(f"./data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
+
 def get_class_info(ws:Worksheet, class_name:str):
     """
     반 정보 파일로부터 특정 반의 정보 추출
@@ -131,6 +136,8 @@ def make_temp_file_for_update() -> bool:
 
     등록되지 않은 반을 반 리스트 최하단에 작성
     """
+    make_backup_file()
+
     wb = open()
     complete, ws = open_worksheet(wb)
     if not complete: return False
