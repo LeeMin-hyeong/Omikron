@@ -836,7 +836,10 @@ def delete_student(student_name:str):
         for row in range(2, ws.max_row+1):
             if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name:
                 for col in range(1, ws.max_column+1):
-                    ws.cell(row, col).font = Font(strike=True)
+                    if ws.cell(row, col).font.bold:
+                        ws.cell(row, col).font = Font(bold=True, strike=True)
+                    else:
+                        ws.cell(row, col).font = Font(strike=True)
 
     return True, wb
 
