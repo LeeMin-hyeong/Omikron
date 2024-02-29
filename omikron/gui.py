@@ -634,10 +634,13 @@ class GUI():
                 excel.Quit()
                 if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                     omikron.classinfo.delete_temp()
-                    OmikronLog.log(r"반 업데이트를 중단합니다.")
+                    OmikronLog.log(r"반 업데이트를 중단하였습니다.")
         else:
             if omikron.datafile.isopen():
                 OmikronLog.log(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
+                return
+
+            if not omikron.datafile.file_validation():
                 return
 
             if os.path.isfile(f"./~${ClassInfo.TEMP_FILE_NAME}.xlsx"):
@@ -647,7 +650,7 @@ class GUI():
             if not askokcancel("반 정보 변경 확인", "반 업데이트를 계속하시겠습니까?"):
                 if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                     omikron.classinfo.delete_temp()
-                    OmikronLog.log(r"반 업데이트를 중단합니다.")
+                    OmikronLog.log(r"반 업데이트를 중단하였습니다.")
 
             thread = threading.Thread(target=omikron.thread.update_class_thread, daemon=True)
             thread.start()
@@ -692,6 +695,9 @@ class GUI():
             OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         if self.makeup_test_date is None:
             self.holiday_dialog()
 
@@ -725,6 +731,9 @@ class GUI():
             OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         if self.makeup_test_date is None:
             self.holiday_dialog()
 
@@ -745,6 +754,9 @@ class GUI():
             OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         complete, target_row, makeup_test_score = self.save_makeup_test_result_dialog()
         if not complete: return
 
@@ -756,6 +768,9 @@ class GUI():
             OmikronLog.error(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         thread = threading.Thread(target=omikron.thread.conditional_formatting_thread, daemon=True)
         thread.start()
 
@@ -765,6 +780,9 @@ class GUI():
             return
         if omikron.studentinfo.isopen():
             OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+
+        if not omikron.datafile.file_validation():
             return
 
         complete, target_student_name, target_class_name = self.add_student_dialog()
@@ -785,6 +803,9 @@ class GUI():
             OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
+        if not omikron.datafile.file_validation():
+            return
+
         complete, target_student_name = self.delete_student_dialog()
         if not complete: return
 
@@ -801,6 +822,9 @@ class GUI():
             return
         if omikron.studentinfo.isopen():
             OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+
+        if not omikron.datafile.file_validation():
             return
 
         complete, target_student_name, target_class_name, current_class_name = self.move_student_dialog()

@@ -130,6 +130,19 @@ def delete_temp():
 def isopen() -> bool:
     return os.path.isfile(f"./data/~${omikron.config.DATA_FILE_NAME}.xlsx")
 
+def file_validation() -> bool:
+    wb = open()
+
+    if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
+        OmikronLog.error(f"데이터 파일: {DataFile.FIRST_SHEET_NAME} 시트가 존재하지 않습니다.")
+        return False
+
+    if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
+        OmikronLog.error(f"데이터 파일: {DataFile.SECOND_SHEET_NAME} 시트가 존재하지 않습니다.")
+        return False
+
+    return True
+
 # 파일 유틸리티
 def make_backup_file():
     wb = open()
