@@ -34,7 +34,7 @@ class GUI():
 
         # 창 크기
         self.width  = 320
-        self.height = 560 # button +25
+        self.height = 530 # button +25
 
         # 창 위치
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
@@ -74,7 +74,7 @@ class GUI():
         self.student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=self.student_info_file_task)
         self.student_info_file_button.pack()
 
-        tk.Label(self.ui, text="\n< 데이터 저장 및 메시지 전송 >").pack()
+        tk.Label(self.ui, text="< 데이터 저장 및 메시지 전송 >").pack()
 
         self.make_data_form_button = tk.Button(self.ui, cursor="hand2", text="데일리 테스트 기록 양식 생성", width=40, command=self.make_data_form_task)
         self.make_data_form_button.pack()
@@ -91,7 +91,7 @@ class GUI():
         self.save_makeup_test_result_button = tk.Button(self.ui, cursor="hand2", text="재시험 결과 저장", width=40, command=self.save_makeup_test_result_task)
         self.save_makeup_test_result_button.pack()
 
-        tk.Label(self.ui, text="\n< 데이터 관리 >").pack()
+        tk.Label(self.ui, text="< 데이터 관리 >").pack()
 
         self.apply_color_button = tk.Button(self.ui, cursor="hand2", text="데이터 파일 조건부 서식 재지정", width=40, command=self.conditional_formatting_task)
         self.apply_color_button.pack()
