@@ -14,7 +14,7 @@ from omikron.log import OmikronLog
 from omikron.util import calculate_makeup_test_schedule, date_to_kor_date
 
 try:
-    service = Service(ChromeDriverManager().install())
+    service = Service(ChromeDriverManager().install().replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver.exe"))
     service.creation_flags = CREATE_NO_WINDOW
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
