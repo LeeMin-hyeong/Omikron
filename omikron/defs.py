@@ -1,4 +1,4 @@
-VERSION = "Omikron v2.0.0"
+VERSION = "Omikron v2.0.1"
 
 class Chrome:
     ACTUAL_CLASS_START_INDEX   =  3 # 아이소식 내 실제 반이 시작되는 테이블 인덱스
