@@ -119,11 +119,11 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     """
     form_wb = omikron.dataform.open(filepath)
     complete, form_ws = omikron.dataform.open_worksheet(form_wb)
-    if not complete: return False
+    if not complete or form_ws is None: return False
 
     student_wb = omikron.studentinfo.open()
     complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete: return False
+    if not complete or student_ws is None: return False
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
@@ -153,16 +153,14 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     for i in range(2, form_ws.max_row + 1):
         # 반 필터링
         if form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None:
-            class_name         = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-            daily_test_name    = form_ws.cell(i, DataForm.DAILYTEST_NAME_COLUMN).value
-            mock_test_name     = form_ws.cell(i, DataForm.MOCKTEST_NAME_COLUMN).value
-            daily_test_average = form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value
-            mock_test_average  = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
+            class_name         = str(form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value)
+            daily_test_name    = str(form_ws.cell(i, DataForm.DAILYTEST_NAME_COLUMN).value)
+            mock_test_name     = str(form_ws.cell(i, DataForm.MOCKTEST_NAME_COLUMN).value)
+            daily_test_average = str(form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value)
+            mock_test_average  = str(form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value)
 
             # 반 전체가 시험을 응시하지 않은 경우
-            keep_continue = False
             if daily_test_name is None and mock_test_name is None:
-                keep_continue = True
                 continue
 
             # 테이블 인덱스
@@ -171,10 +169,6 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
             # 학생 인덱스 dict
             trs = driver.find_element(By.ID, f"table_{str(class_index)}").find_elements(By.CLASS_NAME, "style12")
             student_index_dict = {tr.find_element(By.CLASS_NAME, "style9").text.strip() : i for i, tr in enumerate(trs)}
-
-        # 반 전체가 시험을 응시하지 않은 경우
-        if keep_continue:
-            continue
 
         student_name     = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
         daily_test_score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value

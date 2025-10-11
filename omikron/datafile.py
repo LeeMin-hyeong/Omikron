@@ -919,3 +919,21 @@ def rescoping_formula(wb:xl.Workbook):
                 ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
     return True, wb
+
+def change_class_info(target_class_name:str, target_teacher_name:str):
+    """
+    담임 선생님 성함 변경
+    """
+    wb = open()
+    for ws in wb.worksheets:
+        if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
+        complete, _, _, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, _, _ = find_dynamic_columns(ws)
+        if not complete: return False, None
+
+        for row in range(2, ws.max_row+1):
+            if ws.cell(row, CLASS_NAME_COLUMN).value == target_class_name:
+                ws.cell(row, TEACHER_NAME_COLUMN).value = target_teacher_name
+
+    return True, wb

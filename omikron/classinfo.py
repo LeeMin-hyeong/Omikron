@@ -130,11 +130,11 @@ def check_difference_between():
     return True, deleted_class_names, unregistered_class_names
 
 # 파일 작업
-def make_temp_file_for_update() -> bool:
+def make_temp_file_for_update(new_class_list, delete_class_list) -> bool:
     """
     반 업데이트 작업에 필요한 임시 반 정보 파일 생성
 
-    등록되지 않은 반을 반 리스트 최하단에 작성
+    팝업창을 기준으로 업데이트 된 반을 추가하고 삭제된 반을 삭제함
     """
     make_backup_file()
 
@@ -142,10 +142,15 @@ def make_temp_file_for_update() -> bool:
     complete, ws = open_worksheet(wb)
     if not complete: return False
 
-    unregistered_class_names = check_updated_class(ws)
-    if len(unregistered_class_names) == 0:
-        save_to_temp(wb)
-        return True
+    class_names  = get_class_names(ws)
+
+    unregistered_class_names = sorted(list(set(new_class_list).difference(class_names)))
+    if len(unregistered_class_names) == 0 and len(delete_class_list) == 0:
+        return False
+
+    for row in range(2, ws.max_row+1):
+        while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value in delete_class_list:
+            ws.delete_rows(row)
 
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, ClassInfo.CLASS_NAME_COLUMN).value is not None:
@@ -156,6 +161,7 @@ def make_temp_file_for_update() -> bool:
         ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
 
     for row in range(WRITE_RANGE, ws.max_row + 1):
+        if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is None: break
         for col in range(1, ws.max_column + 1):
             ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
@@ -163,3 +169,27 @@ def make_temp_file_for_update() -> bool:
     save_to_temp(wb)
 
     return True
+
+def change_class_info(target_class_name:str, target_teacher_name:str):
+    """
+    특정 반의 담당 선생님 변경
+
+    return `성공 여부`, `변경된 반 정보 파일`
+    """
+    make_backup_file()
+
+    wb = open()
+    complete, ws = open_worksheet(wb)
+    if not complete: return False, None
+
+    for row in range(2, ws.max_row + 1):
+        if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == target_class_name:
+            ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value = target_teacher_name
+            break
+    else:
+        OmikronLog.error(f"'{target_class_name}' 반이 존재하지 않습니다.")
+        return False, None
+
+    save_to_temp(wb)
+
+    return True, wb

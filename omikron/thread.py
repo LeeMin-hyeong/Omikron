@@ -69,6 +69,33 @@ def update_class_thread():
     global thread_end_flag
     thread_end_flag = True
 
+def change_class_info_thread(target_class_name:str, target_teacher_name:str):
+    OmikronLog.log("선생님 변경 진행 중...")
+
+    complete, data_file_wb = omikron.datafile.change_class_info(target_class_name, target_teacher_name)
+    if not complete: return
+
+    complete, class_wb = omikron.classinfo.change_class_info(target_class_name, target_teacher_name)
+    if not complete: return
+
+    try:
+        omikron.datafile.save(data_file_wb)
+    except:
+        OmikronLog.error(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
+        return
+    try:
+        omikron.classinfo.save(class_wb)
+    except:
+        OmikronLog.error(r"반 정보 파일을 닫은 뒤 다시 시도해 주세요.")
+        return
+
+    omikron.classinfo.delete_temp()
+
+    OmikronLog.log("선생님 변경을 완료하였습니다.")
+
+    global thread_end_flag
+    thread_end_flag = True
+
 def make_data_form_thread():
     OmikronLog.log("데일리테스트 기록 양식 생성 중...")
     if omikron.dataform.make_file():
