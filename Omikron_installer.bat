@@ -21,21 +21,22 @@ echo Upgrade python packages...
 echo.
 pip install --upgrade pip
 pip install --upgrade openpyxl selenium webdriver-manager pyinstaller pywin32 python-dateutil
+pip install -U pyinstaller
 
 echo.
 echo Fetching Source Code...
 echo.
-git clone https://github.com/LeeMin-hyeong/Omikron.git
+git clone https://github.com/LeeMin-hyeong/Omikron.git OmikronTemp
 
 echo.
 echo Build executable file...
 echo.
-cd Omikron
+cd OmikronTemp
 C:\Users\%USERNAME%\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\pyinstaller.exe -F --exclude numpy -n Omikron.exe omikron.py
 
 cd ..
-move Omikron\dist\* .
-rd /s /q Omikron
+move OmikronTemp\dist\* .
+rd /s /q OmikronTemp
 
 echo.
 echo Installation completed
