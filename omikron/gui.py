@@ -10,7 +10,6 @@ from tkinter import ttk, filedialog
 from tkinter.messagebox import askokcancel, askyesno
 from webbrowser import open_new
 
-import omikron.chrome
 import omikron.classinfo
 import omikron.config
 import omikron.datafile
@@ -34,7 +33,7 @@ class GUI():
 
         # 창 크기
         self.width  = 320
-        self.height = 530 # button +25
+        self.height = 555 # button +25
 
         # 창 위치
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
@@ -73,6 +72,9 @@ class GUI():
 
         self.student_info_file_button = tk.Button(self.ui, cursor="hand2", text="학생 정보 기록 양식 생성", width=40, command=self.student_info_file_task)
         self.student_info_file_button.pack()
+
+        self.change_class_info_button = tk.Button(self.ui, cursor="hand2", text="선생님 변경", width=40, command=self.change_class_info_task)
+        self.change_class_info_button.pack()
 
         tk.Label(self.ui, text="< 데이터 저장 및 메시지 전송 >").pack()
 
@@ -606,6 +608,205 @@ class GUI():
 
         return True, target_row, makeup_test_score
 
+    def update_class_dialog(self):
+        def move_selected(src: tk.Listbox, dst: tk.Listbox):
+            sel = list(src.curselection())
+            if not sel:
+                return
+            existing = set(dst.get(0, tk.END))
+            vals = [src.get(i) for i in sel]
+            for v in vals:
+                if v not in existing:
+                    dst.insert(tk.END, v)
+            for i in reversed(sel):
+                src.delete(i)
+
+        def select_all(lb: tk.Listbox, *_):
+            lb.select_set(0, tk.END)
+
+        popup = tk.Toplevel(self.ui)
+        popup.title("반 리스트 수정")
+        width  = 900
+        height = 520
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+
+        container = ttk.Frame(popup, padding=10)
+        container.grid(row=0, column=0, sticky="nsew")
+        popup.rowconfigure(0, weight=1)
+        popup.columnconfigure(0, weight=1)
+
+        for c in (0, 2, 4):
+            container.columnconfigure(c, weight=1, uniform="cols")
+        for c in (1, 3):
+            container.columnconfigure(c, minsize=64)
+        container.rowconfigure(0, weight=1)
+        container.rowconfigure(1, weight=0)
+        container.rowconfigure(2, weight=0)
+
+        def build_labeled_list(parent, title: str) -> tk.Listbox:
+            lf = ttk.LabelFrame(parent, text=title, padding=(10, 8))
+            lf.grid(sticky="nsew")
+            lf.rowconfigure(0, weight=1)
+            lf.columnconfigure(0, weight=1)
+
+            wrap = ttk.Frame(lf)
+            wrap.grid(row=0, column=0, sticky="nsew")
+            wrap.rowconfigure(0, weight=1)
+            wrap.columnconfigure(0, weight=1)
+
+            sb = ttk.Scrollbar(wrap, orient="vertical")
+            lb = tk.Listbox(
+                wrap,
+                selectmode=tk.EXTENDED,
+                activestyle="dotbox",
+                yscrollcommand=sb.set,
+                exportselection=False,
+            )
+            sb.config(command=lb.yview)
+            lb.grid(row=0, column=0, sticky="nsew")
+            sb.grid(row=0, column=1, sticky="ns")
+            return lb
+
+        left_cell  = ttk.Frame(container);  left_cell.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        mid_cell   = ttk.Frame(container);  mid_cell.grid(row=0, column=2, sticky="nsew", padx=10)
+        right_cell = ttk.Frame(container); right_cell.grid(row=0, column=4, sticky="nsew", padx=(10, 0))
+
+        for cell in (left_cell, mid_cell, right_cell):
+            cell.rowconfigure(0, weight=1)
+            cell.columnconfigure(0, weight=1)
+
+        lb_left  = build_labeled_list(left_cell,  "추가되지 않은 반")
+        lb_mid   = build_labeled_list(mid_cell,   "업데이트(유지) 할 반")
+        lb_right = build_labeled_list(right_cell, "삭제할 반")
+
+        def build_arrow_column(parent, to_left, to_right):
+            parent.rowconfigure(0, weight=1)
+            parent.columnconfigure(0, weight=1)
+
+            col = ttk.Frame(parent)
+            col.grid(row=0, column=0, sticky="nsew")
+
+            inner = ttk.Frame(col)
+            inner.place(relx=0.5, rely=0.5, anchor="center")
+
+            btn_left  = ttk.Button(inner, text="←", width=3, command=to_left)
+            btn_right = ttk.Button(inner, text="→", width=3, command=to_right)
+            btn_left.pack(pady=6)
+            btn_right.pack(pady=6)
+            return col
+
+        # 왼쪽 ↔ 가운데
+        lm_col = ttk.Frame(container); lm_col.grid(row=0, column=1, sticky="nsew")
+        build_arrow_column(
+            lm_col,
+            to_left = lambda: move_selected(lb_mid,  lb_left),
+            to_right= lambda: move_selected(lb_left, lb_mid),
+        )
+
+        # 가운데 ↔ 오른쪽
+        mr_col = ttk.Frame(container); mr_col.grid(row=0, column=3, sticky="nsew")
+        build_arrow_column(
+            mr_col,
+            to_left = lambda: move_selected(lb_right, lb_mid),
+            to_right= lambda: move_selected(lb_mid,   lb_right),
+        )
+
+        ttk.Separator(container, orient="horizontal").grid(
+            row=1, column=0, columnspan=5, sticky="ew", pady=(12, 8)
+        )
+
+        btnbar = ttk.Frame(container)
+        btnbar.grid(row=2, column=0, columnspan=5, sticky="e")
+
+        result = {"ok": False, "mid": None, "right": None}
+
+        def on_ok(*_):
+            result["ok"] = True
+            result["mid"] = list(lb_mid.get(0, tk.END))
+            result["right"] = list(lb_right.get(0, tk.END))
+            popup.destroy()
+
+        def on_cancel(*_):
+            popup.destroy()
+
+        ttk.Button(btnbar, text="취소", command=on_cancel).pack(side="right", padx=(6, 0))
+        ttk.Button(btnbar, text="확인", command=on_ok).pack(side="right")
+
+        for lb in (lb_left, lb_mid, lb_right):
+            lb.bind("<Control-a>", lambda e, _lb=lb: select_all(_lb))
+
+        classinfo_wb = omikron.classinfo.open()
+        completed, classinfo_ws = omikron.classinfo.open_worksheet(classinfo_wb)
+        if not completed: return False, None, None
+
+        for item in omikron.classinfo.check_updated_class(classinfo_ws):
+            lb_left.insert(tk.END, item)
+        for item in omikron.classinfo.get_class_names(classinfo_ws):
+            lb_mid.insert(tk.END, item)
+
+        self.ui.wait_window(popup)
+
+        if result["ok"]:
+            return True, result["mid"], result["right"]
+        else:
+            return False, None, None
+
+    def change_class_info_dialog(self):
+        class_wb = omikron.classinfo.open()
+        complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
+        if not complete: return False, None, None
+
+        class_names = omikron.classinfo.get_class_names(class_ws)
+
+        def quit_event():
+            popup.quit()
+            popup.destroy()
+
+        popup = tk.Toplevel(self.ui)
+
+        width  = 250
+        height = 200
+        x = int((popup.winfo_screenwidth()/4) - (width/2))
+        y = int((popup.winfo_screenheight()/2) - (height/2))
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        popup.title("선생님 변경")
+        popup.resizable(False, False)
+        popup.protocol("WM_DELETE_WINDOW", quit_event)
+
+        tk.Label(popup).pack()
+
+        def class_selection_call_back(event):
+            selected_class_name = event.widget.get()
+            _, teacher_name, _, _ = omikron.classinfo.get_class_info(class_ws, selected_class_name)
+            teacher_name_label.config(text=f"현재 선생님: {teacher_name}")
+        target_class_var = tk.StringVar()
+        class_combo = ttk.Combobox(popup, values=class_names, state="readonly", textvariable=target_class_var, width=25)
+        class_combo.set("수정할 반 선택")
+        class_combo.bind("<<ComboboxSelected>>", class_selection_call_back)
+        class_combo.pack()
+
+        tk.Label(popup).pack()
+        teacher_name_label = tk.Label(popup, text="현재 선생님: ")
+        teacher_name_label.pack()
+
+        tk.Label(popup).pack()
+        target_teacher_var = tk.StringVar()
+        tk.Entry(popup, textvariable=target_teacher_var, width=28).pack()
+
+        tk.Label(popup).pack()
+        tk.Button(popup, text="선생님 변경", width=10 , command=quit_event).pack()
+
+        popup.mainloop()
+
+        target_class_name   = target_class_var.get()
+        target_teacher_name = target_teacher_var.get()
+        if target_class_name == "수정할 반 선택" or target_teacher_name == "":
+            return False, None, None
+        else:
+            return True, target_class_name, target_teacher_name
+
     # tasks
     def class_info_file_task(self):
         if self.class_info_file_button["text"] == "반 정보 기록 양식 생성":
@@ -616,9 +817,17 @@ class GUI():
                 OmikronLog.log(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
                 return
 
-            OmikronLog.log("반 업데이트를 시작합니다.")
+            OmikronLog.log(r"반 업데이트를 시작합니다.")
+            OmikronLog.log(r"반 정보를 불러오는 중...")
 
-            if not omikron.classinfo.make_temp_file_for_update():
+            completed, new_class_list, delete_class_list = self.update_class_dialog()
+            if not completed:
+                OmikronLog.log(r"반 업데이트를 중단하였습니다.")
+                return
+
+            OmikronLog.log(f"{ClassInfo.TEMP_FILE_NAME}.xlsx 생성 중...")
+            if not omikron.classinfo.make_temp_file_for_update(new_class_list, delete_class_list):
+                OmikronLog.log(r"변동 사항이 없어 중단하였습니다.")
                 return
 
             try:
@@ -626,10 +835,10 @@ class GUI():
                 excel.Visible = True
                 wb = excel.Workbooks.Open(f"{os.getcwd()}\\{ClassInfo.TEMP_FILE_NAME}.xlsx")
             except:
-                OmikronLog.error("모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
+                OmikronLog.error(r"모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
 
-            OmikronLog.log(f"'{ClassInfo.TEMP_FILE_NAME}.xlsx' 파일 수정 후 반 업데이트 기능을 실행해주세요.")
-            if not askokcancel("반 정보 변경 확인", "반 정보 파일의 빈칸을 채운 뒤 Excel을 종료하고\n버튼을 눌러주세요.\n삭제할 반은 행을 삭제해 주세요.\n취소 선택 시 반 업데이트가 중단됩니다."):
+            OmikronLog.log(f"'{ClassInfo.TEMP_FILE_NAME}.xlsx' 수정된 반의 정보를 입력해 주세요")
+            if not askokcancel("반 정보 변경 확인", f"{ClassInfo.TEMP_FILE_NAME}.xlsx 파일의\n각 반의 상세 정보를 수정한 뒤 저장하고\n반 업데이트 계속하기 버튼을 눌러주세요.\n\n취소 선택 시 반 업데이트가 중단됩니다."):
                 wb.Close()
                 excel.Quit()
                 if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
@@ -682,6 +891,20 @@ class GUI():
 
             thread = threading.Thread(target=omikron.thread.update_student_info_file_thread, daemon=True)
             thread.start()
+
+    def change_class_info_task(self):
+        if omikron.classinfo.isopen():
+            OmikronLog.log(f"'{ClassInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
+            return
+
+        complete, target_class_name, target_teacher_name = self.change_class_info_dialog()
+        if not complete: return
+
+        if not askyesno("선생님 변경 확인", f"{target_class_name} 반의 선생님을 {target_teacher_name}으로 변경하시겠습니까?"):
+            return
+
+        thread = threading.Thread(target=lambda: omikron.thread.change_class_info_thread(target_class_name, target_teacher_name), daemon=True)
+        thread.start()
 
     def make_data_form_task(self):
         thread = threading.Thread(target=omikron.thread.make_data_form_thread, daemon=True)
