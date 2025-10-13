@@ -142,3 +142,7 @@ init.bat
 
 # EXE files
 *.exe
+
+node_modules
+
+!src/lib

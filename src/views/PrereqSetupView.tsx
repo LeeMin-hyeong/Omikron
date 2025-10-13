@@ -1,0 +1,225 @@
+// src/views/PrereqSetupView.tsx
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { FileSpreadsheet, ChevronsRight, FolderOpen, Loader2 } from "lucide-react";
+import { rpc } from "pyloid-js";
+import { startJob, useProgressPoller, type ProgressPayload } from "@/lib/progress";
+
+type State = {
+  has_class: boolean;
+  has_data: boolean;
+  has_student: boolean;
+  data_file_name?: string;
+  cwd: string;
+  data_dir: string;
+  missing: string[];
+};
+
+export default function InitView({
+  state,
+  onRefresh,
+}: {
+  state: State;
+  onRefresh: () => void;
+}) {
+  const canInstallDataAndStudent = state.has_class;
+
+  // 데이터 파일명 입력 (state 갱신 시 비어있을 때만 동기화)
+  const [dataName, setDataName] = useState(state.data_file_name ?? "");
+  useEffect(() => {
+    setDataName((prev) => (prev ? prev : state.data_file_name ?? ""));
+  }, [state.data_file_name]);
+
+  // 각 작업의 job_id & progress
+  const [jobClass, setJobClass] = useState<string>();
+  const [jobData, setJobData] = useState<string>();
+  const [jobStudent, setJobStudent] = useState<string>();
+
+  const classProg = useProgressPoller(jobClass);
+  const dataProg = useProgressPoller(jobData);
+  const studentProg = useProgressPoller(jobStudent);
+
+  // 상태 변화 감지해 완료/에러 시 새로고침
+  useEffect(() => {
+    if (classProg.status === "done" || classProg.status === "error") onRefresh();
+  }, [classProg.status]);
+  useEffect(() => {
+    if (dataProg.status === "done" || dataProg.status === "error") onRefresh();
+  }, [dataProg.status]);
+  useEffect(() => {
+    if (studentProg.status === "done" || studentProg.status === "error") onRefresh();
+  }, [studentProg.status]);
+
+  const running = (p?: ProgressPayload) => p?.status === "running";
+  const stepStr = (p?: ProgressPayload) =>
+    p && p.step > 0 && p.total > 0 ? ` (${p.step}/${p.total})` : p && p.step > 0 ? ` (${p.step})` : "";
+
+  // 시작 핸들러
+  const installClass = async () => {
+    const id = await startJob("start_make_class_info");
+    setJobClass(id);
+  };
+  const installData = async () => {
+    const name = dataName.trim();
+    if (!name) return alert("데이터 파일 이름을 입력하세요.");
+    const id = await startJob("start_make_data_file", { name });
+    setJobData(id);
+  };
+  const installStudent = async () => {
+    const id = await startJob("start_make_student_info");
+    setJobStudent(id);
+  };
+
+  // 공통 타일
+  const Tile = ({
+    title,
+    present,
+    onInstall,
+    disabled,
+    prog,
+  }: {
+    title: string;
+    present: boolean;
+    onInstall: () => void;
+    disabled?: boolean;
+    prog?: ProgressPayload;
+  }) => {
+    const isRun = running(prog);
+    const label = present ? "생성 완료" : isRun ? "진행 중…" : "생성";
+    return (
+      <Card className="rounded-2xl border-border/80 shadow-sm">
+        <CardContent className="flex h-44 flex-col justify-between pt-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <FileSpreadsheet className={`h-8 w-8 ${present ? "text-green-600" : "text-muted-foreground"}`} />
+            <div className="text-sm font-medium">{title}</div>
+          </div>
+          <div className="grid gap-1">
+            <Button
+              className="w-full rounded-xl"
+              disabled={present || !!disabled || isRun}
+              onClick={onInstall}
+            >
+              {isRun && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {label}
+            </Button>
+            {(prog?.message || isRun || present) && (
+              <div className="text-xs text-muted-foreground text-center">
+                {prog?.message || (present ? "완료됨" : isRun ? "작업 중…" : "")}
+                {stepStr(prog)}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // 데이터 전용 타일
+  const DataTile = ({
+    present,
+    disabled,
+    prog,
+  }: {
+    present: boolean;
+    disabled: boolean;
+    prog?: ProgressPayload;
+  }) => {
+    const isRun = running(prog);
+    const label = present ? "생성 완료" : isRun ? "진행 중…" : "생성";
+    const btnDisabled = present || !canInstallDataAndStudent || dataName.trim().length === 0 || isRun;
+    return (
+      <Card className="rounded-2xl border-border/80 shadow-sm">
+        <CardContent className="flex h-44 flex-col justify-between pt-4">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <FileSpreadsheet className={`h-8 w-8 ${present ? "text-green-600" : "text-muted-foreground"}`} />
+            <div className="text-sm font-medium">데이터 파일.xlsx</div>
+          </div>
+          <div className="grid gap-2">
+            <Input
+              value={dataName}
+              onChange={(e) => setDataName(e.target.value)}
+              placeholder="데이터 파일 이름 (예: omikron-2025)"
+              disabled={present || !canInstallDataAndStudent || isRun}
+            />
+            <Button className="w-full rounded-xl" onClick={installData} disabled={btnDisabled}>
+              {isRun && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {label}
+            </Button>
+            {(prog?.message || isRun || present) && (
+              <div className="text-xs text-muted-foreground text-center -mt-1">
+                {prog?.message || (present ? "완료됨" : isRun ? "작업 중…" : "")}
+                {stepStr(prog)}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  return (
+    <Card className="h-full rounded-2xl border-border/80 shadow-sm">
+      <CardContent className="flex h-full flex-col p-4">
+        <div className="mb-3">
+          <h3 className="text-base font-semibold">필수 파일 생성</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            반 정보 → 데이터 파일 → 학생 정보 순서로 생성합니다.
+            {state.data_file_name ? (
+              <span className="ml-2">
+                (저장된 데이터 파일 이름: <span className="font-medium">{state.data_file_name}</span>)
+              </span>
+            ) : (
+              <span className="ml-2 text-amber-600">
+                config.json의 <b>dataFileName</b> 설정이 필요합니다.
+              </span>
+            )}
+          </p>
+        </div>
+        <Separator className="mb-4" />
+
+        <div className="h-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3">
+          <Tile
+            title="반 정보.xlsx"
+            present={state.has_class}
+            onInstall={installClass}
+            prog={classProg}
+          />
+          <ChevronsRight className="mx-1 h-5 w-5 text-muted-foreground" />
+          <DataTile
+            present={state.has_data}
+            disabled={!canInstallDataAndStudent}
+            prog={dataProg}
+          />
+          <ChevronsRight className="mx-1 h-5 w-5 text-muted-foreground" />
+          <Tile
+            title="학생 정보.xlsx"
+            present={state.has_student}
+            onInstall={installStudent}
+            disabled={!canInstallDataAndStudent}
+            prog={studentProg}
+          />
+        </div>
+
+        <div className="mt-auto flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            부족: {state.missing.length === 0 ? "없음" : state.missing.join(", ")}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.cwd })}>
+              <FolderOpen className="h-4 w-4" /> 프로그램 폴더
+            </Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
+              <FolderOpen className="h-4 w-4" /> data 폴더
+            </Button>
+            <Button className="rounded-xl bg-black text-white" onClick={onRefresh}>
+              다시 확인
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
