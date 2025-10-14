@@ -16,8 +16,7 @@ class Progress:
         self.step_no = 0
         self.total = total
 
-    def _post(self, message: str, level: Level = "info",
-              status: Status = "running", inc: bool = False):
+    def _post(self, message: str, level: Level = "info", status: Status = "running", inc: bool = False):
         if inc:
             self.step_no += 1
         payload = {

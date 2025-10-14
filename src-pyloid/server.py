@@ -1,38 +1,48 @@
+import base64
 import json
-from pathlib import Path
-import time
-from typing import Any, Dict, Optional
-import os, base64, tempfile, threading, uuid
-import openpyxl
-from pyloid.rpc import PyloidRPC, RPCContext
-from omikron.datafile import save_test_data
-import omikron.dataform
-import omikron.classinfo
-import omikron.datafile
-import omikron.studentinfo
-import omikron.chrome
-from omikron.progress import Progress
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
+import threading
+import time
+import uuid
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-####################################### 상태 관리 및 RPC 메서드 ####################################### 
+import openpyxl  # noqa: F401 (향후 사용 가능성 대비)
+from pyloid.rpc import PyloidRPC, RPCContext
+
+from omikron.progress import Progress
+import omikron.classinfo
+import omikron.chrome
+import omikron.datafile
+import omikron.dataform
+import omikron.studentinfo
+import omikron.makeuptest
+from omikron.exception import NoMatchingSheetException, FileOpenException
+
+
+####################################### 상태 관리 메서드 #######################################
 
 server = PyloidRPC()
 
 # 진행상태 저장소: job_id -> {step, status, message}
 progress: dict[str, dict] = {}
 
+
 def make_emit(job_id: str):
     def _emit(payload: dict):
         progress[job_id] = payload
-        # (옵션) 즉시 푸시도 함께:
-        # try: ctx.pyloid.emit("omikron:progress", { "job_id": job_id, **payload })
-        # except: pass
+        # (옵션) 추후 실시간 브로드캐스트가 필요하면 이 지점에서 처리
+
     return _emit
+
 
 @server.method()
 async def get_progress(ctx: RPCContext, job_id: str) -> Dict[str, Any]:
-    """진행상태 조회 (프런트가 주기적으로 호출)"""
-    # 표준 포맷: step, total, level, status, message, ts
+    """진행상태 조회 (프런트 폴링)"""
     default_payload = {
         "step": 0,
         "total": 0,
@@ -42,6 +52,7 @@ async def get_progress(ctx: RPCContext, job_id: str) -> Dict[str, Any]:
         "ts": time.time(),
     }
     return progress.get(job_id, default_payload)
+
 
 ####################################### config.json 관리 #######################################
 
@@ -54,6 +65,7 @@ def _open_path_cross_platform(path: str):
     else:
         subprocess.Popen(["xdg-open", p])
 
+
 def _read_config(cwd: Path) -> Dict[str, Any]:
     cfg_path = cwd / "config.json"
     if cfg_path.is_file():
@@ -63,67 +75,161 @@ def _read_config(cwd: Path) -> Dict[str, Any]:
             return {}
     return {}
 
+
 def _write_config(cwd: Path, cfg: Dict[str, Any]):
     (cwd / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 def _ensure_parent(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
 
-####################################### tasks #######################################
 
-def _run_save_exam(job_id: str, filename: str, b64: str):
+####################################### 기존 작업 스레드 #######################################
+
+
+
+####################################### 파일 작업 #######################################
+
+def _decode_upload_to_temp(filename: str, b64: str) -> Path:
+    """업로드된 base64 데이터를 임시 파일로 저장"""
+    tmp_root = Path(tempfile.mkdtemp(prefix="omikron_job_"))
+    safe_name = Path(filename or "upload.bin").name
+    tmp_path = tmp_root / safe_name
     try:
-        reporter = Progress(emit=make_emit(job_id), total=8)  # 대략 단계 수
+        data = base64.b64decode(b64)
+        tmp_path.write_bytes(data)
+        return tmp_path
+    except Exception:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+        raise
 
-        suffix = os.path.splitext(filename)[1] or ".xlsx"
-        fd, temp_path = tempfile.mkstemp(prefix="omk_", suffix=suffix)
-        os.close(fd)
-        with open(temp_path, "wb") as f:
-            f.write(base64.b64decode(b64))
 
-        if not omikron.dataform.data_validation(temp_path):
+def _cleanup_temp(path: Path) -> None:
+    """임시 파일/폴더 정리"""
+    try:
+        root = path if path.is_dir() else path.parent
+        if path.is_file():
+            try:
+                path.unlink()
+            except Exception:
+                pass
+        shutil.rmtree(root, ignore_errors=True)
+    except Exception:
+        pass
+
+####################################### 파일 작업 #######################################
+
+def _send_exam_message_job(job_id: str, *, filename: str, b64: str) -> None:
+    """Chrome 자동화를 통해 시험 결과 메시지 작성"""
+    emit = make_emit(job_id)
+    prog = Progress(emit, total=3)
+
+    prog.info("작업을 준비하고 있습니다.")
+
+    tmp_file: Optional[Path] = None
+    try:
+        tmp_file = _decode_upload_to_temp(filename, b64)
+
+        try:
+            omikron.dataform.data_validation(str(tmp_file))
+        except omikron.dataform.DataValidationException as exc:
+            prog.error(f"데이터 검증 오류: {exc}")
+            return
+        prog.step("데이터 입력 양식 검증 완료")
+
+        # TODO: 현재는 임시로 빈 dict 사용. 추후 UI에서 재시험 일정을 받도록 개선.
+        makeup_test_date: Dict[str, Any] = {}
+
+        ok = omikron.chrome.send_test_result_message(str(tmp_file), makeup_test_date, prog)
+        if not ok:
+            prog.error("메시지 작성 중 오류가 발생했습니다.")
+            return
+        prog.step("Chrome 자동화를 실행하여 메시지를 작성합니다.")
+
+        prog.step("작업 완료")
+
+        prog.done("메시지 작성이 완료되었습니다. 전송 전 내용을 확인하세요.")
+    except Exception as exc:
+        prog.error(f"예상치 못한 오류가 발생했습니다: {exc}")
+    finally:
+        if tmp_file:
+            _cleanup_temp(tmp_file)
+
+
+def _make_class_info_job(job_id: str):
+    emit=make_emit(job_id)
+    prog = Progress(emit, total=3)  # 대략 단계 수 추정
+
+    try:
+        omikron.classinfo.make_file()
+        prog.done("반 정보 파일 생성 성공")
+    except Exception as e:
+        prog.error(f"예외 발생: {e}")
+
+
+def _save_exam_job(job_id: str, *, filename: str, b64: str) -> None:
+    emit = make_emit(job_id)
+    prog = Progress(emit, total=3)
+
+    tmp_file: Optional[Path] = None
+    try:
+        tmp_file = _decode_upload_to_temp(filename, b64)
+
+        try:
+            omikron.dataform.data_validation(str(tmp_file))
+        except omikron.dataform.DataValidationException as exc:
+            prog.error(f"데이터 검증 오류가 발생하였습니다:\n {exc}")
+            return
+        prog.step("데이터 입력 양식 검증 완료")
+
+        # TODO: 현재는 임시로 빈 dict 사용. 추후 UI에서 재시험 일정을 받도록 개선.
+        makeup_test_date: Dict[str, Any] = {}
+
+        try:
+            datafile_wb = omikron.datafile.save_test_data(str(tmp_file), prog)
+            makeuptest_wb = omikron.makeuptest.save_makeup_test_list(str(tmp_file), makeup_test_date, prog)
+            prog.step("재시험 명단 입력 완료")
+        except NoMatchingSheetException as e:
+            prog.error(f"파일에서 목표 시트를 찾을 수 없습니다:\n {e}")
+            return
+        except omikron.datafile.NoReservedColumnError as e:
+            prog.error(f"파일에 필수 열이 없습니다:\n {e}")
             return
 
-        reporter.info("업로드 수신 완료", inc=True)
-        ok, _wb = save_test_data(temp_path, progress=reporter)
-        # if not ok:
-        #     # save_test_data 내부에서 이미 error를 보냈을 수 있지만, 보장용:
-        #     reporter.error("처리 실패")
-        #     return
-        reporter.done("작업 성공")
-    except Exception as e:
-        reporter.error(f"예외 발생: {e}")
+        try:
+            omikron.datafile.save(datafile_wb)
+            omikron.makeuptest.save(makeuptest_wb)
+        except FileOpenException as e:
+            prog.error(f"파일이 열려 있습니다:\n {e}")
+            return
 
-def _run_make_data_file(job_id: str):
+        prog.step("파일 저장 완료")
+
+        prog.done("데이터 저장을 완료하였습니다.")
+    except Exception as exc:
+        prog.error(f"예상치 못한 오류가 발생했습니다:\n {exc}")
+        return
+    finally:
+        if tmp_file:
+            _cleanup_temp(tmp_file)
+
+def _make_data_file_job(job_id: str):
+    emit=make_emit(job_id)
+    prog = Progress(emit, total=3)  # 대략 단계 수 추정
+
     try:
-        reporter = Progress(emit=make_emit(job_id), total=6)  # 대략 단계 수
-        omikron.datafile.make_file(progress=reporter)
-        reporter.done("데이터 파일 생성 성공")
+        omikron.datafile.make_file()
+        prog.done("데이터 파일 생성 성공")
     except Exception as e:
-        reporter.error(f"예외 발생: {e}")
+        prog.error(f"예외 발생: {e}")
 
-def _run_make_class_info(job_id: str):
-    try:
-        reporter = Progress(emit=make_emit(job_id), total=1)  # 대략 단계 수
-        omikron.classinfo.make_file(progress=reporter)
-        reporter.done("반 정보 파일 생성 성공")
-    except Exception as e:
-        reporter.error(f"예외 발생: {e}")
-
-####################################### api calls #######################################
-
-@server.method()
-async def start_save_exam(ctx: RPCContext, filename: str, b64: str) -> Dict[str, Any]:
-    job_id = str(uuid.uuid4())
-    t = threading.Thread(target=_run_save_exam, args=(job_id, filename, b64), daemon=True)
-    t.start()
-    return {"job_id": job_id}
+####################################### 데이터 요청 API #######################################
 
 @server.method()
 async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
     """
     실행 디렉터리에 '반 정보.xlsx', '학생 정보.xlsx' 존재 여부와
-    config.json의 dataFileName으로 './data/<name>.xlsx' 존재 여부를 확인.
+    config.json의 dataFileName으로 './data/<name>.xlsx' 존재 여부 확인
     """
     cwd = Path(os.getcwd())
     class_info = cwd / "반 정보.xlsx"
@@ -158,20 +264,28 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
         "missing": missing,
     }
 
+
+####################################### 작업 API #######################################
+
 @server.method()
 async def start_make_class_info(ctx: RPCContext) -> Dict[str, Any]:
     """반 정보.xlsx 생성"""
     try:
-        path = Path(os.getcwd()) / "반 정보.xlsx"
-        omikron.classinfo.make_file()
-        return {"ok": True, "path": str(path)}
+        cwd = Path(os.getcwd())
+        _ensure_parent(cwd)
+
+        job_id = str(uuid.uuid4())
+        t = threading.Thread(target=lambda: _make_class_info_job(job_id), daemon=True)
+        t.start()
+        return {"job_id": job_id}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
 @server.method()
-async def start_make_data_file(ctx: RPCContext, name: Optional[str] = None) -> dict:
+async def start_make_data_file(ctx: RPCContext) -> Dict[str, Any]:
     """
-    데이터파일 생성. name이 전달되면 config.json의 dataFileName을 갱신하고 생성.
+    데이터 파일 생성. name이 전달되면 config.json의 dataFileName을 갱신하고 생성
     (반 정보.xlsx 선행 필요)
     """
     try:
@@ -182,26 +296,22 @@ async def start_make_data_file(ctx: RPCContext, name: Optional[str] = None) -> d
 
         cfg = _read_config(cwd)
 
-        if name and name.strip():
-            cfg["dataFileName"] = name.strip()
-            _write_config(cwd, cfg)
-
-        final_name = (cfg.get("dataFileName") or "").strip()
-        if not final_name:
+        if not (cfg.get("dataFileName") or "").strip():
             return {"ok": False, "error": "config.json의 dataFileName을 설정해 주세요."}
 
-        data_path = cwd / "data" / f"{final_name}.xlsx"
+        _ensure_parent(cwd / "data")
 
         job_id = str(uuid.uuid4())
-        t = threading.Thread(target=lambda: _run_make_data_file(job_id), daemon=True)
+        t = threading.Thread(target=lambda: _make_data_file_job(job_id), daemon=True)
         t.start()
         return {"job_id": job_id}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
 @server.method()
 async def start_make_student_info(ctx: RPCContext) -> Dict[str, Any]:
-    """학생 정보.xlsx 생성 (선행: 반 정보.xlsx 존재)"""
+    """학생 정보.xlsx 생성 (반 정보.xlsx 필요)"""
     try:
         cwd = Path(os.getcwd())
         class_info = cwd / "반 정보.xlsx"
@@ -209,9 +319,10 @@ async def start_make_student_info(ctx: RPCContext) -> Dict[str, Any]:
             return {"ok": False, "error": "반 정보.xlsx가 먼저 필요합니다."}
 
         omikron.studentinfo.make_file()
-        return {"ok": True, "path": str("")}
+        return {"ok": True, "path": str(cwd / '학생 정보.xlsx')}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 @server.method()
 async def open_path(ctx: RPCContext, path: str) -> Dict[str, Any]:
@@ -220,3 +331,51 @@ async def open_path(ctx: RPCContext, path: str) -> Dict[str, Any]:
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+@server.method()
+async def start_send_exam_message(ctx: RPCContext, filename: str, b64: str) -> Dict[str, Any]:
+    job_id = str(uuid.uuid4())
+
+    make_emit(job_id)({
+        "ts": time.time(),
+        "step": 0,
+        "total": 3,
+        "level": "info",
+        "status": "running",
+        "message": "작업 대기 중...",
+    })
+
+    thread = threading.Thread(
+        target=_send_exam_message_job,
+        kwargs={"job_id": job_id, "filename": filename, "b64": b64},
+        daemon=True,
+    )
+    thread.start()
+
+    return {"job_id": job_id}
+
+
+@server.method()
+async def start_save_exam(ctx: RPCContext, filename: str, b64: str) -> Dict[str, Any]:
+    job_id = str(uuid.uuid4())
+
+    make_emit(job_id)({
+        "ts": time.time(),
+        "step": 0,
+        "total": 4,
+        "level": "info",
+        "status": "running",
+        "message": "작업 대기 중...",
+    })
+
+    thread = threading.Thread(
+        target=_save_exam_job,
+        kwargs={"job_id": job_id, "filename": filename, "b64": b64},
+        daemon=True,
+    )
+    thread.start()
+
+    return {"job_id": job_id}
+
+

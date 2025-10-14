@@ -9,7 +9,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 import omikron.chrome
 
 from omikron.defs import StudentInfo
-from omikron.log import OmikronLog
+from omikron.exception import NoMatchingSheetException, FileOpenException
 
 # 파일 기본 작업
 def make_file() -> bool:
@@ -39,13 +39,15 @@ def open(data_only:bool=False) -> xl.Workbook:
 
 def open_worksheet(wb:xl.Workbook):
     try:
-        return True, wb[StudentInfo.DEFAULT_NAME]
+        return wb[StudentInfo.DEFAULT_NAME]
     except:
-        OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{StudentInfo.DEFAULT_NAME}'으로 변경해 주세요.")
-        return False, None
+        raise NoMatchingSheetException(f"'{StudentInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{StudentInfo.DEFAULT_NAME}'으로 변경해 주세요.")
 
 def save(wb:xl.Workbook):
-    wb.save(f"./{StudentInfo.DEFAULT_NAME}.xlsx")
+    try:
+        wb.save(f"./{StudentInfo.DEFAULT_NAME}.xlsx")
+    except:
+        raise FileOpenException()
 
 def isopen() -> bool:
     return os.path.isfile(f"./~${StudentInfo.DEFAULT_NAME}.xlsx")
@@ -69,15 +71,12 @@ def get_student_info(ws:Worksheet, student_name:str):
     return True, makeup_test_weekday, makeup_test_time, new_studnet == 'N'
 
 # 파일 작업
-def add_student(target_student_name:str) -> bool:
+def add_student(target_student_name:str):
     """
     학생 정보 파일 내 신규생 추가
-
-    return `작업 성공 여부`, `작업 워크북`(저장 필요)
     """
     wb = open()
-    complete, ws = open_worksheet(wb)
-    if not complete: return False, None
+    ws = open_worksheet(wb)
 
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, StudentInfo.STUDENT_NAME_COLUMN).value is not None:
@@ -89,21 +88,20 @@ def add_student(target_student_name:str) -> bool:
                 ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
             break
 
-    return True, wb
+    save(wb)
 
 def delete_student(target_student_name:str):
     """
     학생 정보 파일에서 학생 정보 삭제
     """
     wb = open()
-    complete, ws = open_worksheet(wb)
-    if not complete: return False, None
+    ws = open_worksheet(wb)
 
     for row in range(2, ws.max_row+1):
         if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == target_student_name:
             ws.delete_rows(row)
 
-    return True, wb
+    save(wb)
 
 def update_student(wb:xl.Workbook=None):
     latest_student_names = omikron.chrome.get_student_names()
@@ -111,8 +109,7 @@ def update_student(wb:xl.Workbook=None):
     if wb is None:
         wb = open()
 
-    complete, ws = open_worksheet(wb)
-    if not complete: return False
+    ws = open_worksheet(wb)
 
     student_names = [ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value for row in range(2, ws.max_row+1)]
     
@@ -143,5 +140,3 @@ def update_student(wb:xl.Workbook=None):
             ws.delete_rows(row)
 
     save(wb)
-
-    return True

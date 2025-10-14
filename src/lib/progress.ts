@@ -23,7 +23,10 @@ export function useProgressPoller(jobId?: string, interval = 500) {
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId){
+      setProg(initialProgress);
+      return;
+    }
     if (timer.current) clearInterval(timer.current);
 
     const tick = async () => {

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import { FileSpreadsheet, ChevronsRight, FolderOpen, Loader2 } from "lucide-react";
 import { rpc } from "pyloid-js";
 import { startJob, useProgressPoller, type ProgressPayload } from "@/lib/progress";
@@ -26,12 +25,6 @@ export default function InitView({
   onRefresh: () => void;
 }) {
   const canInstallDataAndStudent = state.has_class;
-
-  // 데이터 파일명 입력 (state 갱신 시 비어있을 때만 동기화)
-  const [dataName, setDataName] = useState(state.data_file_name ?? "");
-  useEffect(() => {
-    setDataName((prev) => (prev ? prev : state.data_file_name ?? ""));
-  }, [state.data_file_name]);
 
   // 각 작업의 job_id & progress
   const [jobClass, setJobClass] = useState<string>();
@@ -63,9 +56,7 @@ export default function InitView({
     setJobClass(id);
   };
   const installData = async () => {
-    const name = dataName.trim();
-    if (!name) return alert("데이터 파일 이름을 입력하세요.");
-    const id = await startJob("start_make_data_file", { name });
+    const id = await startJob("start_make_data_file");
     setJobData(id);
   };
   const installStudent = async () => {
@@ -117,49 +108,6 @@ export default function InitView({
     );
   };
 
-  // 데이터 전용 타일
-  const DataTile = ({
-    present,
-    disabled,
-    prog,
-  }: {
-    present: boolean;
-    disabled: boolean;
-    prog?: ProgressPayload;
-  }) => {
-    const isRun = running(prog);
-    const label = present ? "생성 완료" : isRun ? "진행 중…" : "생성";
-    const btnDisabled = present || !canInstallDataAndStudent || dataName.trim().length === 0 || isRun;
-    return (
-      <Card className="rounded-2xl border-border/80 shadow-sm">
-        <CardContent className="flex h-44 flex-col justify-between pt-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <FileSpreadsheet className={`h-8 w-8 ${present ? "text-green-600" : "text-muted-foreground"}`} />
-            <div className="text-sm font-medium">데이터 파일.xlsx</div>
-          </div>
-          <div className="grid gap-2">
-            <Input
-              value={dataName}
-              onChange={(e) => setDataName(e.target.value)}
-              placeholder="데이터 파일 이름 (예: omikron-2025)"
-              disabled={present || !canInstallDataAndStudent || isRun}
-            />
-            <Button className="w-full rounded-xl" onClick={installData} disabled={btnDisabled}>
-              {isRun && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {label}
-            </Button>
-            {(prog?.message || isRun || present) && (
-              <div className="text-xs text-muted-foreground text-center -mt-1">
-                {prog?.message || (present ? "완료됨" : isRun ? "작업 중…" : "")}
-                {stepStr(prog)}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   return (
     <Card className="h-full rounded-2xl border-border/80 shadow-sm">
       <CardContent className="flex h-full flex-col p-4">
@@ -188,8 +136,10 @@ export default function InitView({
             prog={classProg}
           />
           <ChevronsRight className="mx-1 h-5 w-5 text-muted-foreground" />
-          <DataTile
+          <Tile
+            title="데이터 파일.xlsx"
             present={state.has_data}
+            onInstall={installData}
             disabled={!canInstallDataAndStudent}
             prog={dataProg}
           />

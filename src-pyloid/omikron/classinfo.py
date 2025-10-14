@@ -9,7 +9,11 @@ from openpyxl.styles import Alignment, Border, Side
 import omikron.chrome
 
 from omikron.defs import ClassInfo
-from omikron.log import OmikronLog
+from omikron.exception import NoMatchingSheetException, FileOpenException
+
+class NoClassException(Exception):
+    pass
+
 
 # 파일 기본 작업
 def make_file() -> bool:
@@ -46,13 +50,16 @@ def open_temp(data_only:bool=True) -> xl.Workbook:
 
 def open_worksheet(wb:xl.Workbook):
     try:
-        return True, wb[ClassInfo.DEFAULT_NAME]
+        return wb[ClassInfo.DEFAULT_NAME]
     except:
-        OmikronLog.error(f"'{ClassInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{ClassInfo.DEFAULT_NAME}'로 변경해 주세요.")
-        return False, None
+        raise NoMatchingSheetException(f"'{ClassInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{ClassInfo.DEFAULT_NAME}'로 변경해 주세요.")
 
 def save(wb:xl.Workbook):
-    wb.save(f"./{ClassInfo.DEFAULT_NAME}.xlsx")
+    try:
+        wb.save(f"./{ClassInfo.DEFAULT_NAME}.xlsx")
+    except:
+        raise FileOpenException(f"{ClassInfo.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요")
+
 
 def save_to_temp(wb:xl.Workbook):
     wb.save(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
@@ -112,14 +119,11 @@ def check_difference_between():
 
     return `성공 여부`, `반 정보 파일에만 존재하는 반 리스트`, `임시 반 정보 파일에만 존재하는 반 리스트`
     """
-    wb       = open()
-    temp_wb  = open_temp()
+    wb      = open()
+    temp_wb = open_temp()
 
-    complete, ws = open_worksheet(wb)
-    if not complete: return False, None, None
-
-    complete, temp_ws = open_worksheet(temp_wb)
-    if not complete: return False, None, None
+    ws      = open_worksheet(wb)
+    temp_ws = open_worksheet(temp_wb)
 
     class_names        = get_class_names(ws)
     latest_class_names = get_class_names(temp_ws)
@@ -139,8 +143,7 @@ def make_temp_file_for_update() -> bool:
     make_backup_file()
 
     wb = open()
-    complete, ws = open_worksheet(wb)
-    if not complete: return False
+    ws = open_worksheet(wb)
 
     unregistered_class_names = check_updated_class(ws)
     if len(unregistered_class_names) == 0:

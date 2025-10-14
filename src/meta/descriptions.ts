@@ -24,12 +24,12 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   "save-exam": {
     title: "시험 결과 저장",
     guide: "시험의 전체 결과를 데이터 파일에 저장합니다.",
-    steps: ["시험 데이터 검증", "결측치 처리", "엑셀 쓰기", "요약/차트 갱신", "test", "test", "test", "test"],
+    steps: ["데이터 입력 양식 유효성 검사", "백업 생성", "데이터 파일 입력", "데이터 파일 조건부 서식 적용", "재시험 명단 입력", "파일 저장 완료"],
   },
   "send-exam-message": {
     title: "시험 결과 메시지 전송",
     guide: "저장된 결과를 기반으로 학부모 메시지를 생성하고 전송합니다.",
-    steps: ["메시지 템플릿 생성", "수신 대상 확인", "전송 큐 적재", "전송/재시도"],
+    steps: ["데이터 입력 양식 유효성 검사", "메시지 작성", "작성 완료"],
   },
   "save-individual-exam": {
     title: "개별 시험 결과 저장",

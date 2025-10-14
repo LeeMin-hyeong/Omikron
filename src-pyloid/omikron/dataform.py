@@ -10,7 +10,11 @@ import omikron.chrome
 import omikron.classinfo
 
 from omikron.defs import DataForm
-from omikron.log import OmikronLog
+from omikron.exception import NoMatchingSheetException, FileOpenException
+
+
+class DataValidationException(Exception):
+    pass
 
 # 파일 기본 작업
 def make_file() -> bool:
@@ -118,19 +122,18 @@ def open(filepath, data_only=True) -> xl.Workbook:
 
 def open_worksheet(wb:xl.Workbook):
     try:
-        return True, wb[DataForm.DEFAULT_NAME]
+        return wb[DataForm.DEFAULT_NAME]
     except:
-        OmikronLog.error(f"'{DataForm.DEFAULT_NAME}.xlsx'의 시트명을 '{DataForm.DEFAULT_NAME}'로 변경해 주세요.")
-        return False, None
+        raise NoMatchingSheetException(f"'{DataForm.DEFAULT_NAME}.xlsx'의 시트명을 '{DataForm.DEFAULT_NAME}'로 변경해 주세요.")
 
 # 파일 유틸리티
 def data_validation(filepath:str) -> bool:
     """
     데이터 입력 양식의 데이터가 올바르게 입력되었는지 확인
     """
+    errors = []
     wb = open(filepath)
-    complete, ws = open_worksheet(wb)
-    if not complete: return False
+    ws = open_worksheet(wb)
     
     form_checked      = True
     dailytest_checked = False
@@ -146,12 +149,15 @@ def data_validation(filepath:str) -> bool:
         if dailytest_checked and mocktest_checked: continue
         
         if not dailytest_checked and ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value is not None and dailytest_name is None:
-            OmikronLog.error(f"{class_name}의 시험명이 작성되지 않았습니다.")
+            errors.append(f"{class_name}의 시험명이 작성되지 않았습니다.")
             dailytest_checked = True
             form_checked      = False
         if not mocktest_checked and ws.cell(i, DataForm.MOCKTEST_SCORE_COLUMN).value is not None and mocktest_name is None:
-            OmikronLog.error(f"{class_name}의 모의고사명이 작성되지 않았습니다.")
+            errors.append(f"{class_name}의 모의고사명이 작성되지 않았습니다.")
             mocktest_checked = True
             form_checked     = False
+
+    if errors:
+        raise DataValidationException("\n".join(errors))
 
     return form_checked

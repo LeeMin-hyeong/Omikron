@@ -12,17 +12,19 @@ from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
 import omikron.chrome
 import omikron.classinfo
 import omikron.config
-import omikron.datafile
 import omikron.dataform
-import omikron.makeuptest
 import omikron.studentinfo
 
 from omikron.defs import DataFile, DataForm
-from omikron.log import OmikronLog
+from omikron.exception import NoMatchingSheetException, FileOpenException
 from omikron.util import copy_cell, class_average_color, student_average_color, test_score_color
+from omikron.progress import Progress
+
+class NoReservedColumnError(Exception):
+    pass
 
 # 파일 기본 작업
-def make_file() -> bool:
+def make_file():
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = DataFile.FIRST_SHEET_NAME
@@ -39,8 +41,7 @@ def make_file() -> bool:
         ws.cell(1, col).border = Border(bottom = Side(border_style="medium", color="000000"))
 
     class_wb = omikron.classinfo.open(True)
-    complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-    if not complete: return False
+    class_ws = omikron.classinfo.open_worksheet(class_wb)
 
     # 반 루프
     for class_name, student_list in omikron.chrome.get_class_student_dict().items():
@@ -109,8 +110,6 @@ def make_file() -> bool:
 
     save(wb)
 
-    return True
-
 def open(data_only:bool=False) -> xl.Workbook:
     return xl.load_workbook(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx", data_only=data_only)
 
@@ -118,7 +117,10 @@ def open_temp(data_only:bool=False) -> xl.Workbook:
     return xl.load_workbook(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only)
 
 def save(wb:xl.Workbook):
-    wb.save(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx")
+    # try:
+        wb.save(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx")
+    # except:
+    #     raise FileOpenException(f"{omikron.config.DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
 def save_to_temp(wb:xl.Workbook):
     wb.save(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx")
@@ -134,11 +136,11 @@ def file_validation() -> bool:
     wb = open()
 
     if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
-        OmikronLog.error(f"데이터 파일: {DataFile.FIRST_SHEET_NAME} 시트가 존재하지 않습니다.")
+        NoMatchingSheetException(f"데이터 파일: {DataFile.FIRST_SHEET_NAME} 시트가 존재하지 않습니다.")
         return False
 
     if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
-        OmikronLog.error(f"데이터 파일: {DataFile.SECOND_SHEET_NAME} 시트가 존재하지 않습니다.")
+        NoMatchingSheetException(f"데이터 파일: {DataFile.SECOND_SHEET_NAME} 시트가 존재하지 않습니다.")
         return False
 
     return True
@@ -152,18 +154,16 @@ def get_data_sorted_dict():
     """
     데이터 파일의 대략적 정보를 `dict` 형태로 추출
 
-    return `성공 여부`, `dict[반:학생]`, `dict[반:시험명]`
+    return `dict[반:학생]`, `dict[반:시험명]`
     """
     wb = open()
 
     ws = wb[DataFile.FIRST_SHEET_NAME]
 
-    complete, _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-    if not complete: return False, None, None
+    _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
     class_wb = omikron.classinfo.open()
-    complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-    if not complete: return False, None, None
+    class_ws = omikron.classinfo.open_worksheet(class_wb)
 
     class_student_dict = {}
     class_test_dict    = {}
@@ -201,7 +201,7 @@ def get_data_sorted_dict():
 
     class_student_dict = dict(sorted(class_student_dict.items()))
 
-    return True, class_student_dict, class_test_dict
+    return class_student_dict, class_test_dict
 
 def find_dynamic_columns(ws:Worksheet):
     """
@@ -217,50 +217,44 @@ def find_dynamic_columns(ws:Worksheet):
             TEST_TIME_COLUMN = col
             break
     else:
-        OmikronLog.error(f"{ws.title} 시트에 '시간' 열이 없습니다.")
-        return False, None, None, None, None, None, None
+        raise NoReservedColumnError(f"{ws.title} 시트에 '시간' 열이 없습니다.")
 
     for col in range(1, ws.max_column+1):
         if ws.cell(1, col).value == "요일":
             CLASS_WEEKDAY_COLUMN = col
             break
     else:
-        OmikronLog.error(f"{ws.title} 시트에 '요일' 열이 없습니다.")
-        return False, None, None, None, None, None, None
+        raise NoReservedColumnError(f"{ws.title} 시트에 '요일' 열이 없습니다.")
 
     for col in range(1, ws.max_column+1):
         if ws.cell(1, col).value == "반":
             CLASS_NAME_COLUMN = col
             break
     else:
-        OmikronLog.error(f"{ws.title} 시트에 '반' 열이 없습니다.")
-        return False, None, None, None, None, None, None
+        raise NoReservedColumnError(f"{ws.title} 시트에 '반' 열이 없습니다.")
 
     for col in range(1, ws.max_column+1):
         if ws.cell(1, col).value == "담당":
             TEACHER_NAME_COLUMN = col
             break
     else:
-        OmikronLog.error(f"{ws.title} 시트에 '담당' 열이 없습니다.")
-        return False, None, None, None, None, None, None
+        raise NoReservedColumnError(f"{ws.title} 시트에 '담당' 열이 없습니다.")
 
     for col in range(1, ws.max_column+1):
         if ws.cell(1, col).value == "이름":
             STUDENT_NAME_COLUMN = col
             break
     else:
-        OmikronLog.error(f"{ws.title} 시트에 '이름' 열이 없습니다.")
-        return False, None, None, None, None, None, None
+        raise NoReservedColumnError(f"{ws.title} 시트에 '이름' 열이 없습니다.")
 
     for col in range(1, ws.max_column+1):
         if ws.cell(1, col).value == "학생 평균":
             AVERAGE_SCORE_COLUMN = col
             break
     else:
-        OmikronLog.error(f"{ws.title} 시트에 '학생 평균' 열이 없습니다.")
-        return False, None, None, None, None, None, None
+        raise NoReservedColumnError(f"{ws.title} 시트에 '학생 평균' 열이 없습니다.")
     
-    return True, TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN
+    return TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN
 
 def is_cell_empty(row:int, col:int) -> bool:
     """
@@ -279,25 +273,24 @@ def is_cell_empty(row:int, col:int) -> bool:
     return False, value
 
 # 파일 작업
-def save_test_data(filepath:str):
+def save_test_data(filepath:str, prog: Progress):
     """
     데이터 양식에 작성된 데이터를 데이터 파일에 저장
     """
     # 임시 파일 삭제
-    if os.path.isfile("./data/9IwTEoG59MS6h2UoqveD.xlsx"):
+    if os.path.isfile(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx"):
         delete_temp()
 
     form_wb = omikron.dataform.open(filepath)
-    complete, form_ws = omikron.dataform.open_worksheet(form_wb)
-    if not complete: return False, None
+    form_ws = omikron.dataform.open_worksheet(form_wb)
 
     # 학생 정보 열기
     student_wb = omikron.studentinfo.open(True)
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete: return False, None
+    student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
     # 백업 생성
     make_backup_file()
+    prog.step("백업 생성 완료")
 
     wb = open()
 
@@ -314,8 +307,7 @@ def save_test_data(filepath:str):
             continue
         ws = wb[sheet_name]
 
-        complete, _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-        if not complete: return False, None
+        _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
             # 반 필터링
@@ -332,7 +324,7 @@ def save_test_data(filepath:str):
                         CLASS_START = row
                         break
                 else:
-                    OmikronLog.warning(f"{sheet_name} 시트: {class_name} 반이 존재하지 않습니다.")
+                    prog.warning(f"{sheet_name} 시트: {class_name} 반이 존재하지 않습니다.")
                     no_class = True
                     continue
 
@@ -390,10 +382,11 @@ def save_test_data(filepath:str):
                     ws.cell(row, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
                     break
             else:
-                OmikronLog.warning(f"{sheet_name} 시트: {class_name} 반에 {student_name} 학생이 존재하지 않습니다.")
+                prog.warning(f"{sheet_name} 시트: {class_name} 반에 {student_name} 학생이 존재하지 않습니다.")
 
     ws = wb[DataFile.FIRST_SHEET_NAME]
     save_to_temp(wb)
+    prog.step("데이터 저장 완료")
 
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
@@ -414,8 +407,7 @@ def save_test_data(filepath:str):
         ws           = wb[sheet_name]
         data_only_ws = data_only_wb[sheet_name]
 
-        complete, _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-        if not complete: return False, None
+        _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for row in range(2, data_only_ws.max_row+1):
             if data_only_ws.cell(row, STUDENT_NAME_COLUMN).value is None:
@@ -437,23 +429,24 @@ def save_test_data(filepath:str):
             if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
                 continue
 
-            complete, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
-            if complete:
+            exsist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
+            if exsist:
                 if new_student:
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
                 else:
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
             else:
                 ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
-                OmikronLog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
+                prog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     ws = wb[DataFile.FIRST_SHEET_NAME]
+    prog.step("조건부 서식 로딩 완료")
 
-    return True, wb
+    return wb
 
 def save_individual_test_data(target_row:int, target_col:int, test_score:int|float):
     # 임시 파일 삭제
-    if os.path.isfile("./data/9IwTEoG59MS6h2UoqveD.xlsx"):
+    if os.path.isfile(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx"):
         delete_temp()
 
     # 백업 생성
@@ -483,8 +476,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     ws           = wb[DataFile.FIRST_SHEET_NAME]
     data_only_ws = data_only_wb[DataFile.FIRST_SHEET_NAME]
 
-    complete, _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-    if not complete: return False, None, None
+    _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
     # 학생 평균 조건부 서식 반영
     student_average = data_only_ws.cell(target_row, AVERAGE_SCORE_COLUMN).value
@@ -507,7 +499,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 
     return True, test_average, wb
 
-def conditional_formatting():
+def conditional_formatting(prog: Progress):
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
     wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{omikron.config.DATA_FILE_NAME}.xlsx")
@@ -529,8 +521,7 @@ def conditional_formatting():
         ws           = wb[sheet_name]
         data_only_ws = data_only_wb[sheet_name]
 
-        complete, _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-        if not complete: return False
+        _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for row in range(2, ws.max_row+1):
             if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
@@ -591,18 +582,17 @@ def conditional_formatting():
                 continue
 
             # 신규생 하이라이트
-            complete, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
-            if complete:
+            exsist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
+            if exsist:
                 if new_student:
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
                 else:
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
             else:
                 ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
-                OmikronLog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
+                prog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     save(wb)
-    return True
 
 def update_class():
     """
@@ -660,8 +650,7 @@ def update_class():
             post_data_ws = post_data_wb[sheet_name]
             ws           = wb[sheet_name]
 
-            complete, TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-            if not complete: return False, None
+            TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
             for row in range(2, ws.max_row+1):
                 while ws.cell(row, CLASS_NAME_COLUMN).value in deleted_class_names:
@@ -688,8 +677,7 @@ def update_class():
 
     if len(unregistered_class_names) > 0:
         class_wb = omikron.classinfo.open_temp()
-        complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-        if not complete: return False, None
+        class_ws = omikron.classinfo.open_worksheet(class_wb)
 
         class_student_dict = omikron.chrome.get_class_student_dict()
 
@@ -699,8 +687,7 @@ def update_class():
 
             ws = wb[sheet_name]
 
-            complete, TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-            if not complete: return False, None
+            TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
             for row in range(ws.max_row+1, 1, -1):
                 if ws.cell(row-1, STUDENT_NAME_COLUMN).value is not None:
@@ -763,7 +750,7 @@ def update_class():
 
     return rescoping_formula(wb)
 
-def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
+def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.Workbook=None):
     """
     학생 추가
     
@@ -776,8 +763,7 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        complete, TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-        if not complete: return False, None
+        TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         # 목표 반에 학생 추가
         for row in range(2, ws.max_row+1):
@@ -785,7 +771,7 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
                 class_index = row+2
                 break
         else:
-            OmikronLog.warning(f"{ws.title} 시트에 {target_class_name} 반이 존재하지 않습니다.")
+            prog.warning(f"{ws.title} 시트에 {target_class_name} 반이 존재하지 않습니다.")
             continue
 
         while ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
@@ -796,7 +782,7 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
             elif ws.cell(class_index, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(class_index, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
                 class_index += 1
             elif ws.cell(class_index, STUDENT_NAME_COLUMN).value == student_name:
-                OmikronLog.error(f"{student_name} 학생이 이미 존재합니다.")
+                prog.error(f"{student_name} 학생이 이미 존재합니다.")
                 return False, None
             else:
                 class_index += 1
@@ -830,8 +816,7 @@ def delete_student(student_name:str):
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        complete, _, _, _, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
-        if not complete: return False, None
+        _, _, _, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
 
         for row in range(2, ws.max_row+1):
             if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name:
@@ -855,8 +840,7 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        complete, _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
-        if not complete: return False, None
+        _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
 
         # 기존 반 데이터 빨간색 처리
         for row in range(2, ws.max_row+1):
@@ -870,16 +854,18 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
 
     return add_student(student_name, target_class_name, wb)
 
-def rescoping_formula(wb:xl.Workbook):
+def rescoping_formula(wb:xl.Workbook=None):
     """
     데이터 파일 내 평균 산출 수식의 범위 재조정
     """
+    if wb is None:
+        wb = open()
+
     for ws in wb.worksheets:
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        complete, _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-        if not complete: return False, None
+        _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         # 평균 범위 재지정
         for row in range(2, ws.max_row+1):
@@ -918,4 +904,4 @@ def rescoping_formula(wb:xl.Workbook):
             else:
                 ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
-    return True, wb
+    save(wb)
