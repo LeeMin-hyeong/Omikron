@@ -129,18 +129,24 @@ def send_test_result_message(filepath:str, makeup_test_date:dict, prog:Progress)
     
     # 아이소식 접속
     driver.get(URL)
+    driver.implicitly_wait(1)
     driver.execute_script(f"arguments[0].value = '{TEST_RESULT_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '시험 결과 전송'")
 
     driver.execute_script(f"window.open('{URL}')")
+    driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_NO_SCHEDULE_TAB])
     driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_NO_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '재시험 일정 없는 학생'")
 
     driver.execute_script(f"window.open('{URL}')")
+    driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_SCHEDULE_TAB])
-    driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
+    driver.execute_script("arguments[0].value = '{MAKEUP_TEST_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '재시험 일정 있는 학생'")
 
     driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 

@@ -11,12 +11,9 @@ import omikron.chrome
 from omikron.defs import ClassInfo
 from omikron.exception import NoMatchingSheetException, FileOpenException
 
-class NoClassException(Exception):
-    pass
-
 
 # 파일 기본 작업
-def make_file() -> bool:
+def make_file():
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = ClassInfo.DEFAULT_NAME
@@ -40,7 +37,6 @@ def make_file() -> bool:
 
     save(wb)
 
-    return True
 
 def open(data_only:bool=True) -> xl.Workbook:
     return xl.load_workbook(f"./{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
@@ -117,7 +113,7 @@ def check_difference_between():
     """
     반 정보 파일과 임시 반 정보 파일의 반 목록을 비교
 
-    return `성공 여부`, `반 정보 파일에만 존재하는 반 리스트`, `임시 반 정보 파일에만 존재하는 반 리스트`
+    return `반 정보 파일에만 존재하는 반 리스트`, `임시 반 정보 파일에만 존재하는 반 리스트`
     """
     wb      = open()
     temp_wb = open_temp()
@@ -131,10 +127,10 @@ def check_difference_between():
     deleted_class_names      = list(set(class_names).difference(latest_class_names))
     unregistered_class_names = list(set(latest_class_names).difference(class_names))
 
-    return True, deleted_class_names, unregistered_class_names
+    return deleted_class_names, unregistered_class_names
 
 # 파일 작업
-def make_temp_file_for_update() -> bool:
+def make_temp_file_for_update():
     """
     반 업데이트 작업에 필요한 임시 반 정보 파일 생성
 
@@ -164,5 +160,3 @@ def make_temp_file_for_update() -> bool:
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     save_to_temp(wb)
-
-    return True

@@ -21,6 +21,9 @@ from omikron.util import copy_cell, class_average_color, student_average_color, 
 from omikron.progress import Progress
 
 class NoReservedColumnError(Exception):
+    """
+    예약된 열이 없을 경우
+    """
     pass
 
 # 파일 기본 작업
@@ -28,8 +31,8 @@ def make_file():
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = DataFile.FIRST_SHEET_NAME
-    ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
-    ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
+    # ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
+    # ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
     ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
     ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
     ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
@@ -48,21 +51,21 @@ def make_file():
         if len(student_list) == 0:
             continue
 
-        exist, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_ws, class_name)
+        exist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_ws, class_name)
         if not exist: continue
 
         WRITE_LOCATION = ws.max_row + 1
 
         # 시험명
-        ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
-        ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
+        # ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
+        # ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
         ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
         ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
         ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "날짜"
         
         WRITE_LOCATION = ws.max_row + 1
-        ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
-        ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
+        # ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
+        # ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
         ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
         ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
         ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험명"
@@ -75,8 +78,8 @@ def make_file():
         # 학생 루프
         for student_name in student_list:
             WRITE_LOCATION = ws.max_row + 1
-            ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
-            ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
+            # ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
+            # ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
             ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
             ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = student_name
@@ -86,8 +89,8 @@ def make_file():
         # 시험별 평균
         class_end = WRITE_LOCATION
         WRITE_LOCATION = ws.max_row + 1
-        ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
-        ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
+        # ws.cell(WRITE_LOCATION, DataFile.TEST_TIME_COLUMN).value     = test_time
+        # ws.cell(WRITE_LOCATION, DataFile.CLASS_WEEKDAY_COLUMN).value = class_weekday
         ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
         ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
         ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험 평균"
@@ -117,10 +120,10 @@ def open_temp(data_only:bool=False) -> xl.Workbook:
     return xl.load_workbook(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only)
 
 def save(wb:xl.Workbook):
-    # try:
+    try:
         wb.save(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx")
-    # except:
-    #     raise FileOpenException(f"{omikron.config.DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
+    except:
+        raise FileOpenException(f"{omikron.config.DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
 def save_to_temp(wb:xl.Workbook):
     wb.save(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx")
@@ -136,14 +139,10 @@ def file_validation() -> bool:
     wb = open()
 
     if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
-        NoMatchingSheetException(f"데이터 파일: {DataFile.FIRST_SHEET_NAME} 시트가 존재하지 않습니다.")
-        return False
+        raise NoMatchingSheetException(f"데이터 파일: {DataFile.FIRST_SHEET_NAME} 시트가 존재하지 않습니다.")
 
     if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
-        NoMatchingSheetException(f"데이터 파일: {DataFile.SECOND_SHEET_NAME} 시트가 존재하지 않습니다.")
-        return False
-
-    return True
+        raise NoMatchingSheetException(f"데이터 파일: {DataFile.SECOND_SHEET_NAME} 시트가 존재하지 않습니다.")
 
 # 파일 유틸리티
 def make_backup_file():
@@ -160,7 +159,7 @@ def get_data_sorted_dict():
 
     ws = wb[DataFile.FIRST_SHEET_NAME]
 
-    _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+    CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
     class_wb = omikron.classinfo.open()
     class_ws = omikron.classinfo.open_worksheet(class_wb)
@@ -207,24 +206,24 @@ def find_dynamic_columns(ws:Worksheet):
     """
     파일 열(column) 정보 동적 탐색
 
-    시간, 요일, 반, 담당, 이름, 학생 평균
+    '반' 열, '담당' 열, '이름' 열, '학생 평균' 열
 
-    return `성공 여부`, `TEST_TIME_COLUMN`, `CLASS_WEEKDAY_COLUMN`, `CLASS_NAME_COLUMN`, `TEACHER_NAME_COLUMN`, `STUDENT_NAME_COLUMN`, `AVERAGE_SCORE_COLUMN`
+    return `CLASS_NAME_COLUMN`, `TEACHER_NAME_COLUMN`, `STUDENT_NAME_COLUMN`, `AVERAGE_SCORE_COLUMN`
     """
 
-    for col in range(1, ws.max_column+1):
-        if ws.cell(1, col).value == "시간":
-            TEST_TIME_COLUMN = col
-            break
-    else:
-        raise NoReservedColumnError(f"{ws.title} 시트에 '시간' 열이 없습니다.")
+    # for col in range(1, ws.max_column+1):
+    #     if ws.cell(1, col).value == "시간":
+    #         TEST_TIME_COLUMN = col
+    #         break
+    # else:
+    #     raise NoReservedColumnError(f"{ws.title} 시트에 '시간' 열이 없습니다.")
 
-    for col in range(1, ws.max_column+1):
-        if ws.cell(1, col).value == "요일":
-            CLASS_WEEKDAY_COLUMN = col
-            break
-    else:
-        raise NoReservedColumnError(f"{ws.title} 시트에 '요일' 열이 없습니다.")
+    # for col in range(1, ws.max_column+1):
+    #     if ws.cell(1, col).value == "요일":
+    #         CLASS_WEEKDAY_COLUMN = col
+    #         break
+    # else:
+    #     raise NoReservedColumnError(f"{ws.title} 시트에 '요일' 열이 없습니다.")
 
     for col in range(1, ws.max_column+1):
         if ws.cell(1, col).value == "반":
@@ -254,7 +253,7 @@ def find_dynamic_columns(ws:Worksheet):
     else:
         raise NoReservedColumnError(f"{ws.title} 시트에 '학생 평균' 열이 없습니다.")
     
-    return TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN
+    return CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN
 
 def is_cell_empty(row:int, col:int) -> bool:
     """
@@ -307,7 +306,7 @@ def save_test_data(filepath:str, prog: Progress):
             continue
         ws = wb[sheet_name]
 
-        _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+        CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for i in range(2, form_ws.max_row+1): # 데일리데이터 기록 양식 루프
             # 반 필터링
@@ -407,7 +406,7 @@ def save_test_data(filepath:str, prog: Progress):
         ws           = wb[sheet_name]
         data_only_ws = data_only_wb[sheet_name]
 
-        _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for row in range(2, data_only_ws.max_row+1):
             if data_only_ws.cell(row, STUDENT_NAME_COLUMN).value is None:
@@ -476,7 +475,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     ws           = wb[DataFile.FIRST_SHEET_NAME]
     data_only_ws = data_only_wb[DataFile.FIRST_SHEET_NAME]
 
-    _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+    _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
     # 학생 평균 조건부 서식 반영
     student_average = data_only_ws.cell(target_row, AVERAGE_SCORE_COLUMN).value
@@ -521,7 +520,7 @@ def conditional_formatting(prog: Progress):
         ws           = wb[sheet_name]
         data_only_ws = data_only_wb[sheet_name]
 
-        _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for row in range(2, ws.max_row+1):
             if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
@@ -600,8 +599,7 @@ def update_class():
     """
     make_backup_file()
 
-    complete, deleted_class_names, unregistered_class_names = omikron.classinfo.check_difference_between()
-    if not complete: return False, None
+    deleted_class_names, unregistered_class_names = omikron.classinfo.check_difference_between()
 
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
@@ -615,12 +613,13 @@ def update_class():
     wb = open()
 
     if len(deleted_class_names) > 0:
+        # 이전 데이터 파일이 존재하지 않으면 생성
         if not os.path.isfile(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
             post_data_wb = xl.Workbook()
             post_data_ws = post_data_wb.worksheets[0]
             post_data_ws.title = DataFile.FIRST_SHEET_NAME
-            post_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
-            post_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
+            # post_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
+            # post_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
             post_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
             post_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
             post_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
@@ -640,7 +639,7 @@ def update_class():
 
             post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
 
-        data_only_wb = open(data_only=True)
+        data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
         post_data_wb = xl.load_workbook(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
         for sheet_name in wb.sheetnames:
             if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
@@ -650,7 +649,7 @@ def update_class():
             post_data_ws = post_data_wb[sheet_name]
             ws           = wb[sheet_name]
 
-            TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+            CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
             for row in range(2, ws.max_row+1):
                 while ws.cell(row, CLASS_NAME_COLUMN).value in deleted_class_names:
@@ -659,8 +658,8 @@ def update_class():
             for row in range(2, data_only_ws.max_row+1):
                 if data_only_ws.cell(row, CLASS_NAME_COLUMN).value in deleted_class_names:
                     POST_DATA_WRITE_ROW = post_data_ws.max_row+1
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
+                    # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
+                    # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
                     copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_NAME_COLUMN),    data_only_ws.cell(row, CLASS_NAME_COLUMN))
                     copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEACHER_NAME_COLUMN),  data_only_ws.cell(row, TEACHER_NAME_COLUMN))
                     copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.STUDENT_NAME_COLUMN),  data_only_ws.cell(row, STUDENT_NAME_COLUMN))
@@ -687,7 +686,7 @@ def update_class():
 
             ws = wb[sheet_name]
 
-            TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+            CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
             for row in range(ws.max_row+1, 1, -1):
                 if ws.cell(row-1, STUDENT_NAME_COLUMN).value is not None:
@@ -697,19 +696,19 @@ def update_class():
             for class_name in unregistered_class_names:
                 if len(class_student_dict[class_name]) == 0:
                     continue
-                complete, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_ws, class_name)
-                if not complete: continue
+                exsist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_ws, class_name)
+                if not exsist: continue
 
                 # 시험명
-                ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-                ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
+                # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
+                # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
                 ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
                 ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
                 ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = "날짜"
                 WRITE_LOCATION += 1
                 
-                ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-                ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
+                # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
+                # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
                 ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
                 ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
                 ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = "시험명"
@@ -721,16 +720,16 @@ def update_class():
 
                 # 학생 루프
                 for studnet_name in class_student_dict[class_name]:
-                    ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-                    ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
+                    # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
+                    # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
                     ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
                     ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
                     ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = studnet_name
                     WRITE_LOCATION += 1
                 
                 # 시험별 평균
-                ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-                ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
+                # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
+                # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
                 ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
                 ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
                 ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = "시험 평균"
@@ -763,7 +762,7 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        TEST_TIME_COLUMN, CLASS_WEEKDAY_COLUMN, CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+        CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         # 목표 반에 학생 추가
         for row in range(2, ws.max_row+1):
@@ -788,14 +787,14 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
                 class_index += 1
 
         ws.insert_rows(class_index)
-        ws.cell(class_index, TEST_TIME_COLUMN).value         = ws.cell(class_index-1, TEST_TIME_COLUMN).value
-        ws.cell(class_index, CLASS_WEEKDAY_COLUMN).value     = ws.cell(class_index-1, CLASS_WEEKDAY_COLUMN).value
+        # ws.cell(class_index, TEST_TIME_COLUMN).value         = ws.cell(class_index-1, TEST_TIME_COLUMN).value
+        # ws.cell(class_index, CLASS_WEEKDAY_COLUMN).value     = ws.cell(class_index-1, CLASS_WEEKDAY_COLUMN).value
         ws.cell(class_index, CLASS_NAME_COLUMN).value        = ws.cell(class_index-1, CLASS_NAME_COLUMN).value
         ws.cell(class_index, TEACHER_NAME_COLUMN).value      = ws.cell(class_index-1, TEACHER_NAME_COLUMN).value
         ws.cell(class_index, STUDENT_NAME_COLUMN).value      = student_name
 
-        ws.cell(class_index, TEST_TIME_COLUMN).alignment     = Alignment(horizontal="center", vertical="center")
-        ws.cell(class_index, CLASS_WEEKDAY_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+        # ws.cell(class_index, TEST_TIME_COLUMN).alignment     = Alignment(horizontal="center", vertical="center")
+        # ws.cell(class_index, CLASS_WEEKDAY_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
         ws.cell(class_index, CLASS_NAME_COLUMN).alignment    = Alignment(horizontal="center", vertical="center")
         ws.cell(class_index, TEACHER_NAME_COLUMN).alignment  = Alignment(horizontal="center", vertical="center")
         ws.cell(class_index, STUDENT_NAME_COLUMN).alignment  = Alignment(horizontal="center", vertical="center")
@@ -816,7 +815,7 @@ def delete_student(student_name:str):
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        _, _, _, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
+        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         for row in range(2, ws.max_row+1):
             if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name:
@@ -825,6 +824,11 @@ def delete_student(student_name:str):
                         ws.cell(row, col).font = Font(bold=True, strike=True)
                     else:
                         ws.cell(row, col).font = Font(strike=True)
+                
+                # 퇴원한 학생이 반 평균에 영향을 주지 않도록 수정
+                ws.cell(row, AVERAGE_SCORE_COLUMN).value = ""
+                # 퇴원한 학생이 보이지 않도록 수정(필터 검색 시 확인 가능)
+                ws.row_dimensions[row].hidden = True
 
     return True, wb
 
@@ -840,7 +844,7 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        _, _, CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
+        CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
 
         # 기존 반 데이터 빨간색 처리
         for row in range(2, ws.max_row+1):
@@ -865,7 +869,7 @@ def rescoping_formula(wb:xl.Workbook=None):
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
-        _, _, _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
         # 평균 범위 재지정
         for row in range(2, ws.max_row+1):

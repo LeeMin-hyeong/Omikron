@@ -17,7 +17,7 @@ if not os.path.exists("./data/backup"):
     os.makedirs("./data/backup")
 os.environ["WDM_PROGRESS_BAR"] = "0"
 
-WIDTH, HEIGHT = 1200, 800
+WIDTH, HEIGHT = 1400, 800
 
 app = Pyloid(app_name="Omikron", single_instance=True, server=server)
 
