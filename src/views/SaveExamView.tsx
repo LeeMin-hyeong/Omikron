@@ -126,14 +126,11 @@ return (
     <div className="h-full min-h-0 min-w-0">
       <Card className="relative h-full min-h-0 rounded-2xl border-border/80 shadow-sm py-0">
         <CardContent className="h-full min-h-0 p-1">
-        {/* 전체: 위(1fr) / 아래(1fr) / 버튼(auto) */}
           <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1">
-            {/* ── 위: 업로드 (1fr 고정) ─────────────────────────────── */}
             <div className="min-h-0 overflow-hidden rounded-xl border border-border/60 bg-card/50">
               <div className="flex h-full min-h-0 flex-col p-3">
-                <h3 className="mb-1 text-base font-semibold">작업 안내</h3>
+                <p className="text-sm text-muted-foreground pb-2">{meta.guide}</p>
                 <Separator className="mb-1" />
-                <p className="text-sm text-muted-foreground">{meta.guide}</p>
                 <div
                   role="button"
                   tabIndex={0}

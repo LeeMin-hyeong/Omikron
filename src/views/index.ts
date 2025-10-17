@@ -11,6 +11,8 @@ import AddStudentView from "./AddStudentView";
 import SaveIndividualExamView from "./SaveIndividualExamView";
 import SaveRetestView from "./SaveRetestView";
 import RemoveStudentView from "./RemoveStudentView";
+import UpdateClassView from "./UpdateClassView";
+import UpdateStudentView from "./UpdateStudentView";
 
 const viewMap: Partial<Record<OmikronActionKey, FC<ViewProps>>> = {
   "rename-data-file": RenameDataFileView,
@@ -23,6 +25,8 @@ const viewMap: Partial<Record<OmikronActionKey, FC<ViewProps>>> = {
   "save-individual-exam": SaveIndividualExamView,
   "save-retest": SaveRetestView,
   "remove-student": RemoveStudentView,
+  "update-class": UpdateClassView,
+  "update-students": UpdateStudentView,
 };
 
 export function getActionView(action: OmikronActionKey): FC<ViewProps> {

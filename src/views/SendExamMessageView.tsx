@@ -131,9 +131,8 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
           <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1">
             <div className="min-h-0 overflow-hidden rounded-xl border border-border/60 bg-card/50">
               <div className="flex h-full min-h-0 flex-col p-3">
-                <h3 className="mb-1 text-base font-semibold">작업 안내</h3>
+                <p className="text-sm text-muted-foreground pb-2">{meta.guide}</p>
                 <Separator className="mb-1" />
-                <p className="text-sm text-muted-foreground">{meta.guide}</p>
                 <div
                   role="button"
                   tabIndex={0}

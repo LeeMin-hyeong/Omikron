@@ -102,36 +102,36 @@ const groups: {
 ]
 
 // === Main ===
-export default function OmikronPanel({ onAction, width = 1200, height = 800, sidebarPercent = 28 }: Props) {
+export default function OmikronPanel({ onAction, width = 1400, height = 800, sidebarPercent = 10 }: Props) {
   const [selected, setSelected] = useState<OmikronActionKey>("generate-daily-form")
   const View = useMemo(() => getActionView(selected), [selected])
+  const [missing, setMissing] = useState(false);
 
   // ✅ 프리체크 상태 + 지속 폴링
-  const [checking, setChecking] = useState(true);
   const [state, setState] = useState<any>(null);
   const pollRef = useRef<number | null>(null);
 
   const fetchState = async () => {
     try {
-      setChecking(true);
       const res = await rpc.call("check_data_files", {});
       setState(res);
+      if(!res.ok) setMissing(true);
     } catch {
       // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
       setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
-    } finally {
-      setChecking(false);
     }
   };
 
   useEffect(() => {
-    fetchState();
-    // 2초마다 지속 추적
-    pollRef.current = window.setInterval(fetchState, 2000);
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    };
-  }, []);
+    if(!missing){
+      fetchState();
+      // 2초마다 지속 추적
+      pollRef.current = window.setInterval(fetchState, 2000);
+      return () => {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+      };
+    }
+  }, [missing]);
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-b from-point/10 to-transparent">
@@ -154,7 +154,7 @@ export default function OmikronPanel({ onAction, width = 1200, height = 800, sid
         {/* Body: sidebar + page view */}
         <div
           className="grid flex-1"
-          style={{ gridTemplateColumns: `minmax(240px, ${sidebarPercent}%) 1fr` }}
+          style={{ gridTemplateColumns: `minmax(310px, ${sidebarPercent}%) 1fr` }}
         >
           {/* Sidebar */}
           <aside className="border-r border-border/80 bg-card/30">

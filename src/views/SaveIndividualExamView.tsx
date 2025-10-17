@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { UserCircle2, FlaskConical, User, BookCheck } from "lucide-react";
+import { User, BookCheck } from "lucide-react";
 
 type ClassInfo = { id?: string; name: string };
 type StudentInfo = { id: string; name: string };
