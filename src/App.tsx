@@ -15,6 +15,7 @@ import {
   UserPlus,
   UserMinus,
   Shuffle,
+  GraduationCap,
 } from "lucide-react"
 
 import { getActionView } from "@/views";
@@ -70,6 +71,7 @@ const groups: {
       { key: "update-class", label: "반 업데이트", icon: RefreshCw },
       { key: "rename-data-file", label: "데이터 파일 이름 변경", icon: FileEdit },
       { key: "update-students", label: "학생 정보 업데이트", icon: Users },
+      { key: "update-teacher", label: "담당 선생님 변경", icon: GraduationCap}
     ],
   },
   {
@@ -102,7 +104,7 @@ const groups: {
 ]
 
 // === Main ===
-export default function OmikronPanel({ onAction, width = 1400, height = 800, sidebarPercent = 10 }: Props) {
+export default function OmikronPanel({ onAction, width = 1400, height = 830, sidebarPercent = 10 }: Props) {
   const [selected, setSelected] = useState<OmikronActionKey>("generate-daily-form")
   const View = useMemo(() => getActionView(selected), [selected])
   const [missing, setMissing] = useState(false);

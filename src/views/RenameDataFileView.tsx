@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import type { ViewProps } from "@/types/omikron";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -9,7 +9,7 @@ import { rpc } from "pyloid-js";
 import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 import { Spinner } from "@/components/ui/spinner";
 
-export default function RenameDataFileView({ meta }: ViewProps) {
+export default function RenameDataFileView() {
   const dialog = useAppDialog();
   const [checking, setChecking] = useState(false);
   const [state, setState] = useState<{
@@ -41,26 +41,34 @@ export default function RenameDataFileView({ meta }: ViewProps) {
     };
 
   const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [done, setDone] = useState(false);
   const [dataName, setDataName] = useState(state.data_file_name ?? "");
   const [loading, setLoading] = useState(false);
 
   const handleRefresh = async () => {
     setLoading(true);
     fetchState();
+    setDone(false);
     await dialog.confirm({ title: "새로고침", message: "파일명을 다시 불러왔습니다." });
     setLoading(false);
   };
 
-  const start = () => {
+  const start = async (dataName: string) => {
     if (running) return;
-    setRunning(true);
+    setDone(false);
 
-  };
-
-  const stop = () => {
-
-    setRunning(false);
+    try {
+      setRunning(true);
+      const res = await rpc.call("change_data_file_name", {new_filename: dataName});
+      if(res?.ok){
+        setDone(true);
+        await dialog.confirm({ title: "성공", message: `데이터파일 이름을 ${dataName}으로 변경하였습니다.` });
+      }
+    } catch (e: any) {
+      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } finally {
+      setRunning(false);
+    }
   };
 
   useEffect(() => {
@@ -119,11 +127,13 @@ export default function RenameDataFileView({ meta }: ViewProps) {
               variant="outline"
               onClick={handleRefresh}
               disabled={loading}
-              title="반 목록을 다시 불러옵니다."
+              title="데이터 파일 이름을 다시 불러옵니다."
             >
               {loading ? "불러오는 중…" : "새로고침"}
             </Button>
-            <Button className="rounded-xl bg-black text-white"
+            <Button className={`rounded-xl text-white ${
+              done ? "bg-green-600 hover:bg-green-600/90" : "bg-black hover:bg-black/90"
+            }`}
               onClick={async () => {
                 if (dataName.trim().length === 0) {
                   await dialog.error({title: "데이터 입력 오류", message: "데이터 파일 이름을 입력하세요."});
@@ -133,9 +143,10 @@ export default function RenameDataFileView({ meta }: ViewProps) {
                   await dialog.error({title: "데이터 입력 오류", message: "현재 데이터 파일 이름과 동일합니다."});
                   return;
                 }
+                start(dataName);
               }}
             >
-              {running ? <Spinner /> : "변경"}
+              {running ? <Spinner /> : done ? "완료" : "변경"}
             </Button>
           </div>
         </div>

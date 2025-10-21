@@ -1,4 +1,4 @@
-// src/views/SaveIndividualExamView.tsx
+// src/views/SaveRetestView.tsx (재시험 화면)
 import { useEffect, useMemo, useState } from "react";
 import type { ViewProps } from "@/types/omikron";
 import { rpc } from "pyloid-js";
@@ -13,91 +13,147 @@ import {
 import { Input } from "@/components/ui/input";
 import { BookCheck, User } from "lucide-react";
 
-type ClassInfo = { id?: string; name: string };
-type StudentInfo = { id: string; name: string };
-type TestInfo = { id: string; name: string };
+// 화면에서 쓰는 타입
+type ClassInfo = { id: string; name: string };
+type StudentInfo = { id: string; name: string }; // id = (class 시트) 학생 행 인덱스(문자열)
+type TestInfo = { id: string; name: string };    // id = (재시험 시트) 시험 행 인덱스(문자열)
+
+// 서버 맵 타입
+type ClassStudentDict = Record<string, Record<string, number>>; // {반: {학생이름: row}}
+type MakeUpMap        = Record<string, Record<string, number>>; // {학생이름: {시험명: row}}
 
 export default function SaveRetestView({ onAction, meta }: ViewProps) {
   const dialog = useAppDialog();
 
+  // 원본 맵
+  const [classStudentMap, setClassStudentMap] = useState<ClassStudentDict>({});
+  const [makeupMap, setMakeupMap] = useState<MakeUpMap>({});
+
   // 목록
-  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [classes, setClasses]   = useState<ClassInfo[]>([]);
   const [students, setStudents] = useState<StudentInfo[]>([]);
-  const [tests, setTests] = useState<TestInfo[]>([]);
+  const [tests, setTests]       = useState<TestInfo[]>([]);
 
   // 선택값
-  const [klass, setKlass] = useState<string>("");
+  const [klass, setKlass]         = useState<string>("");
   const [studentId, setStudentId] = useState<string>("");
-  const [testId, setTestId] = useState<string>("");
-  const [score, setScore] = useState<string>("");
+  const [testId, setTestId]       = useState<string>("");
+  const [score, setScore]         = useState<string>("");
 
-  const loadingOk = (arr: any) => Array.isArray(arr) ? arr : [];
+  const [loading, setLoading] = useState(false);
 
-  // 초기: 반 목록
+  // 초기 로드: 반/학생 맵 + 재시험 맵
   useEffect(() => {
     (async () => {
       try {
-        const res = await rpc.call("list_classes", {});
-        setClasses(loadingOk(res));
-      } catch { setClasses([]); }
+        setLoading(true);
+        // 1) 반/학생(클래스 시트) + 2) 재시험(학생→시험) 동시 로드
+        const [datafileRes, makeupRes] = await Promise.all([
+          rpc.call("get_datafile_data", {}),   // [class_student_dict, class_test_dict]
+          rpc.call("get_makeuptest_data", {}), // {학생: {시험: row}}
+        ]);
+
+        // class_student_dict 파싱
+        let csd: ClassStudentDict = {};
+        if (Array.isArray(datafileRes) && typeof datafileRes[0] === "object") {
+          csd = datafileRes[0] as ClassStudentDict;
+        } else if (datafileRes?.class_student_dict) {
+          csd = datafileRes.class_student_dict as ClassStudentDict;
+        }
+        setClassStudentMap(csd);
+
+        // 재시험 맵 파싱
+        const makeup: MakeUpMap = (makeupRes ?? {}) as MakeUpMap;
+        setMakeupMap(makeup);
+
+        // 반 목록 세팅
+        const names = Object.keys(csd).sort();
+        setClasses(names.map((n) => ({ id: n, name: n })));
+
+        // 선택값 보정
+        if (klass && !csd[klass]) {
+          setKlass("");
+          setStudents([]); setStudentId("");
+          setTests([]); setTestId("");
+        }
+      } catch {
+        setClassStudentMap({});
+        setMakeupMap({});
+        setClasses([]);
+        setStudents([]); setTests([]);
+        setKlass(""); setStudentId(""); setTestId("");
+      } finally {
+        setLoading(false);
+      }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 반 선택 시 학생/시험 목록 갱신
+  // 반 선택 → 학생 목록 계산
   useEffect(() => {
     setStudents([]); setStudentId("");
     setTests([]); setTestId("");
+
     if (!klass) return;
 
-    (async () => {
-      try {
-        const [sRes, tRes] = await Promise.all([
-          rpc.call("list_students_by_class", { class_name: klass }),
-          rpc.call("list_tests", { class_name: klass }),            // 서버에서 [{id,name}] 반환
-        ]);
-        setStudents(loadingOk(sRes));
-        setTests(loadingOk(tRes));
-      } catch {
-        setStudents([]); setTests([]);
-      }
-    })();
-  }, [klass]);
+    const sDict = classStudentMap[klass] || {};
+    const sList: StudentInfo[] = Object.entries(sDict).map(([name, row]) => ({
+      id: String(row), // (클래스 시트) 학생 행 인덱스
+      name,
+    }));
+    setStudents(sList);
+  }, [klass, classStudentMap]);
 
-  // 이름 표시용
+  // 선택된 학생 이름 (재시험 맵 조회에 필요)
   const studentName = useMemo(
-    () => students.find(s => s.id === studentId)?.name ?? "",
+    () => students.find((s) => s.id === studentId)?.name ?? "",
     [students, studentId]
   );
+
+  // 학생 선택 → 재시험 대상 시험 목록 계산
+  useEffect(() => {
+    setTests([]); setTestId("");
+    if (!studentName) return;
+
+    const tDict = makeupMap[studentName] || {};
+    const tList: TestInfo[] = Object.entries(tDict).map(([testName, row]) => ({
+      id: String(row), // (재시험 시트) 시험 행 인덱스
+      name: testName,
+    }));
+    setTests(tList);
+  }, [studentName, makeupMap]);
+
+  // 표시용
   const testName = useMemo(
-    () => tests.find(t => t.id === testId)?.name ?? "",
+    () => tests.find((t) => t.id === testId)?.name ?? "",
     [tests, testId]
   );
 
-  const scoreNum = Number(score);
-  const scoreValid = score.trim() !== "" && !Number.isNaN(scoreNum);
+  const scoreNum  = score;
+  const scoreValid = score.trim() !== "";
   const canSave = klass && studentId && testId && scoreValid;
 
   const handleSave = async () => {
     if (!canSave) return;
 
-    // 2) 확인
     const yes = await dialog.warning({
-      title: "개별 시험 결과 저장",
+      title: "재시험 점수 저장",
       message: `${studentName} / ${testName}\n점수: ${scoreNum}`,
       confirmText: "저장",
       cancelText: "취소",
     });
     if (!yes) return;
 
-    // 3) RPC 실행
     try {
       onAction?.("save-individual-exam");
+      // TODO
+      // 서버 저장 API는 기존 것을 그대로 사용(필요 시 메서드명/필드명만 바꾸면 됨)
       const res = await rpc.call("save_individual_exam", {
         class_name: klass,
-        student_id: studentId,
-        test_id: testId,
+        student_id: studentId, // (클래스 시트) 학생 행 인덱스 (문자열)
+        test_id: testId,       // (재시험 시트) 시험 행 인덱스 (문자열)
         score: scoreNum,
-      }); // 서버: {ok:true} 기대
+      });
       if (res?.ok) {
         await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다." });
         setScore("");
@@ -114,9 +170,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
       <CardContent className="flex h-full flex-col">
         <div className="mb-3">
           {meta?.guide && (
-            <>
-              <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
-            </>
+            <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
           )}
         </div>
         <Separator className="mb-4" />
@@ -127,24 +181,25 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
             {/* 좌측: 학생 쪽 */}
             <div className="h-[260px] w-full rounded-2xl border bg-card p-4 pt-18">
               <div className="mb-4 flex flex-col items-center gap-2 text-center">
-                <User className="h-8 w-8 text-black pt" />
+                <User className="h-8 w-8 text-black" />
                 <div className="text-sm font-medium">학생</div>
               </div>
-              <div className="grid gap-3 w-full justify-c">
+              <div className="grid gap-3 w-full">
                 {/* 반 선택 */}
-                <Select value={klass} onValueChange={setKlass}>
+                <Select
+                  value={klass}
+                  onValueChange={setKlass}
+                  disabled={loading}
+                >
                   <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder="반 선택" />
+                    <SelectValue placeholder={loading ? "불러오는 중..." : "반 선택"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {classes.map((c) => {
-                      const value = c.id ?? c.name;
-                      return (
-                        <SelectItem key={value} value={value}>
-                          {c.name}
-                        </SelectItem>
-                      );
-                    })}
+                    {classes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {/* 학생 선택 */}
@@ -167,21 +222,21 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
               </div>
             </div>
 
-            {/* 우측: 시험/점수 쪽 */}
+            {/* 우측: 재시험/점수 쪽 */}
             <div className="h-[260px] w-full rounded-2xl border bg-card p-4 pt-18">
               <div className="mb-4 flex flex-col items-center gap-2 text-center">
                 <BookCheck className="h-8 w-8 text-black" />
                 <div className="text-sm font-medium">재시험</div>
               </div>
               <div className="grid gap-3">
-                {/* 시험 선택 */}
+                {/* 재시험 대상 시험: 학생 선택 후 활성화 */}
                 <Select
                   value={testId}
                   onValueChange={setTestId}
-                  disabled={!klass || tests.length === 0}
+                  disabled={!studentId || tests.length === 0}
                 >
                   <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder="시험 선택" />
+                    <SelectValue placeholder={ studentId && tests.length === 0 ? "재시험이 없습니다" : "시험 선택" }/>
                   </SelectTrigger>
                   <SelectContent>
                     {tests.map((t) => (
@@ -191,14 +246,10 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
                     ))}
                   </SelectContent>
                 </Select>
+
                 {/* 점수 입력 */}
                 <Input
                   className="rounded-xl"
-                  type="number"
-                  inputMode="decimal"
-                  step="1"
-                  min="0"
-                  max="100"
                   placeholder="점수 입력 (맞은 개수/문제 개수)"
                   value={score}
                   onChange={(e) => setScore(e.target.value)}

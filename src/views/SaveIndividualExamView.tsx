@@ -14,63 +14,104 @@ import { Input } from "@/components/ui/input";
 import { User, BookCheck } from "lucide-react";
 
 type ClassInfo = { id?: string; name: string };
-type StudentInfo = { id: string; name: string };
-type TestInfo = { id: string; name: string };
+type StudentInfo = { id: string; name: string }; // id = rowIndex(string)
+type TestInfo = { id: string; name: string };    // id = colIndex(string)
+
+type ClassStudentDict = Record<string, Record<string, number>>; // {class: {studentName: row}}
+type ClassTestDict    = Record<string, Record<string, number>>; // {class: {testLabel: col}}
 
 export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const dialog = useAppDialog();
 
+  // 서버 맵(그대로 보관)
+  const [classStudentMap, setClassStudentMap] = useState<ClassStudentDict>({});
+  const [classTestMap, setClassTestMap]       = useState<ClassTestDict>({});
+
   // 목록
-  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [classes, setClasses]   = useState<ClassInfo[]>([]);
   const [students, setStudents] = useState<StudentInfo[]>([]);
-  const [tests, setTests] = useState<TestInfo[]>([]);
+  const [tests, setTests]       = useState<TestInfo[]>([]);
 
   // 선택값
-  const [klass, setKlass] = useState<string>("");
+  const [klass, setKlass]         = useState<string>("");
   const [studentId, setStudentId] = useState<string>("");
-  const [testId, setTestId] = useState<string>("");
-  const [score, setScore] = useState<string>("");
+  const [testId, setTestId]       = useState<string>("");
+  const [score, setScore]         = useState<string>("");
 
-  const loadingOk = (arr: any) => Array.isArray(arr) ? arr : [];
+  const [loading, setLoading] = useState(false);
 
-  // 초기: 반 목록
+  // 초기 로드: 한번에 반/학생/시험 사전 전체 받기
   useEffect(() => {
     (async () => {
       try {
-        const res = await rpc.call("list_classes", {});
-        setClasses(loadingOk(res));
-      } catch { setClasses([]); }
+        setLoading(true);
+        const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
+        let csd: ClassStudentDict = {};
+        let ctd: ClassTestDict = {};
+
+        if (Array.isArray(res)) {
+          csd = (res[0] ?? {}) as ClassStudentDict;
+          ctd = (res[1] ?? {}) as ClassTestDict;
+        } else if (res?.class_student_dict) {
+          csd = res.class_student_dict as ClassStudentDict;
+          ctd = res.class_test_dict as ClassTestDict;
+        }
+
+        setClassStudentMap(csd);
+        setClassTestMap(ctd);
+
+        // 반 목록
+        const classNames = Object.keys(csd).sort();
+        setClasses(classNames.map((name) => ({ id: name, name })));
+
+        // 기존 선택 유지/보정
+        if (klass && !csd[klass]) {
+          setKlass("");
+          setStudents([]); setStudentId("");
+          setTests([]); setTestId("");
+        }
+      } catch {
+        setClassStudentMap({});
+        setClassTestMap({});
+        setClasses([]);
+      } finally {
+        setLoading(false);
+      }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 반 선택 시 학생/시험 목록 갱신
+  // 반 선택 시 학생/시험 목록을 맵에서 바로 계산
   useEffect(() => {
     setStudents([]); setStudentId("");
     setTests([]); setTestId("");
+
     if (!klass) return;
 
-    (async () => {
-      try {
-        const [sRes, tRes] = await Promise.all([
-          rpc.call("list_students_by_class", { class_name: klass }),
-          rpc.call("list_tests", { class_name: klass }),            // 서버에서 [{id,name}] 반환
-        ]);
-        setStudents(loadingOk(sRes));
-        setTests(loadingOk(tRes));
-      } catch {
-        setStudents([]); setTests([]);
-      }
-    })();
-  }, [klass]);
+    const sDict = classStudentMap[klass] || {};
+    const tDict = classTestMap[klass] || {};
 
-  // 이름 표시용
+    const sList: StudentInfo[] = Object.entries(sDict).map(([name, row]) => ({
+      id: String(row),
+      name,
+    }));
+    const tList: TestInfo[] = Object.entries(tDict).map(([label, col]) => ({
+      id: String(col),
+      name: label, // 예: "24.09.27 중간고사"
+    }));
+
+    setStudents(sList);
+    setTests(tList);
+  }, [klass, classStudentMap, classTestMap]);
+
+  // 표시용 이름
   const studentName = useMemo(
-    () => students.find(s => s.id === studentId)?.name ?? "",
-    [students, studentId]
+    () => students.find((s) => s.id === studentId)?.name ?? "",
+    [students, studentId],
   );
   const testName = useMemo(
-    () => tests.find(t => t.id === testId)?.name ?? "",
-    [tests, testId]
+    () => tests.find((t) => t.id === testId)?.name ?? "",
+    [tests, testId],
   );
 
   const scoreNum = Number(score);
@@ -80,7 +121,6 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const handleSave = async () => {
     if (!canSave) return;
 
-    // 2) 확인
     const yes = await dialog.warning({
       title: "개별 시험 결과 저장",
       message: `${studentName} / ${testName}\n점수: ${scoreNum}`,
@@ -89,15 +129,14 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
     });
     if (!yes) return;
 
-    // 3) RPC 실행
     try {
       onAction?.("save-individual-exam");
       const res = await rpc.call("save_individual_exam", {
         class_name: klass,
-        student_id: studentId,
-        test_id: testId,
+        student_id: studentId, // = row index (string)
+        test_id: testId,       // = col index (string)
         score: scoreNum,
-      }); // 서버: {ok:true} 기대
+      }); // {ok:true} 기대
       if (res?.ok) {
         await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다." });
         setScore("");
@@ -114,9 +153,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
       <CardContent className="flex h-full flex-col">
         <div className="mb-3">
           {meta?.guide && (
-            <>
-              <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
-            </>
+            <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
           )}
         </div>
         <Separator className="mb-4" />
@@ -130,11 +167,15 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                 <User className="h-8 w-8 text-black" />
                 <div className="text-sm font-medium">학생</div>
               </div>
-              <div className="grid gap-3 w-full justify-c">
+              <div className="grid gap-3 w-full">
                 {/* 반 선택 */}
-                <Select value={klass} onValueChange={setKlass}>
+                <Select
+                  value={klass}
+                  onValueChange={setKlass}
+                  disabled={loading}
+                >
                   <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder="반 선택" />
+                    <SelectValue placeholder={loading ? "불러오는 중..." : "반 선택"} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => {
@@ -147,7 +188,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                     })}
                   </SelectContent>
                 </Select>
-                {/* 학생 선택 */}
+                {/* 학생 선택: classStudentMap에서 계산 */}
                 <Select
                   value={studentId}
                   onValueChange={setStudentId}
@@ -174,14 +215,14 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                 <div className="text-sm font-medium">시험</div>
               </div>
               <div className="grid gap-3">
-                {/* 시험 선택 */}
+                {/* 시험 선택: classTestMap에서 계산 */}
                 <Select
                   value={testId}
                   onValueChange={setTestId}
                   disabled={!klass || tests.length === 0}
                 >
                   <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder="시험 선택" />
+                    <SelectValue placeholder={klass && tests.length === 0 ? "시험이 없습니다" : "시험 선택"} />
                   </SelectTrigger>
                   <SelectContent>
                     {tests.map((t) => (
@@ -191,6 +232,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                     ))}
                   </SelectContent>
                 </Select>
+
                 {/* 점수 입력 */}
                 <Input
                   className="rounded-xl"

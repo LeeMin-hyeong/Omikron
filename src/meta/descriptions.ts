@@ -3,7 +3,7 @@ import type { ActionMeta, OmikronActionKey } from "@/types/omikron";
 export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   "update-class": {
     title: "반 업데이트",
-    guide: "선택한 학기/반 정보를 최신 데이터로 동기화합니다. 학생명부와 반 구성 변경 사항을 반영합니다.",
+    guide: "반 목록을 수정하여 데이터파일에 반영합니다. 수정된 반 정보 파일에서 반의 상세 정보를 작성해 주세요",
     steps: ["반/학기 파라미터 확인", "기존 명부 백업", "신규 명부 반영", "요약 리포트 생성"],
   },
   "rename-data-file": {
@@ -13,8 +13,13 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   },
   "update-students": {
     title: "학생 정보 업데이트",
-    guide: "등록/퇴원/반 이동 이력을 기반으로 학생 정보를 업데이트합니다.",
+    guide: "아이소식을 기준으로 학생 정보 리스트를 최신화합니다.",
     steps: ["학생 이력 로드", "변경사항 계산", "엑셀 반영", "로그 저장"],
+  },
+  "update-teacher": {
+    title: "담당 선생님 변경",
+    guide: "특정 반의 담당 선생님을 변경합니다.",
+    steps: [],
   },
   "generate-daily-form": {
     title: "데일리 테스트 기록 양식 생성",
@@ -33,12 +38,12 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   },
   "save-individual-exam": {
     title: "개별 시험 결과 저장",
-    guide: "특정 학생의 결과만 부분 저장합니다.",
+    guide: "특정 학생이 응시하지 않았던 시험의 결과를 저장합니다.",
     steps: ["학생 선택", "개별 스코어 계산", "엑셀 반영", "로그 기록"],
   },
   "save-retest": {
     title: "재시험 결과 저장",
-    guide: "재시험 점수를 기존 성적표에 머지합니다.",
+    guide: "재시험 명단에 작성된 학생의 재시험 결과를 저장합니다.",
     steps: ["재시험 스코어 로드", "원점수 대비 비교", "최종 점수 산출", "머지/저장"],
   },
   "reapply-conditional-format": {

@@ -45,9 +45,9 @@ class MakeupTestList:
     TEACHER_NAME_COLUMN        = 3
     STUDENT_NAME_COLUMN        = 4
     TEST_NAME_COLUMN           = 5
-    # TEST_SCORE_COLUMN          =  6 # 삭제 예정
-    # MAKEUPTEST_WEEKDAY_COLUMN  =  7 # 삭제 예정
-    # MAKEUPTEST_TIME_COLUMN     =  8 # 삭제 예정
+    # TEST_SCORE_COLUMN          =  6
+    # MAKEUPTEST_WEEKDAY_COLUMN  =  7
+    # MAKEUPTEST_TIME_COLUMN     =  8
     MAKEUPTEST_DATE_COLUMN     = 6
     MAKEUPTEST_SCORE_COLUMN    = 7
     ETC_COLUMN                 = 8

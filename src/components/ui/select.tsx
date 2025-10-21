@@ -69,7 +69,7 @@ function SelectContent({
         align={align}
         {...props}
       >
-        <SelectScrollUpButton />
+        {/* <SelectScrollUpButton /> */}
         <SelectPrimitive.Viewport
           className={cn(
             "p-1",
@@ -79,7 +79,7 @@ function SelectContent({
         >
           {children}
         </SelectPrimitive.Viewport>
-        <SelectScrollDownButton />
+        {/* <SelectScrollDownButton /> */}
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   )

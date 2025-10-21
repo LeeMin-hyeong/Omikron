@@ -71,12 +71,16 @@ def make_backup_file():
     wb = open()
     wb.save(f"./data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
 
-def get_class_info(ws:Worksheet, class_name:str):
+def get_class_info(class_name:str, ws:Worksheet = None):
     """
     반 정보 파일로부터 특정 반의 정보 추출
 
     return `반 정보 존재 여부`, `담당 선생님`, `수업 요일`, `테스트 응시 시간`
     """
+    if ws is None:
+        wb = open()
+        ws = open_worksheet(wb)
+
     for row in range(2, ws.max_row + 1):
         if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
             teacher_name  = ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value
@@ -88,10 +92,14 @@ def get_class_info(ws:Worksheet, class_name:str):
     
     return True, teacher_name, class_weekday, test_time
 
-def get_class_names(ws:Worksheet) -> list[str]:
+def get_class_names(ws:Worksheet = None) -> list[str]:
     """
     반 정보 기준 반 이름 리스트 추출
     """
+    if ws is None:
+        wb = open()
+        ws = open_worksheet(wb)
+
     class_names = []
     for row in range(2, ws.max_row + 1):
         class_name = ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value
@@ -100,10 +108,12 @@ def get_class_names(ws:Worksheet) -> list[str]:
 
     return sorted(class_names)
 
-def check_updated_class(ws:Worksheet):
+def check_updated_class() -> list[str]:
     """
     아이소식에 존재하지만 반 정보 파일에 없는 반 목록 리턴
     """
+    wb = open()
+    ws = open_worksheet(wb)
     latest_class_names = omikron.chrome.get_class_names()
     class_names        = get_class_names(ws)
 
@@ -141,7 +151,7 @@ def make_temp_file_for_update():
     wb = open()
     ws = open_worksheet(wb)
 
-    unregistered_class_names = check_updated_class(ws)
+    unregistered_class_names = check_updated_class()
     if len(unregistered_class_names) == 0:
         save_to_temp(wb)
         return True
@@ -160,3 +170,24 @@ def make_temp_file_for_update():
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     save_to_temp(wb)
+
+def change_class_info(target_class_name:str, target_teacher_name:str):
+    """
+    특정 반의 담당 선생님 변경
+
+    return `성공 여부`, `변경된 반 정보 파일`
+    """
+    make_backup_file()
+
+    wb = open()
+    ws = open_worksheet(wb)
+
+    for row in range(2, ws.max_row + 1):
+        if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == target_class_name:
+            ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value = target_teacher_name
+            break
+    else:
+        raise Exception(f"'{target_class_name}' 반이 존재하지 않습니다.")
+
+    save(wb)
+

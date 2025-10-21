@@ -1,31 +1,37 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import type { ViewProps } from "@/types/omikron"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { FileSpreadsheet, Play, } from "lucide-react"
+import { FileSpreadsheet, Play, Check } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner"
+import { rpc } from "pyloid-js"
+import { useAppDialog } from "@/components/app-dialog/AppDialogProvider"
 
 // 헤더는 루트 레이아웃에 있으므로 이 뷰에는 포함하지 않음
 export default function UpdateStudentView({ meta }: ViewProps) {
-  // ===== Single-file Drag & Drop =====
+  const dialog = useAppDialog();
+
   const [running, setRunning] = useState(false)
-  const [generated, setGenerated] = useState(false)
+  const [done, setDone] = useState(false)
 
-  const pollRef = useRef<number | null>(null)
+  const start = async () => {
+    if (running) return
+    setDone(false);
 
-const start = async () => {
-  if (running) return
-  setRunning(true)
-
-  setGenerated(true)
-}
-
-useEffect(() => {
-  return () => {
-    if (pollRef.current) clearInterval(pollRef.current)
+    try {
+      setRunning(true);
+      const res = await rpc.call("update_student_info", {});
+      if(res?.ok){
+        setDone(true);
+        await dialog.confirm({ title: "성공", message: "학생 정보 파일 업데이트 완료\n학생 정보를 수정해주세요" });
+      }
+    } catch (e: any) {
+      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } finally {
+      setRunning(false);
+    }
   }
-}, [])
 
   return (
     <Card className="h-full rounded-2xl border-border/80 shadow-sm">
@@ -47,11 +53,20 @@ useEffect(() => {
             </CardContent>
           </Card>
           <Button
-            className="rounded-xl bg-black text-white w-[300px] mb-5"
+            className={`rounded-xl text-white w-[300px] mb-5 transition-colors ${
+              done ? "bg-green-600 hover:bg-green-600/90" : "bg-black hover:bg-black/90"
+            }`}
             onClick={start}
-            disabled={running || generated}
+            disabled={running}
           >
-            {!running ? <Play className="h-4 w-4" /> : <Spinner className="h-4 w-4" />} { generated ? "생성 완료" : "생성"}
+            {running ? (
+              <Spinner className="h-4 w-4" />
+            ) : done ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+            <span className="ml-2">{done ? "업데이트 완료" : "업데이트"}</span>
           </Button>
         </div>
       </CardContent>

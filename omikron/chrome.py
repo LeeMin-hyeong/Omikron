@@ -290,6 +290,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     
     # 아이소식 접속
     driver.get(URL)
+    driver.execute_script("document.title = '시험 결과 전송'")
     driver.execute_script(f"arguments[0].value = '{TEST_RESULT_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
 
@@ -319,8 +320,10 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     if makeup_test_check:
         return True
 
+    # 재시험 안내
     driver.execute_script(f"window.open('{URL}')")
     driver.switch_to.window(driver.window_handles[Chrome.INDIVIDUAL_MAKEUPTEST_TAB])
+    driver.execute_script("document.title = '재시험 안내'")
 
     # 학생 정보 검색
     info_exists, makeup_test_weekday, makeup_test_time, _ = omikron.studentinfo.get_student_info(student_ws, student_name)

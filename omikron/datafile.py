@@ -51,7 +51,7 @@ def make_file():
         if len(student_list) == 0:
             continue
 
-        exist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_ws, class_name)
+        exist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_name, ws=class_ws)
         if not exist: continue
 
         WRITE_LOCATION = ws.max_row + 1
@@ -135,7 +135,7 @@ def delete_temp():
 def isopen() -> bool:
     return os.path.isfile(f"./data/~${omikron.config.DATA_FILE_NAME}.xlsx")
 
-def file_validation() -> bool:
+def file_validation():
     wb = open()
 
     if DataFile.FIRST_SHEET_NAME not in wb.sheetnames:
@@ -287,6 +287,8 @@ def save_test_data(filepath:str, prog: Progress):
     student_wb = omikron.studentinfo.open(True)
     student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
+    file_validation()
+
     # 백업 생성
     make_backup_file()
     prog.step("백업 생성 완료")
@@ -428,8 +430,8 @@ def save_test_data(filepath:str, prog: Progress):
             if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
                 continue
 
-            exsist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
-            if exsist:
+            exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
+            if exist:
                 if new_student:
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
                 else:
@@ -447,6 +449,8 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     # 임시 파일 삭제
     if os.path.isfile(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx"):
         delete_temp()
+
+    file_validation()
 
     # 백업 생성
     make_backup_file()
@@ -499,6 +503,8 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     return True, test_average, wb
 
 def conditional_formatting(prog: Progress):
+    file_validation()
+
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
     wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{omikron.config.DATA_FILE_NAME}.xlsx")
@@ -507,11 +513,10 @@ def conditional_formatting(prog: Progress):
     excel.Quit()
     pythoncom.CoUninitialize()
 
-    wb                   = open()
-    data_only_wb         = open(data_only=True)
-    student_wb           = omikron.studentinfo.open()
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete: return False
+    wb           = open()
+    data_only_wb = open(data_only=True)
+    student_wb   = omikron.studentinfo.open()
+    student_ws   = omikron.studentinfo.open_worksheet(student_wb)
 
     for sheet_name in wb.sheetnames:
         if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
@@ -532,8 +537,12 @@ def conditional_formatting(prog: Progress):
 
             # 데이터 조건부 서식
             for col in range(1, data_only_ws.max_column+1):
-                if col > AVERAGE_SCORE_COLUMN and ws.cell(DATE_ROW, col).value is None:
-                    break
+                try:
+                    if col > AVERAGE_SCORE_COLUMN and ws.cell(DATE_ROW, col).value is None:
+                        break
+                except:
+                    if col > AVERAGE_SCORE_COLUMN and ws.cell(row, col).value is None:
+                        break
 
                 ws.column_dimensions[gcl(col)].width = 14
                 if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
@@ -581,8 +590,8 @@ def conditional_formatting(prog: Progress):
                 continue
 
             # 신규생 하이라이트
-            exsist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
-            if exsist:
+            exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
+            if exist:
                 if new_student:
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
                 else:
@@ -597,6 +606,8 @@ def update_class():
     """
     수정된 반 정보 파일을 바탕으로 데이터 파일 업데이트
     """
+    file_validation()
+
     make_backup_file()
 
     deleted_class_names, unregistered_class_names = omikron.classinfo.check_difference_between()
@@ -696,8 +707,8 @@ def update_class():
             for class_name in unregistered_class_names:
                 if len(class_student_dict[class_name]) == 0:
                     continue
-                exsist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_ws, class_name)
-                if not exsist: continue
+                exist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_name, ws=class_ws)
+                if not exist: continue
 
                 # 시험명
                 # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
@@ -755,6 +766,8 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
     
     `move_student` 작업 시 `wb`로 작업중인 파일 정보 전달
     """
+    file_validation()
+
     if wb is None:
         wb = open()
 
@@ -810,6 +823,8 @@ def delete_student(student_name:str):
     
     퇴원 처리된 학생은 모든 데이터에 취소선 적용
     """
+    file_validation()
+
     wb = open()
     for ws in wb.worksheets:
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
@@ -838,6 +853,8 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
 
     학생의 기존 반 데이터 글꼴 색을 빨간색으로 변경 후 목표 반에 학생 추가
     """
+    file_validation()
+
     wb = open()
 
     for ws in wb.worksheets:
@@ -862,6 +879,8 @@ def rescoping_formula(wb:xl.Workbook=None):
     """
     데이터 파일 내 평균 산출 수식의 범위 재조정
     """
+    file_validation()
+
     if wb is None:
         wb = open()
 
@@ -909,3 +928,5 @@ def rescoping_formula(wb:xl.Workbook=None):
                 ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
     save(wb)
+
+

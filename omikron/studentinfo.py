@@ -136,7 +136,7 @@ def update_student(wb:xl.Workbook=None):
         WRITE_ROW += 1
 
     for row in range(2, ws.max_row+1):
-        if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value in deleted_student_names:
+        while ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value in deleted_student_names:
             ws.delete_rows(row)
 
     save(wb)

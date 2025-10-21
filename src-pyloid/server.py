@@ -11,10 +11,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import openpyxl  # noqa: F401 (향후 사용 가능성 대비)
 from pyloid.rpc import PyloidRPC, RPCContext
 
 from omikron.progress import Progress
+import omikron.config
+
 import omikron.classinfo
 import omikron.chrome
 import omikron.datafile
@@ -157,7 +158,7 @@ def _send_exam_message_job(job_id: str, *, filename: str, b64: str) -> None:
 
 
 def _make_class_info_job(job_id: str):
-    emit=make_emit(job_id)
+    emit = make_emit(job_id)
     prog = Progress(emit, total=3)  # 대략 단계 수 추정
 
     try:
@@ -206,6 +207,7 @@ def _save_exam_job(job_id: str, *, filename: str, b64: str) -> None:
         prog.step("파일 저장 완료")
 
         prog.done("데이터 저장을 완료하였습니다.")
+        omikron.datafile.delete_temp()
     except Exception as exc:
         prog.error(f"예상치 못한 오류가 발생했습니다:\n {exc}")
         return
@@ -215,7 +217,7 @@ def _save_exam_job(job_id: str, *, filename: str, b64: str) -> None:
 
 
 def _make_data_file_job(job_id: str):
-    emit=make_emit(job_id)
+    emit = make_emit(job_id)
     prog = Progress(emit, total=3)  # 대략 단계 수 추정
 
     try:
@@ -266,7 +268,36 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
     }
 
 
+@server.method()
+async def get_datafile_data(ctx: RPCContext) -> Dict[Any, Any]:
+    return omikron.datafile.get_data_sorted_dict()
+
+
+@server.method()
+async def get_aisosic_data(ctx: RPCContext):
+    return omikron.classinfo.check_updated_class()
+
+
+@server.method()
+async def get_makeuptest_data(ctx: RPCContext):
+    return omikron.makeuptest.get_studnet_test_index_dict()
+
+
+@server.method()
+async def get_class_list(ctx: RPCContext):
+    return omikron.classinfo.get_class_names()
+
+
+@server.method()
+async def get_class_info(ctx: RPCContext, class_name:str):
+    return omikron.classinfo.get_class_info(class_name)
+
 ####################################### 작업 API #######################################
+
+@server.method()
+async def change_data_file_name(ctx:RPCContext, new_filename:str) -> Dict[str, Any]:
+    omikron.config.change_data_file_name(new_filename)
+    return {"ok": True}
 
 @server.method()
 async def start_make_class_info(ctx: RPCContext) -> Dict[str, Any]:
@@ -380,3 +411,35 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str) -> Dict[str,
     return {"job_id": job_id}
 
 
+@server.method()
+async def make_data_form(ctx: RPCContext):
+    omikron.dataform.make_file()
+    return {"ok": True}
+
+
+@server.method()
+async def reapply_conditional_format(ctx: RPCContext):
+    job_id = str(uuid.uuid4())
+    emit = make_emit(job_id)
+    prog = Progress(emit, total=3)
+
+    prog_warnings: list[str] = []
+    _orig_warning = prog.warning
+
+    def _capture_warning(msg: str):
+        try:
+            prog_warnings.append(str(msg))
+        finally:
+            # 원래 동작(실시간 이벤트 전송)도 유지
+            _orig_warning(msg)
+
+    prog.warning = _capture_warning  # type: ignore[attr-defined]
+
+    omikron.datafile.conditional_formatting(prog)
+    return {"ok": True}
+
+
+@server.method()
+async def update_student_info(ctx: RPCContext):
+    omikron.studentinfo.update_student()
+    return {"ok": True}

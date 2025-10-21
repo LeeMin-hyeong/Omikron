@@ -10,7 +10,7 @@ import omikron.chrome
 import omikron.classinfo
 
 from omikron.defs import DataForm
-from omikron.exception import NoMatchingSheetException, FileOpenException
+from omikron.exception import NoMatchingSheetException
 
 
 class DataValidationException(Exception):
@@ -44,15 +44,14 @@ def make_file() -> bool:
         ws.cell(1, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     class_wb = omikron.classinfo.open(True)
-    complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-    if not complete: return False
+    class_ws = omikron.classinfo.open_worksheet(class_wb)
 
     for class_name, student_names in omikron.chrome.get_class_student_dict().items():
         if len(student_names) == 0:
             continue
 
-        complete, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_ws, class_name)
-        if not complete: continue
+        exist, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_name, ws=class_ws)
+        if not exist: continue
 
         WRITE_LOCATION = start = ws.max_row + 1
 

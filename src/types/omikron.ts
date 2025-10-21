@@ -2,6 +2,7 @@ export type OmikronActionKey =
   | "update-class"
   | "rename-data-file"
   | "update-students"
+  | "update-teacher"
   | "generate-daily-form"
   | "save-exam"
   | "send-exam-message"

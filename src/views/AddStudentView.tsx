@@ -26,10 +26,23 @@ export default function AddStudentView({ onAction }: ViewProps) {
   const loadClasses = async () => {
     try {
       setLoading(true);
-      const res = await rpc.call("list_classes", {}); // [{id?, name}]
-      const list = Array.isArray(res) ? res : [];
+      const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
+
+      // 응답 파싱(호환 처리)
+      let classStudentDict: Record<string, unknown> = {};
+      if (Array.isArray(res) && res.length >= 1 && typeof res[0] === "object") {
+        classStudentDict = res[0] as Record<string, unknown>;
+      } else if (res?.class_student_dict) {
+        classStudentDict = res.class_student_dict as Record<string, unknown>;
+      }
+
+      // 반 목록 생성(이름 기준)
+      const names = Object.keys(classStudentDict).sort();
+      const list = names.map((name) => ({ id: name, name }));
+
       setClasses(list);
-      // 선택된 반이 목록에 없으면 초기화
+
+      // 선택값이 목록에 없으면 초기화
       if (toClass && !list.some((c) => (c.id ?? c.name) === toClass)) {
         setToClass("");
       }
@@ -60,6 +73,7 @@ export default function AddStudentView({ onAction }: ViewProps) {
     try {
       setRunning(true);
       onAction?.("add-student");
+      // TODO
       const res = await rpc.call("add_student_class", {
         student_name: student.trim(),
         to_class: toClass,
