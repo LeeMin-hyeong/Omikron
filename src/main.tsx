@@ -4,12 +4,15 @@ import './index.css';
 import OmikronPanel from './App.tsx';
 import { PrereqProvider } from './contexts/prereq.tsx';
 import { AppDialogProvider } from "@/components/app-dialog/AppDialogProvider";
+import { HolidayDialogProvider } from "@/components/holiday-dialog/useHolidayDialog";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PrereqProvider>
       <AppDialogProvider>
-        <OmikronPanel />
+        <HolidayDialogProvider>
+          <OmikronPanel />
+        </HolidayDialogProvider>
       </AppDialogProvider>
     </PrereqProvider>
   </StrictMode>

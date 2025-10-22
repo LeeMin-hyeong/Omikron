@@ -13,10 +13,12 @@ import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePrereq } from "@/contexts/prereq";
+import useHolidayDialog from "@/components/holiday-dialog/useHolidayDialog";
 
 export default function SaveExamView({ meta, onAction }: ViewProps) {
   const dialog = useAppDialog()
   const { enforcePrereq } = usePrereq()
+  const { openHolidayDialog, lastHolidaySelection } = useHolidayDialog()
 
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -47,10 +49,20 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
     const ok = await enforcePrereq()
     if (!ok) return
 
+    let sel = lastHolidaySelection;
+    if (!sel) {
+      sel = await openHolidayDialog();
+      if(!sel) return
+    }
     try {
       onAction?.("save-exam")
       const b64 = await fileToBase64(file)
-      const id = await startJob("start_save_exam", { filename: file.name, b64 })
+      // filename: str, b64: str, makeup_test_date: Dict[str, Any]
+      const id = await startJob("start_save_exam", {
+        filename: file.name,
+        b64: b64,
+        makeup_test_date: sel
+      })
       setJobId(id)
       lastStatusRef.current = "running"
       setDoneCount(0)

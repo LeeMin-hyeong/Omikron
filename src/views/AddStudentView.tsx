@@ -73,10 +73,10 @@ export default function AddStudentView({ onAction }: ViewProps) {
     try {
       setRunning(true);
       onAction?.("add-student");
-      // TODO
-      const res = await rpc.call("add_student_class", {
-        student_name: student.trim(),
-        to_class: toClass,
+      // target_student_name, target_class_name
+      const res = await rpc.call("add_student", { 
+        target_student_name: student.trim(),
+        target_class_name: toClass,
       }); // 서버: {ok:true}
       if (res?.ok) {
         await dialog.confirm({ title: "완료", message: "학생이 반에 추가되었습니다." });

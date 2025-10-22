@@ -10,9 +10,11 @@ import { useAppDialog } from "@/components/app-dialog/AppDialogProvider"
 import { startJob, useProgressPoller, type ProgressPayload, type ProgressStatus } from "@/lib/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import React from "react"
+import useHolidayDialog from "@/components/holiday-dialog/useHolidayDialog"
 
 export default function SendExamMessageView({ meta, onAction }: ViewProps) {
   const dialog = useAppDialog()
+  const { openHolidayDialog, lastHolidaySelection } = useHolidayDialog()
   const { enforcePrereq } = usePrereq()
 
   const [file, setFile] = useState<File | null>(null)
@@ -44,10 +46,20 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
     const ok = await enforcePrereq()
     if (!ok) return
 
+    let sel = lastHolidaySelection;
+    if (!sel) {
+      sel = await openHolidayDialog();
+      if(!sel) return
+    }
+
     try {
       onAction?.("send-exam-message")
       const b64 = await fileToBase64(file)
-      const id = await startJob("start_send_exam_message", { filename: file.name, b64 })
+      const id = await startJob("start_send_exam_message", {
+        filename: file.name,
+        b64,
+        makeup_test_date: sel
+      })
       setJobId(id)
       lastStatusRef.current = "running"
       setDoneCount(0)

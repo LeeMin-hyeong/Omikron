@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { User, BookCheck } from "lucide-react";
+import useHolidayDialog from "@/components/holiday-dialog/useHolidayDialog";
 
 type ClassInfo = { id?: string; name: string };
 type StudentInfo = { id: string; name: string }; // id = rowIndex(string)
@@ -22,6 +23,7 @@ type ClassTestDict    = Record<string, Record<string, number>>; // {class: {test
 
 export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const dialog = useAppDialog();
+  const { openHolidayDialog, lastHolidaySelection } = useHolidayDialog()
 
   // 서버 맵(그대로 보관)
   const [classStudentMap, setClassStudentMap] = useState<ClassStudentDict>({});
@@ -121,6 +123,11 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const handleSave = async () => {
     if (!canSave) return;
 
+    if (!lastHolidaySelection) {
+      const res = await openHolidayDialog();
+      if(!res) return
+    }
+
     const yes = await dialog.warning({
       title: "개별 시험 결과 저장",
       message: `${studentName} / ${testName}\n점수: ${scoreNum}`,
@@ -130,6 +137,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
     if (!yes) return;
 
     try {
+      // TODO
       onAction?.("save-individual-exam");
       const res = await rpc.call("save_individual_exam", {
         class_name: klass,

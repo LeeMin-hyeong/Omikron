@@ -86,11 +86,10 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       setRunning(true);
       setDone(false);
 
-      // 서버 파라미터는 환경에 맞게 변경하세요.
-      // 여기서는 { class_name, teacher_name } 형태로 보냅니다.
-      const res = await rpc.call("change_teacher_name", {
-        class_name: selectedClass,
-        teacher_name: teacherName.trim(),
+      // target_class_name, target_teacher_name
+      const res = await rpc.call("change_class_info", {
+        target_class_name:   selectedClass,
+        target_teacher_name: teacherName.trim(),
       });
 
       if (res?.ok) {

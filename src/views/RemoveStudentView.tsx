@@ -119,11 +119,9 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
     try {
       setRunning(true);
       onAction?.("remove-student");
-      //TODO
-      // 서버측 remove_student_class는 이름과 반 이름을 사용
-      const res = await rpc.call("remove_student_class", {
-        student_name: student.trim(),
-        from_class: fromClass,
+      // target_student_name
+      const res = await rpc.call("remove_student", {
+        target_student_name: student.trim(),
       }); // { ok: true } 기대
       if (res?.ok) {
         await dialog.confirm({ title: "완료", message: `${student.trim()} 학생이 반에서 퇴원 처리되었습니다.` });

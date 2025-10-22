@@ -16,6 +16,7 @@ import {
   UserMinus,
   Shuffle,
   GraduationCap,
+  CalendarDays,
 } from "lucide-react"
 
 import { getActionView } from "@/views";
@@ -24,6 +25,8 @@ import type { OmikronActionKey } from "@/types/omikron";
 import FullHeader from "@/components/FullHeader";
 import { rpc } from "pyloid-js";
 import InitView from "./views/PrereqSetupView";
+import useHolidayDialog from "./components/holiday-dialog/useHolidayDialog";
+import HolidayDialog from "./components/holiday-dialog/HolidayDialog";
 
 interface Props {
   onAction?: (key: OmikronActionKey) => void
@@ -108,6 +111,7 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
   const [selected, setSelected] = useState<OmikronActionKey>("generate-daily-form")
   const View = useMemo(() => getActionView(selected), [selected])
   const [missing, setMissing] = useState(false);
+  const { openHolidayDialog } = useHolidayDialog()
 
   // ✅ 프리체크 상태 + 지속 폴링
   const [state, setState] = useState<any>(null);
@@ -148,9 +152,14 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
               <h1 className="text-lg font-semibold tracking-tight text-foreground py-5">Omikron 데이터 프로그램</h1>
             </div>
           </div>
-          <Button variant="outline" className="rounded-xl">
-            <HelpCircle className="mr-2 h-4 w-4" /> 사용법 및 도움말
-          </Button>
+          <div>
+            <Button variant="outline" className="rounded-xl mr-2" onClick={() => openHolidayDialog()}>
+              <CalendarDays className="mr-2 h-4 w-4" /> 학원 휴일 설정
+            </Button>
+            <Button variant="outline" className="rounded-xl">
+              <HelpCircle className="mr-2 h-4 w-4" /> 사용법 및 도움말
+            </Button>
+          </div>
         </div>
 
         {/* Body: sidebar + page view */}

@@ -1,11 +1,10 @@
 // src/views/PrereqSetupView.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FileSpreadsheet, ChevronsRight, FolderOpen, Loader2 } from "lucide-react";
 import { rpc } from "pyloid-js";
-import { startJob, useProgressPoller, type ProgressPayload } from "@/lib/progress";
 
 type State = {
   has_class: boolean;
@@ -26,42 +25,61 @@ export default function InitView({
 }) {
   const canInstallDataAndStudent = state.has_class;
 
-  // 각 작업의 job_id & progress
-  const [jobClass, setJobClass] = useState<string>();
-  const [jobData, setJobData] = useState<string>();
-  const [jobStudent, setJobStudent] = useState<string>();
+  // 각 작업 실행 중 상태
+  const [runClass, setRunClass] = useState(false);
+  const [runData, setRunData] = useState(false);
+  const [runStudent, setRunStudent] = useState(false);
 
-  const classProg = useProgressPoller(jobClass);
-  const dataProg = useProgressPoller(jobData);
-  const studentProg = useProgressPoller(jobStudent);
-
-  // 상태 변화 감지해 완료/에러 시 새로고침
-  useEffect(() => {
-    if (classProg.status === "done" || classProg.status === "error") onRefresh();
-  }, [classProg.status]);
-  useEffect(() => {
-    if (dataProg.status === "done" || dataProg.status === "error") onRefresh();
-  }, [dataProg.status]);
-  useEffect(() => {
-    if (studentProg.status === "done" || studentProg.status === "error") onRefresh();
-  }, [studentProg.status]);
-
-  const running = (p?: ProgressPayload) => p?.status === "running";
-  const stepStr = (p?: ProgressPayload) =>
-    p && p.step > 0 && p.total > 0 ? ` (${p.step}/${p.total})` : p && p.step > 0 ? ` (${p.step})` : "";
-
-  // 시작 핸들러
+  // 서버 호출 핸들러
   const installClass = async () => {
-    const id = await startJob("start_make_class_info");
-    setJobClass(id);
+    if (runClass) return;
+    try {
+      setRunClass(true);
+      const res = await rpc.call("make_class_info", {});
+      if (res?.ok) {
+        onRefresh();
+      } else {
+        alert(res?.error || "반 정보 생성에 실패했습니다.");
+      }
+    } catch (e: any) {
+      alert(String(e?.message || e));
+    } finally {
+      setRunClass(false);
+    }
   };
+
   const installData = async () => {
-    const id = await startJob("start_make_data_file");
-    setJobData(id);
+    if (runData) return;
+    try {
+      setRunData(true);
+      const res = await rpc.call("make_data_file", {});
+      if (res?.ok) {
+        onRefresh();
+      } else {
+        alert(res?.error || "데이터 파일 생성에 실패했습니다.");
+      }
+    } catch (e: any) {
+      alert(String(e?.message || e));
+    } finally {
+      setRunData(false);
+    }
   };
+
   const installStudent = async () => {
-    const id = await startJob("start_make_student_info");
-    setJobStudent(id);
+    if (runStudent) return;
+    try {
+      setRunStudent(true);
+      const res = await rpc.call("make_student_info", {});
+      if (res?.ok) {
+        onRefresh();
+      } else {
+        alert(res?.error || "학생 정보 생성에 실패했습니다.");
+      }
+    } catch (e: any) {
+      alert(String(e?.message || e));
+    } finally {
+      setRunStudent(false);
+    }
   };
 
   // 공통 타일
@@ -70,16 +88,15 @@ export default function InitView({
     present,
     onInstall,
     disabled,
-    prog,
+    running,
   }: {
     title: string;
     present: boolean;
     onInstall: () => void;
     disabled?: boolean;
-    prog?: ProgressPayload;
+    running?: boolean;
   }) => {
-    const isRun = running(prog);
-    const label = present ? "생성 완료" : isRun ? "진행 중…" : "생성";
+    const label = present ? "생성 완료" : running ? "진행 중…" : "생성";
     return (
       <Card className="rounded-2xl border-border/80 shadow-sm">
         <CardContent className="flex h-44 flex-col justify-between pt-4">
@@ -90,16 +107,15 @@ export default function InitView({
           <div className="grid gap-1">
             <Button
               className="w-full rounded-xl"
-              disabled={present || !!disabled || isRun}
+              disabled={present || !!disabled || !!running}
               onClick={onInstall}
             >
-              {isRun && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {label}
             </Button>
-            {(prog?.message || isRun || present) && (
+            {(running || present) && (
               <div className="text-xs text-muted-foreground text-center">
-                {prog?.message || (present ? "완료됨" : isRun ? "작업 중…" : "")}
-                {stepStr(prog)}
+                {present ? "완료됨" : running ? "작업 중…" : ""}
               </div>
             )}
           </div>
@@ -133,7 +149,7 @@ export default function InitView({
             title="반 정보.xlsx"
             present={state.has_class}
             onInstall={installClass}
-            prog={classProg}
+            running={runClass}
           />
           <ChevronsRight className="mx-1 h-5 w-5 text-muted-foreground" />
           <Tile
@@ -141,7 +157,7 @@ export default function InitView({
             present={state.has_data}
             onInstall={installData}
             disabled={!canInstallDataAndStudent}
-            prog={dataProg}
+            running={runData}
           />
           <ChevronsRight className="mx-1 h-5 w-5 text-muted-foreground" />
           <Tile
@@ -149,7 +165,7 @@ export default function InitView({
             present={state.has_student}
             onInstall={installStudent}
             disabled={!canInstallDataAndStudent}
-            prog={studentProg}
+            running={runStudent}
           />
         </div>
 

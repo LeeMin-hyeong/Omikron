@@ -116,11 +116,11 @@ export default function MoveStudentView({ onAction }: ViewProps) {
 
     try {
       onAction?.("move-student");
-      //TODO
-      const res = await rpc.call("move_student_class", {
-        student_id: studentId,   // row index string
-        from_class: fromClass,
-        to_class: toClass,
+      // target_student_name, target_class_name, current_class_name
+      const res = await rpc.call("move_student", {
+        target_student_name: studentName,   // row index string
+        current_class_name:  fromClass,
+        target_class_name:   toClass,
       }); // {ok:true} 기대
       if (res?.ok) {
         await dialog.confirm({ title: "완료", message: "학생 반이 변경되었습니다." });
