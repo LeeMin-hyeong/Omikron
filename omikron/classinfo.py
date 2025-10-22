@@ -174,8 +174,6 @@ def make_temp_file_for_update():
 def change_class_info(target_class_name:str, target_teacher_name:str):
     """
     특정 반의 담당 선생님 변경
-
-    return `성공 여부`, `변경된 반 정보 파일`
     """
     make_backup_file()
 

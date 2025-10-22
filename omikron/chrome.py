@@ -144,7 +144,7 @@ def send_test_result_message(filepath:str, makeup_test_date:dict, prog:Progress)
     driver.execute_script(f"window.open('{URL}')")
     driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_SCHEDULE_TAB])
-    driver.execute_script("arguments[0].value = '{MAKEUP_TEST_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
+    driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
     driver.execute_script("document.title = '재시험 일정 있는 학생'")
 

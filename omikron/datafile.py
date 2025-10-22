@@ -183,7 +183,7 @@ def get_data_sorted_dict():
                         test_date = test_date.strftime("%y.%m.%d")
                     else:
                         test_date = str(test_date).split()[0][2:10].replace("-", ".").replace(",", ".").replace("/", ".")
-                    test_index_dict[f"{test_date} {test_name}"] = col
+                    test_index_dict[f"[{test_date}] {test_name}"] = col
                 continue
             if ws.cell(row, STUDENT_NAME_COLUMN).value in ("시험명", "시험 평균"):
                 continue
@@ -929,4 +929,19 @@ def rescoping_formula(wb:xl.Workbook=None):
 
     save(wb)
 
+def change_class_info(target_class_name:str, target_teacher_name:str):
+    """
+    특정 반의 담당 선생님 변경
+    """
+    wb = open()
+    for ws in wb.worksheets:
+        if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
 
+        CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, _, _ = find_dynamic_columns(ws)
+
+        for row in range(2, ws.max_row+1):
+            if ws.cell(row, CLASS_NAME_COLUMN).value == target_class_name:
+                ws.cell(row, TEACHER_NAME_COLUMN).value = target_teacher_name
+
+    save(wb)
