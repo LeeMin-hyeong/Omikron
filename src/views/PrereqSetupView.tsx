@@ -113,11 +113,6 @@ export default function InitView({
               {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {label}
             </Button>
-            {(running || present) && (
-              <div className="text-xs text-muted-foreground text-center">
-                {present ? "완료됨" : running ? "작업 중…" : ""}
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
