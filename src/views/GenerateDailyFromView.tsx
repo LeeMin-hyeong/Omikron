@@ -65,7 +65,7 @@ export default function GenerateDailyFormView({ meta }: ViewProps) {
             ) : (
               <Play className="h-4 w-4" />
             )}
-            <span className="ml-2">{generated ? "업데이트 완료" : "생성"}</span>
+            <span className="ml-2">{generated ? "생성 완료" : "생성"}</span>
           </Button>
         </div>
       </CardContent>
