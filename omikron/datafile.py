@@ -83,7 +83,7 @@ def make_file():
             ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
             ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = student_name
-            ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE(G{WRITE_LOCATION}:XFD{WRITE_LOCATION}), 0)"
+            ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataFile.DATA_COLUMN)}{WRITE_LOCATION}:XFD{WRITE_LOCATION}), 0)"
             ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font  = Font(bold=True)
         
         # 시험별 평균
@@ -94,7 +94,7 @@ def make_file():
         ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
         ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
         ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험 평균"
-        ws[f"F{WRITE_LOCATION}"] = ArrayFormula(f"F{WRITE_LOCATION}", f"=ROUND(AVERAGE(IFERROR(F{class_start}:F{class_end}, \"\")), 0)")
+        ws[f"F{WRITE_LOCATION}"] = ArrayFormula(f"{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{WRITE_LOCATION}", f"=ROUND(AVERAGE(IFERROR({gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_start}:{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_end}, \"\")), 0)")
         ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
         for col in range(1, DataFile.DATA_COLUMN):
@@ -679,7 +679,6 @@ def update_class():
         for row in range(2, ws.max_row+1):
             while ws.cell(row, CLASS_NAME_COLUMN).value is not None and ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
                 ws.delete_rows(row)
-                print(row, ws.cell(row, CLASS_NAME_COLUMN).value)
 
         for row in range(2, data_only_ws.max_row+1):
             if data_only_ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
