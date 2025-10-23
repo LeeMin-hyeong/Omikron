@@ -94,7 +94,7 @@ def make_file():
         ws.cell(WRITE_LOCATION, DataFile.CLASS_NAME_COLUMN).value    = class_name
         ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
         ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험 평균"
-        ws[f"F{WRITE_LOCATION}"] = ArrayFormula(f"{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{WRITE_LOCATION}", f"=ROUND(AVERAGE(IFERROR({gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_start}:{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_end}, \"\")), 0)")
+        ws[f"{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{WRITE_LOCATION}"] = ArrayFormula(f"{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{WRITE_LOCATION}", f"=ROUND(AVERAGE(IFERROR({gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_start}:{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_end}, \"\")), 0)")
         ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
         for col in range(1, DataFile.DATA_COLUMN):
