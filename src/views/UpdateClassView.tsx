@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight, Check, FileSpreadsheet, Square } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileSpreadsheet, } from "lucide-react";
 import { ViewProps } from "@/types/omikron";
 import { Separator } from "@/components/ui/separator";
 import { Toggle } from "@/components/ui/toggle";

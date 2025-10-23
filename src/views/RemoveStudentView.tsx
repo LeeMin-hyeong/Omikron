@@ -18,14 +18,12 @@ import { Spinner } from "@/components/ui/spinner";
  * class_test_dict   : { [className]: { [testLabel]: colIndexNumber } }
  */
 type ClassStudentDict = Record<string, Record<string, number>>;
-type ClassTestDict = Record<string, Record<string, number>>;
 
 export default function RemoveStudentView({ onAction }: ViewProps) {
   const dialog = useAppDialog();
 
   // 서버에서 받은 전체 맵을 들고 있음
   const [classStudentMap, setClassStudentMap] = useState<ClassStudentDict>({});
-  const [classTestMap, setClassTestMap] = useState<ClassTestDict>({}); // 현재 화면에선 사용 X (보존)
   // UI 상태
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([]);
   const [fromClass, setFromClass] = useState<string>("");
@@ -42,21 +40,15 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
       const res = await rpc.call("get_datafile_data", {});
       // res가 [class_student_dict, class_test_dict] 형태로 들어옴
       let csd: ClassStudentDict = {};
-      let ctd: ClassTestDict = {};
 
       if (Array.isArray(res) && res.length >= 1 && typeof res[0] === "object") {
         csd = res[0] as ClassStudentDict;
-        if (res.length >= 2 && typeof res[1] === "object") {
-          ctd = res[1] as ClassTestDict;
-        }
       } else if (res?.class_student_dict) {
         // 혹시 서버가 객체 키로 감싸서 보낼 수도 있으니 호환 처리
         csd = res.class_student_dict as ClassStudentDict;
-        ctd = res.class_test_dict as ClassTestDict;
       }
 
       setClassStudentMap(csd);
-      setClassTestMap(ctd);
 
       // 클래스 목록 갱신
       const cls = Object.keys(csd).sort();
@@ -77,7 +69,6 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
       }
     } catch (e) {
       setClassStudentMap({});
-      setClassTestMap({});
       setClasses([]);
       setFromClass("");
       setStudents([]);
