@@ -134,8 +134,10 @@ export default function MoveStudentView({ onAction }: ViewProps) {
   };
 
   const handleRefresh = async () => {
+    setToClass("");
+    setFromClass("");
+    setStudentId("");
     await loadData();
-    await dialog.confirm({ title: "새로고침", message: "반/학생 목록을 다시 불러왔습니다." });
   };
 
   return (

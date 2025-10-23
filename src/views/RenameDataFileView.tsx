@@ -47,6 +47,7 @@ export default function RenameDataFileView() {
   const handleRefresh = async () => {
     setLoading(true);
     fetchState();
+    setDataName("")
     setDone(false);
     setLoading(false);
   };

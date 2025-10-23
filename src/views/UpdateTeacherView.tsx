@@ -105,6 +105,14 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
     }
   };
 
+  const handleRefresh = async () => {
+    setDone(false);
+    setSelectedClass("");
+    setSelectedTeacher("")
+    setTeacherName("");
+    loadClasses();
+  }
+
   return (
     <Card className="h-full rounded-2xl border-border/80 shadow-sm">
       <CardContent className="flex h-full flex-col">
@@ -211,7 +219,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
           <Button
             className="rounded-xl"
             variant="outline"
-            onClick={loadClasses}
+            onClick={handleRefresh}
             disabled={loading}
             title="반 목록을 다시 불러옵니다."
           >

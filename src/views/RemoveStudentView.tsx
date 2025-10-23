@@ -130,8 +130,8 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
   };
 
   const handleRefresh = async () => {
+    setFromClass("")
     await loadClasses();
-    await dialog.confirm({ title: "새로고침", message: "반/학생 목록을 다시 불러왔습니다." });
   };
 
   return (
