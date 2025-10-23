@@ -1,5 +1,7 @@
 import os
 import openpyxl as xl
+import pythoncom  
+import win32com.client
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
@@ -56,7 +58,6 @@ def save(wb:xl.Workbook):
     except:
         raise FileOpenException(f"{ClassInfo.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
-
 def save_to_temp(wb:xl.Workbook):
     wb.save(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
 
@@ -108,39 +109,17 @@ def get_class_names(ws:Worksheet = None) -> list[str]:
 
     return sorted(class_names)
 
-def check_updated_class() -> list[str]:
+def get_new_class_names():
     """
-    아이소식에 존재하지만 반 정보 파일에 없는 반 목록 리턴
+    임시 반 정보 파일에서 새 반 리스트를 리턴
     """
-    wb = open()
-    ws = open_worksheet(wb)
-    latest_class_names = omikron.chrome.get_class_names()
-    class_names        = get_class_names(ws)
-
-    return sorted(list(set(latest_class_names).difference(class_names)))
-
-def check_difference_between():
-    """
-    반 정보 파일과 임시 반 정보 파일의 반 목록을 비교
-
-    return `반 정보 파일에만 존재하는 반 리스트`, `임시 반 정보 파일에만 존재하는 반 리스트`
-    """
-    wb      = open()
     temp_wb = open_temp()
-
-    ws      = open_worksheet(wb)
     temp_ws = open_worksheet(temp_wb)
 
-    class_names        = get_class_names(ws)
-    latest_class_names = get_class_names(temp_ws)
-
-    deleted_class_names      = list(set(class_names).difference(latest_class_names))
-    unregistered_class_names = list(set(latest_class_names).difference(class_names))
-
-    return deleted_class_names, unregistered_class_names
+    return get_class_names(temp_ws)
 
 # 파일 작업
-def make_temp_file_for_update():
+def make_temp_file_for_update(new_class_list:list[str]):
     """
     반 업데이트 작업에 필요한 임시 반 정보 파일 생성
 
@@ -151,10 +130,19 @@ def make_temp_file_for_update():
     wb = open()
     ws = open_worksheet(wb)
 
-    unregistered_class_names = check_updated_class()
+    class_names = get_class_names(ws)
+
+    unregistered_class_names = sorted(list(set(new_class_list).difference(class_names)))
+
+    for row in range(2, ws.max_row+1):
+        while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is not None and ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value not in new_class_list:
+            ws.delete_rows(row)
+
+    temp_path = os.path.abspath(f'./{ClassInfo.TEMP_FILE_NAME}.xlsx')
+
     if len(unregistered_class_names) == 0:
         save_to_temp(wb)
-        return True
+        return temp_path
 
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, ClassInfo.CLASS_NAME_COLUMN).value is not None:
@@ -170,6 +158,8 @@ def make_temp_file_for_update():
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     save_to_temp(wb)
+
+    return temp_path
 
 def change_class_info(target_class_name:str, target_teacher_name:str):
     """
@@ -189,3 +179,5 @@ def change_class_info(target_class_name:str, target_teacher_name:str):
 
     save(wb)
 
+def update_class():
+    save(open_temp())

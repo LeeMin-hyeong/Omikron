@@ -93,8 +93,8 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       });
 
       if (res?.ok) {
-        setDone(true);
         await dialog.confirm({ title: "성공", message: "교사명이 변경되었습니다." });
+        setDone(true);
       } else {
         await dialog.error({ title: "실패", message: res?.error || "변경에 실패했습니다." });
       }

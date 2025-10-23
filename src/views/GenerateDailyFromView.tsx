@@ -22,8 +22,8 @@ export default function GenerateDailyFormView({ meta }: ViewProps) {
       setRunning(true);
       const res = await rpc.call("make_data_form", {});
       if(res?.ok){
+        await dialog.confirm({ title: "성공", message: "데일리테스트 기록 양식을 생성하였습니다." });
         setGenerated(true);
-        await dialog.confirm({ title: "성공", message: "데일리테스트 기록 양식 생성 완료" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });

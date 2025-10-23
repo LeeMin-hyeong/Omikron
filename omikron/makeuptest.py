@@ -225,7 +225,7 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
     if not exist:
         prog.warning(f"{class_name}의 반 정보가 존재하지 않습니다.")
 
-    exist, makeup_test_weekday, makeup_test_time, new_student = omikron.studentinfo.get_student_info(student_ws, student_name)
+    exist, makeup_test_weekday, _, new_student = omikron.studentinfo.get_student_info(student_ws, student_name)
     if not exist:
         prog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
@@ -256,4 +256,4 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
         ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
         ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    return True, wb
+    save(wb)

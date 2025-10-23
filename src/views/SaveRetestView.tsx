@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { BookCheck, User } from "lucide-react";
+import { BookCheck, Loader2, Play, User } from "lucide-react";
 
 // 화면에서 쓰는 타입
 type ClassInfo = { id: string; name: string };
@@ -41,6 +41,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
   const [score, setScore]         = useState<string>("");
 
   const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
 
   // 초기 로드: 반/학생 맵 + 재시험 맵
   useEffect(() => {
@@ -129,7 +130,6 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
     [tests, testId]
   );
 
-  const scoreNum  = score;
   const scoreValid = score.trim() !== "";
   const canSave = klass && studentId && testId && scoreValid;
 
@@ -138,21 +138,19 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
 
     const yes = await dialog.warning({
       title: "재시험 점수 저장",
-      message: `${studentName} / ${testName}\n점수: ${scoreNum}`,
+      message: `${studentName} / ${testName}\n점수: ${score}`,
       confirmText: "저장",
       cancelText: "취소",
     });
     if (!yes) return;
 
     try {
-      onAction?.("save-individual-exam");
-      // TODO
-      // 서버 저장 API는 기존 것을 그대로 사용(필요 시 메서드명/필드명만 바꾸면 됨)
-      const res = await rpc.call("save_individual_exam", {
-        class_name: klass,
-        student_id: studentId, // (클래스 시트) 학생 행 인덱스 (문자열)
-        test_id: testId,       // (재시험 시트) 시험 행 인덱스 (문자열)
-        score: scoreNum,
+      setRunning(true);
+      onAction?.("save-retest");
+      // target_row:int, makeup_test_score:str
+      const res = await rpc.call("save_retest_result", {
+        target_row:        Number(testId), // (재시험 시트) 시험 행 인덱스 (문자열)
+        makeup_test_score: score,
       });
       if (res?.ok) {
         await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다." });
@@ -162,6 +160,8 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -274,7 +274,8 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
               : undefined
             }
           >
-            저장
+            {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            {running ? "저장 중..." : "저장"}
           </Button>
         </div>
       </CardContent>

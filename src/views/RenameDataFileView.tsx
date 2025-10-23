@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { ChevronsRight, FileSpreadsheet, } from "lucide-react";
+import { Check, ChevronsRight, FileSpreadsheet, Play, } from "lucide-react";
 import { rpc } from "pyloid-js";
 import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function RenameDataFileView() {
   const dialog = useAppDialog();
-  const [checking, setChecking] = useState(false);
   const [state, setState] = useState<{
     ok: boolean;
     has_class: boolean;
@@ -29,14 +28,14 @@ export default function RenameDataFileView() {
   });
   const fetchState = async () => {
       try {
-        setChecking(true);
+        setLoading(true);
         const res = await rpc.call("check_data_files", {});
         setState(res);
       } catch {
         // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
         setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
       } finally {
-        setChecking(false);
+        setLoading(false);
       }
     };
 
@@ -49,7 +48,6 @@ export default function RenameDataFileView() {
     setLoading(true);
     fetchState();
     setDone(false);
-    await dialog.confirm({ title: "새로고침", message: "파일명을 다시 불러왔습니다." });
     setLoading(false);
   };
 
@@ -61,8 +59,8 @@ export default function RenameDataFileView() {
       setRunning(true);
       const res = await rpc.call("change_data_file_name", {new_filename: dataName});
       if(res?.ok){
+        await dialog.confirm({ title: "성공", message: `데이터파일 이름을 ${dataName}(으)로 변경하였습니다.` });
         setDone(true);
-        await dialog.confirm({ title: "성공", message: `데이터파일 이름을 ${dataName}으로 변경하였습니다.` });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
@@ -79,13 +77,13 @@ export default function RenameDataFileView() {
     <Card className="h-full rounded-2xl border-border/80 shadow-sm">
       <CardContent className="flex h-full flex-col">
         <div className="mb-3">
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="flex flex-row mt-1 text-sm text-muted-foreground">
             데이터 파일의 이름을 변경합니다.
             {state.data_file_name ? (
               <span className="ml-2">
                 (저장된 데이터 파일 이름: <span className="font-medium">{state.data_file_name}</span>)
               </span>
-            ) : (
+            ) : loading ? null : (
               <span className="ml-2 text-amber-600">
                 config.json의 <b>dataFileName</b> 설정이 필요합니다.
               </span>
@@ -100,7 +98,13 @@ export default function RenameDataFileView() {
               <CardContent className="flex h-full flex-col justify-center">
                 <div className="flex flex-col items-center gap-2 text-center">
                   <FileSpreadsheet className="h-8 w-8 text-green-600 mb-2" />
-                  <div className="text-sm font-medium mb-2">{state.data_file_name}</div>
+                  <div className="text-sm font-medium mb-2">{
+                    loading ? (
+                      <div className="flex flex-row items-center gap-2">
+                        <Spinner /><p>불러오는 중...</p>
+                      </div> 
+                    ) : state.data_file_name
+                  }</div>
                 </div>
               </CardContent>
             </Card>
@@ -126,7 +130,7 @@ export default function RenameDataFileView() {
               className="rounded-xl"
               variant="outline"
               onClick={handleRefresh}
-              disabled={loading}
+              disabled={loading || loading}
               title="데이터 파일 이름을 다시 불러옵니다."
             >
               {loading ? "불러오는 중…" : "새로고침"}
@@ -145,8 +149,10 @@ export default function RenameDataFileView() {
                 }
                 start(dataName);
               }}
+              disabled={loading}
             >
-              {running ? <Spinner /> : done ? "완료" : "변경"}
+              {running ? <Spinner className="mr-2 h-4 w-4" /> : done ? <Check className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" /> }
+              {running ? "변경 중..." : done ? "완료" : "변경"}
             </Button>
           </div>
         </div>

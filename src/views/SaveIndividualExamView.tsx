@@ -11,7 +11,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { User, BookCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { User, BookCheck, Play, Loader2 } from "lucide-react";
 import useHolidayDialog from "@/components/holiday-dialog/useHolidayDialog";
 
 type ClassInfo = { id?: string; name: string };
@@ -40,7 +41,10 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const [testId, setTestId]       = useState<string>("");
   const [score, setScore]         = useState<string>("");
 
+  const [makeupChecked, setMakeupChecked] = useState(true);
+
   const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
 
   // 초기 로드: 한번에 반/학생/시험 사전 전체 받기
   useEffect(() => {
@@ -123,9 +127,10 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const handleSave = async () => {
     if (!canSave) return;
 
-    if (!lastHolidaySelection) {
-      const res = await openHolidayDialog();
-      if(!res) return
+    let sel = lastHolidaySelection;
+    if (!sel) {
+      sel = await openHolidayDialog();
+      if(!sel) return
     }
 
     const yes = await dialog.warning({
@@ -137,22 +142,42 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
     if (!yes) return;
 
     try {
-      // TODO
+      const cell = await rpc.call("is_cell_empty", {
+        row: Number(studentId),
+        col: Number(testId),
+      });
+      if(!cell.empty){
+        const yes = await dialog.warning({
+          title: "시험 결과 중복 경고",
+          message: `${studentName} 학생의 ${testName} 결과가 이미 있습니다 (점수: ${cell.value})\n시험 결과를 덮어씌우겠습니까?\n${cell.value}점 → ${scoreNum}점`,
+          confirmText: "저장",
+          cancelText: "취소",
+        })
+        if(!yes) return
+      }
+      setRunning(true);
       onAction?.("save-individual-exam");
-      const res = await rpc.call("save_individual_exam", {
-        class_name: klass,
-        student_id: studentId, // = row index (string)
-        test_id: testId,       // = col index (string)
-        score: scoreNum,
+      //student_name:str, class_name:str, test_name:str, target_row:int, target_col:int, test_score:int|float, makeup_test_check:bool, makeup_test_date:dict
+      const res = await rpc.call("save_individual_result", {
+        student_name:      studentName,
+        class_name:        klass,
+        test_name:         testName.slice(11),
+        target_row:        Number(studentId), // = row index (string)
+        target_col:        Number(testId),    // = col index (string)
+        test_score:        scoreNum,
+        makeup_test_check: !makeupChecked, //
+        makeup_test_date:  sel,
       }); // {ok:true} 기대
       if (res?.ok) {
-        await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다." });
+        await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다.\n시험 결과 메시지를 확인하고 전송해주세요." });
         setScore("");
       } else {
         await dialog.error({ title: "실패", message: res?.error || "저장에 실패했습니다." });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -261,9 +286,21 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
 
         {/* 우하단 저장 버튼 */}
         <div className="mt-6 flex items-center justify-end">
+          <label htmlFor="makeup-check" className={`flex items-center justify-between rounded-xl border px-3 py-[7px] text-sm mr-2 w-35 ${
+                  makeupChecked ? "bg-blue-50 border-blue-200" : "hover:bg-accent"
+                }`}>
+            
+            <Checkbox
+              className="mr-2"
+              id="makeup-check"
+              checked={makeupChecked}
+              onCheckedChange={(v) => setMakeupChecked(Boolean(v))}
+            />
+            재시험 {makeupChecked ? "응시" : "미응시"}
+          </label>
           <Button
             className="rounded-xl bg-black text-white"
-            disabled={!canSave}
+            disabled={!canSave || running}
             onClick={handleSave}
             title={
               !klass ? "반을 선택하세요"
@@ -273,7 +310,8 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
               : undefined
             }
           >
-            저장
+            {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            {running ? "저장 중..." : "저장"}
           </Button>
         </div>
       </CardContent>

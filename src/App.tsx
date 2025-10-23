@@ -26,7 +26,6 @@ import FullHeader from "@/components/FullHeader";
 import { rpc } from "pyloid-js";
 import InitView from "./views/PrereqSetupView";
 import useHolidayDialog from "./components/holiday-dialog/useHolidayDialog";
-import HolidayDialog from "./components/holiday-dialog/HolidayDialog";
 
 interface Props {
   onAction?: (key: OmikronActionKey) => void
@@ -108,14 +107,26 @@ const groups: {
 
 // === Main ===
 export default function OmikronPanel({ onAction, width = 1400, height = 830, sidebarPercent = 10 }: Props) {
-  const [selected, setSelected] = useState<OmikronActionKey>("generate-daily-form")
+  const [selected, setSelected] = useState<OmikronActionKey>("welcome")
   const View = useMemo(() => getActionView(selected), [selected])
   const [missing, setMissing] = useState(false);
   const { openHolidayDialog } = useHolidayDialog()
+  const HELP_URL = "https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"
 
   // ✅ 프리체크 상태 + 지속 폴링
   const [state, setState] = useState<any>(null);
   const pollRef = useRef<number | null>(null);
+
+  const handleOpenHelp = async () => {
+    try {
+      const res = await rpc.call("open_url", { url: HELP_URL });
+      if (!res?.ok) {
+        console.error(res?.error);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchState = async () => {
     try {
@@ -156,7 +167,7 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
             <Button variant="outline" className="rounded-xl mr-2" onClick={() => openHolidayDialog()}>
               <CalendarDays className="mr-2 h-4 w-4" /> 학원 휴일 설정
             </Button>
-            <Button variant="outline" className="rounded-xl">
+            <Button variant="outline" className="rounded-xl" onClick={handleOpenHelp}>
               <HelpCircle className="mr-2 h-4 w-4" /> 사용법 및 도움말
             </Button>
           </div>
@@ -200,15 +211,11 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
 
           {/* Right pane */}
           <section className="flex flex-col p-3 min-h-0">
-            {/* {checking ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                파일 상태 확인 중…
-              </div>
-            ) :}*/ state && !state.ok ? (
+            { state && !state.ok ? (
               <InitView state={state} onRefresh={fetchState} />
             ) : (
               <>
-                <FullHeader title={descriptions[selected].title} />
+                {selected === "welcome" ? null : <FullHeader title={descriptions[selected].title} />}
                 <div className="h-full w-full overflow-hidden">
                   <View key={selected} meta={descriptions[selected]} onAction={onAction} />
                 </div>

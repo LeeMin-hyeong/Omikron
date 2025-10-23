@@ -23,7 +23,6 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
       const res = await rpc.call("reapply_conditional_format", {});
 
       if (res?.ok) {
-        setDone(true);
         const warnings: string[] = Array.isArray(res?.warnings) ? res.warnings : [];
         if (warnings.length > 0) {
           await dialog.confirm({
@@ -33,6 +32,7 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
         } else {
           await dialog.confirm({ title: "성공", message: "조건부 서식 재지정 완료" });
         }
+        setDone(true);
       } else {
         await dialog.error({ title: "실패", message: res?.error || "재지정에 실패했습니다." });
       }

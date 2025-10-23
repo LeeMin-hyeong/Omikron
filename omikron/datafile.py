@@ -271,6 +271,17 @@ def is_cell_empty(row:int, col:int) -> bool:
 
     return False, value
 
+def get_class_names(ws:Worksheet):
+    class_names = []
+
+    CLASS_NAME_COLUMN, _, _, _ = find_dynamic_columns(ws)
+
+    for row in range(2, ws.max_row+1):
+        if ws.cell(row, CLASS_NAME_COLUMN).value  not in class_names:
+            class_names.append(ws.cell(row, CLASS_NAME_COLUMN).value)
+
+    return class_names
+
 # 파일 작업
 def save_test_data(filepath:str, prog: Progress):
     """
@@ -446,6 +457,7 @@ def save_test_data(filepath:str, prog: Progress):
     return wb
 
 def save_individual_test_data(target_row:int, target_col:int, test_score:int|float):
+    """정규 시험에 미응시한 학생의 결과를 입력하고 해당 반의 평균을 반환"""
     # 임시 파일 삭제
     if os.path.isfile(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx"):
         delete_temp()
@@ -500,7 +512,10 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     if type(class_average) in (int, float):
         ws.cell(test_average_row, AVERAGE_SCORE_COLUMN).fill = class_average_color(test_average)
 
-    return True, test_average, wb
+    save(wb)
+    delete_temp()
+
+    return test_average
 
 def conditional_formatting(prog: Progress):
     file_validation()
@@ -610,7 +625,7 @@ def update_class():
 
     make_backup_file()
 
-    deleted_class_names, unregistered_class_names = omikron.classinfo.check_difference_between()
+    new_class_names = omikron.classinfo.get_new_class_names()
 
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
@@ -623,67 +638,71 @@ def update_class():
 
     wb = open()
 
-    if len(deleted_class_names) > 0:
-        # 이전 데이터 파일이 존재하지 않으면 생성
-        if not os.path.isfile(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
-            post_data_wb = xl.Workbook()
-            post_data_ws = post_data_wb.worksheets[0]
-            post_data_ws.title = DataFile.FIRST_SHEET_NAME
-            # post_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
-            # post_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
-            post_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
-            post_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
-            post_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
-            post_data_ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
-            post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-            post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+    # 지난 데이터 파일이 없으면 새로 생성
+    if not os.path.isfile(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
+        post_data_wb = xl.Workbook()
+        post_data_ws = post_data_wb.worksheets[0]
+        post_data_ws.title = DataFile.FIRST_SHEET_NAME
+        # post_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
+        # post_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
+        post_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
+        post_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
+        post_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
+        post_data_ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
+        post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
+        post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
-            for col in range(1, DataFile.DATA_COLUMN):
-                post_data_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
-                post_data_ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
-            
-            # 모의고사 sheet 생성
-            copy_post_data_ws                 = post_data_wb.copy_worksheet(post_data_wb[DataFile.FIRST_SHEET_NAME])
-            copy_post_data_ws.title           = DataFile.SECOND_SHEET_NAME
-            copy_post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-            copy_post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
-
-            post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
-
-        data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
-        post_data_wb = xl.load_workbook(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
-        for sheet_name in wb.sheetnames:
-            if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
-                continue
-
-            data_only_ws = data_only_wb[sheet_name]
-            post_data_ws = post_data_wb[sheet_name]
-            ws           = wb[sheet_name]
-
-            CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-
-            for row in range(2, ws.max_row+1):
-                while ws.cell(row, CLASS_NAME_COLUMN).value in deleted_class_names:
-                    ws.delete_rows(row)
-            
-            for row in range(2, data_only_ws.max_row+1):
-                if data_only_ws.cell(row, CLASS_NAME_COLUMN).value in deleted_class_names:
-                    POST_DATA_WRITE_ROW = post_data_ws.max_row+1
-                    # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
-                    # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_NAME_COLUMN),    data_only_ws.cell(row, CLASS_NAME_COLUMN))
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEACHER_NAME_COLUMN),  data_only_ws.cell(row, TEACHER_NAME_COLUMN))
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.STUDENT_NAME_COLUMN),  data_only_ws.cell(row, STUDENT_NAME_COLUMN))
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.AVERAGE_SCORE_COLUMN), data_only_ws.cell(row, AVERAGE_SCORE_COLUMN))
-                    POST_DATA_WRITE_COLUMN = DataFile.MAX+1
-                    for col in range(AVERAGE_SCORE_COLUMN+1, data_only_ws.max_column+1):
-                        copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, POST_DATA_WRITE_COLUMN), data_only_ws.cell(row, col))
-                        post_data_ws.column_dimensions[gcl(POST_DATA_WRITE_COLUMN)].width = 14
-                        POST_DATA_WRITE_COLUMN += 1
-            
-            ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
+        for col in range(1, DataFile.DATA_COLUMN):
+            post_data_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
+            post_data_ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
         
+        # 모의고사 sheet 생성
+        copy_post_data_ws                 = post_data_wb.copy_worksheet(post_data_wb[DataFile.FIRST_SHEET_NAME])
+        copy_post_data_ws.title           = DataFile.SECOND_SHEET_NAME
+        copy_post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
+        copy_post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+
         post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+    
+    data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
+    post_data_wb = xl.load_workbook(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+    for sheet_name in wb.sheetnames:
+        if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+            continue
+
+        data_only_ws = data_only_wb[sheet_name]
+        post_data_ws = post_data_wb[sheet_name]
+        ws           = wb[sheet_name]
+
+        CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+
+        for row in range(2, ws.max_row+1):
+            while ws.cell(row, CLASS_NAME_COLUMN).value is not None and ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
+                ws.delete_rows(row)
+                print(row, ws.cell(row, CLASS_NAME_COLUMN).value)
+
+        for row in range(2, data_only_ws.max_row+1):
+            if data_only_ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
+                POST_DATA_WRITE_ROW = post_data_ws.max_row+1
+                # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
+                # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
+                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_NAME_COLUMN),    data_only_ws.cell(row, CLASS_NAME_COLUMN))
+                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEACHER_NAME_COLUMN),  data_only_ws.cell(row, TEACHER_NAME_COLUMN))
+                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.STUDENT_NAME_COLUMN),  data_only_ws.cell(row, STUDENT_NAME_COLUMN))
+                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.AVERAGE_SCORE_COLUMN), data_only_ws.cell(row, AVERAGE_SCORE_COLUMN))
+                POST_DATA_WRITE_COLUMN = DataFile.MAX+1
+                for col in range(AVERAGE_SCORE_COLUMN+1, data_only_ws.max_column+1):
+                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, POST_DATA_WRITE_COLUMN), data_only_ws.cell(row, col))
+                    post_data_ws.column_dimensions[gcl(POST_DATA_WRITE_COLUMN)].width = 14
+                    POST_DATA_WRITE_COLUMN += 1
+
+        ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
+
+    post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+
+    ws = wb[DataFile.FIRST_SHEET_NAME]
+    old_class_names = get_class_names(ws)
+    unregistered_class_names = list(set(new_class_names).difference(old_class_names))
 
     if len(unregistered_class_names) > 0:
         class_wb = omikron.classinfo.open_temp()

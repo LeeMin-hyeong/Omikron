@@ -13,8 +13,10 @@ import RemoveStudentView from "./RemoveStudentView";
 import UpdateClassView from "./UpdateClassView";
 import UpdateStudentView from "./UpdateStudentView";
 import UpdateTeacherView from "./UpdateTeacherView";
+import WelcomeView from "./WelcomeView";
 
 const viewMap: Partial<Record<OmikronActionKey, FC<ViewProps>>> = {
+  "welcome": WelcomeView,
   "rename-data-file": RenameDataFileView,
   "save-exam": SaveExamView,
   "generate-daily-form": GenerateDailyFormView,

@@ -1,6 +1,11 @@
 import type { ActionMeta, OmikronActionKey } from "@/types/omikron";
 
 export const descriptions: Record<OmikronActionKey, ActionMeta> = {
+  "welcome": {
+    title: "환영합니다",
+    guide: "",
+    steps: []
+  },
   "update-class": {
     title: "반 업데이트",
     guide: "반 목록을 수정하여 데이터파일에 반영합니다. 수정된 반 정보 파일에서 반의 상세 정보를 작성해 주세요",

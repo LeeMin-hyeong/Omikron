@@ -11,6 +11,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
+import webbrowser
 
 from pyloid.rpc import PyloidRPC, RPCContext
 
@@ -256,7 +257,7 @@ async def get_datafile_data(ctx: RPCContext) -> Dict[Any, Any]:
 
 @server.method()
 async def get_aisosic_data(ctx: RPCContext):
-    return omikron.classinfo.check_updated_class()
+    return omikron.chrome.get_class_names()
 
 
 @server.method()
@@ -273,6 +274,17 @@ async def get_class_list(ctx: RPCContext):
 async def get_class_info(ctx: RPCContext, class_name:str):
     return omikron.classinfo.get_class_info(class_name)
 
+
+@server.method()
+async def get_new_class_list(ctx: RPCContext):
+    return omikron.classinfo.get_new_class_names()
+
+
+@server.method()
+async def is_cell_empty(ctx: RPCContext, row:int, col:int):
+    empty, value = omikron.datafile.is_cell_empty(row, col)
+    return {"empty": empty, "value": value}
+
 ####################################### 작업 API #######################################
 
 @server.method()
@@ -285,6 +297,21 @@ async def change_data_file_name(ctx:RPCContext, new_filename:str) -> Dict[str, A
 async def open_path(ctx: RPCContext, path: str) -> Dict[str, Any]:
     try:
         _open_path_cross_platform(path)
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@server.method()
+async def open_url(ctx: RPCContext, url: str) -> Dict[str, Any]:
+    try:
+        if not url:
+            raise ValueError("URL is empty.")
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("지원하지 않는 URL 입니다.")
+        opened = webbrowser.open(url, new=0, autoraise=True)
+        if not opened:
+            raise RuntimeError("브라우저를 열 수 없습니다.")
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -439,6 +466,58 @@ async def change_class_info(ctx: RPCContext, target_class_name, target_teacher_n
 
     return {"ok": True}
 
-# TODO: 반 업데이트
-# TODO: 개별 시험 결과 저장
-# TODO: 재시험 결과 저장
+
+@server.method()
+async def make_temp_class_info(ctx: RPCContext, new_class_list):
+    filepath = omikron.classinfo.make_temp_file_for_update(new_class_list)
+    return {"ok": True, "path": filepath}
+
+
+@server.method()
+async def update_class(ctx: RPCContext):
+    omikron.datafile.update_class()
+    omikron.classinfo.update_class()
+    return {"ok": True}
+
+
+@server.method()
+async def delete_class_info_temp(ctx: RPCContext):
+    omikron.classinfo.delete_temp()
+    return {"ok": True}
+
+
+@server.method()
+async def save_individual_result(ctx: RPCContext, student_name:str, class_name:str, test_name:str, target_row:int, target_col:int, test_score:int|float, makeup_test_check:bool, makeup_test_date:dict):
+    job_id = str(uuid.uuid4())
+    emit = make_emit(job_id)
+    prog = Progress(emit, total=3)
+
+    prog_warnings: list[str] = []
+    _orig_warning = prog.warning
+
+    def _capture_warning(msg: str):
+        try:
+            prog_warnings.append(str(msg))
+        finally:
+            # 원래 동작(실시간 이벤트 전송)도 유지
+            _orig_warning(msg)
+
+    prog.warning = _capture_warning  # type: ignore[attr-defined]
+
+    for k, v in makeup_test_date.items():
+        makeup_test_date[k] = datetime.strptime(v, "%Y-%m-%d")
+
+    test_average = omikron.datafile.save_individual_test_data(target_row, target_col, test_score)
+
+    if test_score < 80 and not makeup_test_check:
+        omikron.makeuptest.save_individual_makeup_test(student_name, class_name, test_name, test_score, makeup_test_date, prog)
+
+    omikron.chrome.send_individual_test_message(student_name, class_name, test_name, test_score, test_average, makeup_test_check, makeup_test_date, prog)
+
+    return {"ok": True}
+
+
+@server.method()
+async def save_retest_result(ctx: RPCContext, target_row:int, makeup_test_score:str):
+    omikron.makeuptest.save_makeup_test_result(target_row, makeup_test_score)
+    return {"ok": True}

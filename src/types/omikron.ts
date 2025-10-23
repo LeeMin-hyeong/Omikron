@@ -1,4 +1,5 @@
 export type OmikronActionKey =
+  | "welcome"
   | "update-class"
   | "rename-data-file"
   | "update-students"

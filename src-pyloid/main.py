@@ -15,7 +15,6 @@ if not os.path.exists("./data"):
     os.makedirs("./data")
 if not os.path.exists("./data/backup"):
     os.makedirs("./data/backup")
-os.environ["WDM_PROGRESS_BAR"] = "0"
 
 WIDTH, HEIGHT = 1400, 830
 

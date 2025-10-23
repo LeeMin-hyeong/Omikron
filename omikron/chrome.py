@@ -1,3 +1,5 @@
+import logging
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -14,6 +16,8 @@ from omikron.util import calculate_makeup_test_schedule, date_to_kor_date
 from omikron.progress import Progress
 
 try:
+    os.environ['WDM_LOG'] = str(logging.NOTSET)
+    os.environ['WDM_PROGRESS_BAR'] = str(0)
     service = Service(ChromeDriverManager().install().replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver.exe"))
     service.creation_flags = CREATE_NO_WINDOW
     options = webdriver.ChromeOptions()
@@ -281,8 +285,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     개별 시험에 대한 결과 메시지 전송
     """
     student_wb = omikron.studentinfo.open()
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete: return False
+    student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
