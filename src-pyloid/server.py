@@ -58,7 +58,7 @@ async def get_progress(ctx: RPCContext, job_id: str) -> Dict[str, Any]:
     return progress.get(job_id, default_payload)
 
 
-####################################### config.json 관리 #######################################
+####################################### 파일 열기 #######################################
 
 
 def _open_path_cross_platform(path: str):
@@ -71,25 +71,7 @@ def _open_path_cross_platform(path: str):
         subprocess.Popen(["xdg-open", p])
 
 
-def _read_config(cwd: Path) -> Dict[str, Any]:
-    cfg_path = cwd / "config.json"
-    if cfg_path.is_file():
-        try:
-            return json.loads(cfg_path.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-    return {}
-
-
-def _write_config(cwd: Path, cfg: Dict[str, Any]):
-    (cwd / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _ensure_parent(path: Path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-
-####################################### 파일 작업 #######################################
+####################################### 임시 파일 #######################################
 
 
 def _decode_upload_to_temp(filename: str, b64: str) -> Path:
@@ -216,11 +198,10 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
     실행 디렉터리에 '반 정보.xlsx', '학생 정보.xlsx' 존재 여부와
     config.json의 dataFileName으로 './data/<name>.xlsx' 존재 여부 확인
     """
-    cwd = Path(os.getcwd())
+    cwd = Path(omikron.config.DATA_DIR)
     class_info = cwd / "반 정보.xlsx"
     student_info = cwd / "학생 정보.xlsx"
-    cfg = _read_config(cwd)
-    data_file_name = str(cfg.get("dataFileName") or "").strip()
+    data_file_name = omikron.config.DATA_FILE_NAME
     data_file = cwd / "data" / f"{data_file_name}.xlsx" if data_file_name else None
 
     has_class = class_info.is_file()
@@ -245,7 +226,7 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
         "has_student": has_student,
         "data_file_name": data_file_name,
         "cwd": str(cwd),
-        "data_dir": str(cwd / "data"),
+        "data_dir": omikron.config.DATA_DIR,
         "missing": missing,
     }
 
@@ -262,7 +243,10 @@ async def get_aisosic_data(ctx: RPCContext):
 
 @server.method()
 async def get_makeuptest_data(ctx: RPCContext):
-    return omikron.makeuptest.get_studnet_test_index_dict()
+    try:
+        return omikron.makeuptest.get_studnet_test_index_dict()
+    except:
+        return {}
 
 
 @server.method()
@@ -286,6 +270,15 @@ async def is_cell_empty(ctx: RPCContext, row:int, col:int):
     return {"empty": empty, "value": value}
 
 ####################################### 작업 API #######################################
+
+@server.method()
+async def change_data_dir(ctx:RPCContext):
+    new_dir = ctx.pyloid.select_directory_dialog()
+    if new_dir is None: return
+    abspath = os.path.abspath(new_dir)
+    omikron.config.change_data_path(abspath)
+    return {"ok": True}
+
 
 @server.method()
 async def change_data_file_name(ctx:RPCContext, new_filename:str) -> Dict[str, Any]:
@@ -365,21 +358,18 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str, makeup_test_
 
 @server.method()
 async def make_class_info(ctx: RPCContext):
-    cwd = Path(os.getcwd())
     omikron.classinfo.make_file()
-    return {"ok": True, "path": str(cwd / '반 정보.xlsx')}
+    return {"ok": True, "path": str(Path(omikron.config.DATA_DIR) / '반 정보.xlsx')}
 
 
 @server.method()
 async def make_data_file(ctx: RPCContext):
-    cwd = Path(os.getcwd())
+    cwd = Path(omikron.config.DATA_DIR)
     class_info = cwd / "반 정보.xlsx"
     if not class_info.is_file():
         return {"ok": False, "error": "반 정보.xlsx가 먼저 필요합니다."}
 
-    cfg = _read_config(cwd)
-
-    if not (cfg.get("dataFileName") or "").strip():
+    if not omikron.config.DATA_FILE_NAME:
         return {"ok": False, "error": "config.json의 dataFileName을 설정해 주세요."}
 
     omikron.datafile.make_file()
@@ -388,9 +378,8 @@ async def make_data_file(ctx: RPCContext):
 
 @server.method()
 async def make_student_info(ctx: RPCContext):
-    cwd = Path(os.getcwd())
     omikron.studentinfo.make_file()
-    return {"ok": True, "path": str(cwd / '학생 정보.xlsx')}
+    return {"ok": True, "path": str(Path(omikron.config.DATA_DIR) / '학생 정보.xlsx')}
 
 
 @server.method()

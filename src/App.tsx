@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -17,6 +17,7 @@ import {
   Shuffle,
   GraduationCap,
   CalendarDays,
+  FolderOpen,
 } from "lucide-react"
 
 import { getActionView } from "@/views";
@@ -26,6 +27,7 @@ import FullHeader from "@/components/FullHeader";
 import { rpc } from "pyloid-js";
 import InitView from "./views/PrereqSetupView";
 import useHolidayDialog from "./components/holiday-dialog/useHolidayDialog";
+import { useAppDialog } from "./components/app-dialog/AppDialogProvider";
 
 interface Props {
   onAction?: (key: OmikronActionKey) => void
@@ -107,6 +109,7 @@ const groups: {
 
 // === Main ===
 export default function OmikronPanel({ onAction, width = 1400, height = 830, sidebarPercent = 10 }: Props) {
+  const dialog = useAppDialog();
   const [selected, setSelected] = useState<OmikronActionKey>("welcome")
   const [mountedKeys, setMountedKeys] = useState<OmikronActionKey[]>(["welcome"]);
   // const View = useMemo(() => getActionView(selected), [selected])
@@ -140,6 +143,19 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
     }
   };
 
+  const changeDataDir = async () => {
+    try {
+      const res = await rpc.call("change_data_dir", {});
+      if (res?.ok) {
+        await dialog.confirm({title: "성공", message: "데이터 저장 위치를 변경하였습니다."})
+      }
+    } catch (e: any) {
+      await dialog.error({title: "에러", message: `${e}`})
+    } finally {
+      fetchState();
+    }
+  }
+
   useEffect(() => {
     if(!missing){
       fetchState();
@@ -168,8 +184,11 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
               <h1 className="text-lg font-semibold tracking-tight text-foreground py-5">Omikron 데이터 프로그램</h1>
             </div>
           </div>
-          <div>
-            <Button variant="outline" className="rounded-xl mr-2" onClick={() => openHolidayDialog()}>
+          <div className="flex gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
+              <FolderOpen className="h-4 w-4" /> 데이터 저장 위치 변경
+            </Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => openHolidayDialog()}>
               <CalendarDays className="mr-2 h-4 w-4" /> 학원 휴일 설정
             </Button>
             <Button variant="outline" className="rounded-xl" onClick={handleOpenHelp}>

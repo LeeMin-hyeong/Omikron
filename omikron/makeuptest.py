@@ -8,6 +8,7 @@ from openpyxl.styles import Alignment, Border, Color, PatternFill, Side
 import omikron.classinfo
 import omikron.dataform
 import omikron.studentinfo
+import omikron.config
 
 from omikron.defs import MakeupTestList, DataForm
 from omikron.exception import NoMatchingSheetException, FileOpenException
@@ -40,10 +41,10 @@ def make_file():
         ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
         ws.cell(1, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx")
 
 def open(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx", data_only=data_only)
 
 def open_worksheet(wb:xl.Workbook):
     try:
@@ -53,12 +54,12 @@ def open_worksheet(wb:xl.Workbook):
 
 def save(wb:xl.Workbook):
     try:
-        wb.save(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx")
+        wb.save(f"{omikron.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx")
     except:
         raise FileOpenException(f"{MakeupTestList.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
 def isopen():
-    return os.path.isfile(f"./data/~${MakeupTestList.DEFAULT_NAME}.xlsx")
+    return os.path.isfile(f"{omikron.config.DATA_DIR}/data/~${MakeupTestList.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
 def get_studnet_test_index_dict():
@@ -92,7 +93,7 @@ def save_makeup_test_list(filepath:str, makeup_test_date:dict, prog:Progress):
     form_ws = omikron.dataform.open_worksheet(form_wb)
 
     # 재시험 정보
-    if not os.path.isfile(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
+    if not os.path.isfile(f"{omikron.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
         make_file()
 
     wb = open()

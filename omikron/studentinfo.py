@@ -35,7 +35,7 @@ def make_file() -> bool:
     return update_student(wb)
 
 def open(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"./{StudentInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{StudentInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
 
 def open_worksheet(wb:xl.Workbook):
     try:
@@ -45,12 +45,12 @@ def open_worksheet(wb:xl.Workbook):
 
 def save(wb:xl.Workbook):
     try:
-        wb.save(f"./{StudentInfo.DEFAULT_NAME}.xlsx")
+        wb.save(f"{omikron.config.DATA_DIR}/{StudentInfo.DEFAULT_NAME}.xlsx")
     except:
         raise FileOpenException()
 
 def isopen() -> bool:
-    return os.path.isfile(f"./~${StudentInfo.DEFAULT_NAME}.xlsx")
+    return os.path.isfile(f"{omikron.config.DATA_DIR}/~${StudentInfo.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
 def get_student_info(ws:Worksheet, student_name:str):

@@ -189,7 +189,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
                     <div className="flex flex-col items-center justify-center px-3 py-2 text-center">
                       <FileUp className="mb-1 h-6 w-6" />
                       <div className="text-sm">
-                        파일을 끌어오거나 <span className="underline">클릭하여 선택</span>
+                        파일을 끌어다 놓거나 <span className="underline">클릭하여 선택</span>
                       </div>
                       <div className="text-xs text-muted-foreground">지원 형식: .xlsx .xlsm .xls .csv</div>
                     </div>

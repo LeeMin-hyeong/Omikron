@@ -145,7 +145,11 @@ function ListBox({
           <ScrollArea className="h-full w-full p-1">
             <ul className="space-y-1 w-full min-w-0">
               {!loading && list.length === 0 && (
-                <li className="p-3 text-sm text-muted-foreground">항목이 없습니다.</li>
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    항목이 없습니다
+                  </div>
+                </div>
               )}
               {!loading &&
                 list.map((item) => {

@@ -9,6 +9,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment, Border, Side
 
 import omikron.chrome
+import omikron.config
 
 from omikron.defs import ClassInfo
 from omikron.exception import NoMatchingSheetException, FileOpenException
@@ -41,10 +42,10 @@ def make_file():
 
 
 def open(data_only:bool=True) -> xl.Workbook:
-    return xl.load_workbook(f"./{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
 
 def open_temp(data_only:bool=True) -> xl.Workbook:
-    return xl.load_workbook(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx", data_only=data_only)
 
 def open_worksheet(wb:xl.Workbook):
     try:
@@ -54,23 +55,23 @@ def open_worksheet(wb:xl.Workbook):
 
 def save(wb:xl.Workbook):
     try:
-        wb.save(f"./{ClassInfo.DEFAULT_NAME}.xlsx")
+        wb.save(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx")
     except:
         raise FileOpenException(f"{ClassInfo.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
 def save_to_temp(wb:xl.Workbook):
-    wb.save(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
 
 def delete_temp():
-    os.remove(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    os.remove(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
 
 def isopen() -> bool:
-    return os.path.isfile(f"./~${ClassInfo.DEFAULT_NAME}.xlsx")
+    return os.path.isfile(f"{omikron.config.DATA_DIR}/~${ClassInfo.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
 def make_backup_file():
     wb = open()
-    wb.save(f"./data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
 
 def get_class_info(class_name:str, ws:Worksheet = None):
     """
@@ -138,7 +139,7 @@ def make_temp_file_for_update(new_class_list:list[str]):
         while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is not None and ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value not in new_class_list:
             ws.delete_rows(row)
 
-    temp_path = os.path.abspath(f'./{ClassInfo.TEMP_FILE_NAME}.xlsx')
+    temp_path = os.path.abspath(f'{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
 
     if len(unregistered_class_names) == 0:
         save_to_temp(wb)

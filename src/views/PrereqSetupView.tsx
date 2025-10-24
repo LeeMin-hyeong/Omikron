@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { FileSpreadsheet, ChevronsRight, FolderOpen, } from "lucide-react";
 import { rpc } from "pyloid-js";
 import { Spinner } from "@/components/ui/spinner";
+import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 
 type State = {
   has_class: boolean;
@@ -24,6 +25,7 @@ export default function InitView({
   state: State;
   onRefresh: () => void;
 }) {
+  const dialog = useAppDialog();
   const canInstallDataAndStudent = state.has_class;
 
   // 각 작업 실행 중 상태
@@ -40,10 +42,10 @@ export default function InitView({
       if (res?.ok) {
         onRefresh();
       } else {
-        alert(res?.error || "반 정보 생성에 실패했습니다.");
+        dialog.error(res?.error || "반 정보 생성에 실패했습니다.");
       }
     } catch (e: any) {
-      alert(String(e?.message || e));
+      await dialog.error({title: "에러", message: `${e}`})
     } finally {
       setRunClass(false);
     }
@@ -57,10 +59,10 @@ export default function InitView({
       if (res?.ok) {
         onRefresh();
       } else {
-        alert(res?.error || "데이터 파일 생성에 실패했습니다.");
+        dialog.error(res?.error || "데이터 파일 생성에 실패했습니다.");
       }
     } catch (e: any) {
-      alert(String(e?.message || e));
+      await dialog.error({title: "에러", message: `${e}`})
     } finally {
       setRunData(false);
     }
@@ -74,14 +76,29 @@ export default function InitView({
       if (res?.ok) {
         onRefresh();
       } else {
-        alert(res?.error || "학생 정보 생성에 실패했습니다.");
+        dialog.error(res?.error || "학생 정보 생성에 실패했습니다.");
       }
     } catch (e: any) {
-      alert(String(e?.message || e));
+      await dialog.error({title: "에러", message: `${e}`})
     } finally {
       setRunStudent(false);
     }
   };
+
+  const changeDataDir = async () => {
+    try {
+      const res = await rpc.call("change_data_dir", {});
+      if (res?.ok) {
+        await dialog.confirm({title: "성공", message: "데이터 저장 위치를 변경하였습니다."})
+      } else {
+        alert(res?.error || "데이터 파일 생성에 실패했습니다.");
+      }
+    } catch (e: any) {
+      await dialog.error({title: "에러", message: `${e}`})
+    } finally {
+      onRefresh();
+    }
+  }
 
   // 공통 타일
   const Tile = ({
@@ -126,7 +143,7 @@ export default function InitView({
         <div className="mb-3">
           <h3 className="text-base font-semibold">필수 파일 생성</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            반 정보 → 데이터 파일 → 학생 정보 순서로 생성합니다.
+            반 정보 → 데이터 파일 → 학생 정보 순서로 생성합니다. <b>데이터 저장 폴더를 확인해 주세요</b>
             {state.data_file_name ? (
               <span className="ml-2">
                 (저장된 데이터 파일 이름: <span className="font-medium">{state.data_file_name}</span>)
@@ -170,11 +187,11 @@ export default function InitView({
             부족: {state.missing.length === 0 ? "없음" : state.missing.join(", ")}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.cwd })}>
-              <FolderOpen className="h-4 w-4" /> 프로그램 폴더
+            <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
+              <FolderOpen className="h-4 w-4" /> 데이터 저장 위치 변경
             </Button>
             <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
-              <FolderOpen className="h-4 w-4" /> data 폴더
+              <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더
             </Button>
             <Button className="rounded-xl bg-black text-white" onClick={onRefresh}>
               다시 확인

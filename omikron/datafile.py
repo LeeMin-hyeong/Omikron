@@ -114,26 +114,26 @@ def make_file():
     save(wb)
 
 def open(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx", data_only=data_only)
 
 def open_temp(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only)
 
 def save(wb:xl.Workbook):
     try:
-        wb.save(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx")
+        wb.save(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx")
     except:
         raise FileOpenException(f"{omikron.config.DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
 def save_to_temp(wb:xl.Workbook):
-    wb.save(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx")
-    os.system(f"attrib +h ./data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    os.system(f"attrib +h {omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
 
 def delete_temp():
-    os.remove(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    os.remove(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
 
 def isopen() -> bool:
-    return os.path.isfile(f"./data/~${omikron.config.DATA_FILE_NAME}.xlsx")
+    return os.path.isfile(f"{omikron.config.DATA_DIR}/data/~${omikron.config.DATA_FILE_NAME}.xlsx")
 
 def file_validation():
     wb = open()
@@ -147,7 +147,7 @@ def file_validation():
 # 파일 유틸리티
 def make_backup_file():
     wb = open()
-    wb.save(f"./data/backup/{omikron.config.DATA_FILE_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/data/backup/{omikron.config.DATA_FILE_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
 
 def get_data_sorted_dict():
     """
@@ -288,7 +288,7 @@ def save_test_data(filepath:str, prog: Progress):
     데이터 양식에 작성된 데이터를 데이터 파일에 저장
     """
     # 임시 파일 삭제
-    if os.path.isfile(f"./data/{DataFile.TEMP_FILE_NAME}.xlsx"):
+    if os.path.isfile(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx"):
         delete_temp()
 
     form_wb = omikron.dataform.open(filepath)
@@ -403,7 +403,8 @@ def save_test_data(filepath:str, prog: Progress):
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{DataFile.TEMP_FILE_NAME}.xlsx")
+    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    wb = excel.Workbooks.Open(abs_path)
     wb.Save()
     wb.Close()
     excel.Quit()
@@ -479,7 +480,8 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{DataFile.TEMP_FILE_NAME}.xlsx")
+    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    wb = excel.Workbooks.Open(abs_path)
     wb.Save()
     wb.Close()
     excel.Quit()
@@ -522,7 +524,8 @@ def conditional_formatting(prog: Progress):
 
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{omikron.config.DATA_FILE_NAME}.xlsx")
+    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    wb = excel.Workbooks.Open(abs_path)
     wb.Save()
     wb.Close()
     excel.Quit()
@@ -630,7 +633,8 @@ def update_class():
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    wb = excel.Workbooks.Open(f"{os.getcwd()}\\data\\{omikron.config.DATA_FILE_NAME}.xlsx")
+    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    wb = excel.Workbooks.Open(abs_path)
     wb.Save()
     wb.Close()
     excel.Quit()
@@ -697,7 +701,7 @@ def update_class():
 
         ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
 
-    post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+    post_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
 
     ws = wb[DataFile.FIRST_SHEET_NAME]
     old_class_names = get_class_names(ws)

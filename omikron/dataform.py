@@ -8,6 +8,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 import omikron.chrome
 import omikron.classinfo
+import omikron.config
 
 from omikron.defs import DataForm
 from omikron.exception import NoMatchingSheetException
@@ -104,15 +105,15 @@ def make_file() -> bool:
         ws.cell(row, DataForm.MOCKTEST_SCORE_COLUMN).protection    = Protection(locked=False)
         ws.cell(row, DataForm.MAKEUP_TEST_CHECK_COLUMN).protection = Protection(locked=False)
 
-    if os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx"):
+    if os.path.isfile(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx"):
         i = 1
         while True:
-            if not os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx"):
-                wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx")
+            if not os.path.isfile(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx"):
+                wb.save(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx")
                 break
             i += 1
     else:
-        wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx")
+        wb.save(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx")
 
     return True
 
