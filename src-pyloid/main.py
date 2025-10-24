@@ -8,25 +8,13 @@ from pyloid.utils import (
 from pyloid.serve import pyloid_serve
 from pyloid import Pyloid
 from server import server
-import os
-# import omikron.config
-
-# initiate program directory structure
-if not os.path.exists("./data"):
-    os.makedirs("./data")
-if not os.path.exists("./data/backup"):
-    os.makedirs("./data/backup")
 
 WIDTH, HEIGHT = 1400, 830
 
 app = Pyloid(app_name="Omikron", single_instance=True, server=server)
 
-app.set_icon(get_production_path("src-pyloid/icons/omikron.png"))
-app.set_tray_icon(get_production_path("src-pyloid/icons/omikron.png"))
-
-# if omikron.config.DATA_PATH == ".":
-#     dir_path = app.select_directory_dialog(dir="/home/user")
-
+app.set_icon(get_production_path("src-pyloid/icons/omikron_icon.ico"))
+app.set_tray_icon(get_production_path("src-pyloid/icons/omikron_icon.ico"))
 
 ############################## Tray ################################
 def on_double_click():

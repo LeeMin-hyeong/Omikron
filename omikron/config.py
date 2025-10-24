@@ -18,6 +18,16 @@ try:
 except:
     corrupted_config_file_error()
 
+if not os.path.isdir(DATA_DIR):
+    DATA_DIR = config["dataDir"] = "."
+    json.dump(config, open("./config.json", 'w', encoding="UTF8"), ensure_ascii=False, indent="    ")
+
+# initiate program directory structure
+if not os.path.exists(f"{DATA_DIR}/data"):
+    os.makedirs(f"{DATA_DIR}/data")
+if not os.path.exists(f"{DATA_DIR}/data/backup"):
+    os.makedirs(f"{DATA_DIR}/data/backup")
+
 def change_data_file_name(new_filename:str):
     global config, DATA_FILE_NAME, DATA_DIR
 
