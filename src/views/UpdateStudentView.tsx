@@ -17,7 +17,6 @@ export default function UpdateStudentView({ meta }: ViewProps) {
 
   const start = async () => {
     if (running) return
-    setDone(false);
 
     try {
       setRunning(true);
@@ -30,6 +29,9 @@ export default function UpdateStudentView({ meta }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(() => {
+        setDone(false);
+      }, 5000);
     }
   }
 
@@ -66,7 +68,7 @@ export default function UpdateStudentView({ meta }: ViewProps) {
             ) : (
               <Play className="h-4 w-4" />
             )}
-            <span className="ml-2">{done ? "업데이트 완료" : "업데이트"}</span>
+            <span className="ml-2">{done ? "업데이트 완료" : running ? "업데이트 중..." : "업데이트"}</span>
           </Button>
         </div>
       </CardContent>

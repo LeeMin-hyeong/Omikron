@@ -88,6 +88,9 @@ export default function AddStudentView({ onAction }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(() => {
+        handleRefresh()
+      }, 5000);
     }
   };
 
@@ -102,7 +105,7 @@ export default function AddStudentView({ onAction }: ViewProps) {
       <CardContent className="flex h-full flex-col">
         <div className="mb-3">
           <p className="mt-1 text-sm text-muted-foreground">
-            학생을 추가합니다. 아이소식에서의 작업이 선행되어야 합니다.
+            학생을 추가합니다. <b>아이소식에서의 작업이 선행</b>되어야 합니다.
           </p>
         </div>
         <Separator className="mb-4" />
@@ -148,7 +151,8 @@ export default function AddStudentView({ onAction }: ViewProps) {
                     disabled={!canSubmit}
                     onClick={handleSubmit}
                   >
-                    {running ? <Spinner /> : "추가"}
+                    {running ? <Spinner /> : null }
+                    {running ? "추가 중..." : "추가" }
                   </Button>
                 </div>
               </div>

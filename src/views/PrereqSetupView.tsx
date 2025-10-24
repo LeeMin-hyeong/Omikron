@@ -3,8 +3,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { FileSpreadsheet, ChevronsRight, FolderOpen, Loader2 } from "lucide-react";
+import { FileSpreadsheet, ChevronsRight, FolderOpen, } from "lucide-react";
 import { rpc } from "pyloid-js";
+import { Spinner } from "@/components/ui/spinner";
 
 type State = {
   has_class: boolean;
@@ -96,7 +97,7 @@ export default function InitView({
     disabled?: boolean;
     running?: boolean;
   }) => {
-    const label = present ? "생성 완료" : running ? "진행 중…" : "생성";
+    const label = present ? "생성 완료" : running ? "생성 중…" : "생성";
     return (
       <Card className="rounded-2xl border-border/80 shadow-sm">
         <CardContent className="flex h-44 flex-col justify-between pt-4">
@@ -110,7 +111,7 @@ export default function InitView({
               disabled={present || !!disabled || !!running}
               onClick={onInstall}
             >
-              {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {running && <Spinner />}
               {label}
             </Button>
           </div>

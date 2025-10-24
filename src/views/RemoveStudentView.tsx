@@ -126,6 +126,9 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(() => {
+        handleRefresh()
+      }, 5000);
     }
   };
 

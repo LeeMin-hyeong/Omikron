@@ -16,7 +16,6 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
 
   const start = async () => {
     if (running) return;
-    setDone(false);
 
     try {
       setRunning(true);
@@ -30,7 +29,7 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
             message: warnings.join("\n"),
           });
         } else {
-          await dialog.confirm({ title: "성공", message: "조건부 서식 재지정 완료" });
+          await dialog.confirm({ title: "성공", message: "조건부 서식 재지정을 완료하였습니다." });
         }
         setDone(true);
       } else {
@@ -40,6 +39,9 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(() => {
+        setDone(false);
+      }, 5000);
     }
   };
 
@@ -76,7 +78,7 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
             ) : (
               <Play className="h-4 w-4" />
             )}
-            <span className="ml-2">{done ? "조건부 서식 재지정 완료" : "조건부 서식 재지정"}</span>
+            <span className="ml-2">{done ? "조건부 서식 재지정 완료" : running ? "조건부 서식 재지정 중..." : "조건부 서식 재지정"}</span>
           </Button>
         </div>
       </CardContent>

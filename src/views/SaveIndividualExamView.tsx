@@ -46,44 +46,52 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
 
-  // 초기 로드: 한번에 반/학생/시험 사전 전체 받기
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
-        let csd: ClassStudentDict = {};
-        let ctd: ClassTestDict = {};
+  const scoreNum = Number(score);
+  const scoreValid = score.trim() !== "" && !Number.isNaN(scoreNum);
+  const canSave = klass && studentId && testId && scoreValid;
 
-        if (Array.isArray(res)) {
-          csd = (res[0] ?? {}) as ClassStudentDict;
-          ctd = (res[1] ?? {}) as ClassTestDict;
-        } else if (res?.class_student_dict) {
-          csd = res.class_student_dict as ClassStudentDict;
-          ctd = res.class_test_dict as ClassTestDict;
-        }
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
+      let csd: ClassStudentDict = {};
+      let ctd: ClassTestDict = {};
 
-        setClassStudentMap(csd);
-        setClassTestMap(ctd);
+      if (Array.isArray(res)) {
+        csd = (res[0] ?? {}) as ClassStudentDict;
+        ctd = (res[1] ?? {}) as ClassTestDict;
+      } else if (res?.class_student_dict) {
+        csd = res.class_student_dict as ClassStudentDict;
+        ctd = res.class_test_dict as ClassTestDict;
+      }
 
-        // 반 목록
-        const classNames = Object.keys(csd).sort();
-        setClasses(classNames.map((name) => ({ id: name, name })));
+      setClassStudentMap(csd);
+      setClassTestMap(ctd);
 
-        // 기존 선택 유지/보정
-        if (klass && !csd[klass]) {
-          setKlass("");
-          setStudents([]); setStudentId("");
-          setTests([]); setTestId("");
-        }
+      // 반 목록
+      const classNames = Object.keys(csd).sort();
+      setClasses(classNames.map((name) => ({ id: name, name })));
+
+      // 기존 선택 유지/보정
+      // if (klass && !csd[klass]) {
+        setKlass("");
+        setStudents([]); setStudentId("");
+        setTests([]); setTestId("");
+        setScore("")
+        // }
       } catch {
         setClassStudentMap({});
         setClassTestMap({});
         setClasses([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+        setScore("")
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 초기 로드: 한번에 반/학생/시험 사전 전체 받기
+  useEffect(() => {
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -119,10 +127,6 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
     () => tests.find((t) => t.id === testId)?.name ?? "",
     [tests, testId],
   );
-
-  const scoreNum = Number(score);
-  const scoreValid = score.trim() !== "" && !Number.isNaN(scoreNum);
-  const canSave = klass && studentId && testId && scoreValid;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -178,6 +182,9 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(() => {
+        loadData()
+      }, 5000);
     }
   };
 
@@ -205,7 +212,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                 <Select
                   value={klass}
                   onValueChange={setKlass}
-                  disabled={loading}
+                  disabled={loading || running}
                 >
                   <SelectTrigger className="rounded-xl w-full">
                     <SelectValue placeholder={loading ? "불러오는 중..." : "반 선택"} />
@@ -225,7 +232,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                 <Select
                   value={studentId}
                   onValueChange={setStudentId}
-                  disabled={!klass || students.length === 0}
+                  disabled={!klass || students.length === 0 || loading || running}
                 >
                   <SelectTrigger className="rounded-xl w-full">
                     <SelectValue placeholder="학생 선택" />
@@ -252,7 +259,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                 <Select
                   value={testId}
                   onValueChange={setTestId}
-                  disabled={!klass || tests.length === 0}
+                  disabled={!klass || tests.length === 0 || loading || running}
                 >
                   <SelectTrigger className="rounded-xl w-full">
                     <SelectValue placeholder={klass && tests.length === 0 ? "시험이 없습니다" : "시험 선택"} />
@@ -270,14 +277,14 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                 <Input
                   className="rounded-xl"
                   type="number"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   step="1"
                   min="0"
                   max="100"
                   placeholder="점수 입력"
                   value={score}
                   onChange={(e) => setScore(e.target.value)}
-                  disabled={!testId || !studentId}
+                  disabled={!testId || !studentId || loading || running}
                 />
               </div>
             </div>
@@ -285,22 +292,31 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
         </div>
 
         {/* 우하단 저장 버튼 */}
-        <div className="mt-6 flex items-center justify-end">
-          <label htmlFor="makeup-check" className={`flex items-center justify-between rounded-xl border px-3 py-[7px] text-sm mr-2 w-35 ${
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <Button
+            className="rounded-xl"
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+            title="반 목록을 다시 불러옵니다."
+          >
+            {loading ? "불러오는 중…" : "새로고침"}
+          </Button>
+          <label htmlFor="makeup-check" className={`flex items-center justify-between rounded-xl border px-3 py-[7px] text-sm w-35 ${
                   makeupChecked ? "bg-blue-50 border-blue-200" : "hover:bg-accent"
                 }`}>
             
             <Checkbox
-              className="mr-2"
               id="makeup-check"
               checked={makeupChecked}
               onCheckedChange={(v) => setMakeupChecked(Boolean(v))}
+              disabled={running}
             />
             재시험 {makeupChecked ? "응시" : "미응시"}
           </label>
           <Button
             className="rounded-xl bg-black text-white"
-            disabled={!canSave || running}
+            disabled={!canSave || loading || running}
             onClick={handleSave}
             title={
               !klass ? "반을 선택하세요"

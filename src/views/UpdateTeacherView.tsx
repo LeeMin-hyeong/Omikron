@@ -35,7 +35,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
         setSelectedClass("");
       }
     } catch (e: any) {
-      await dialog.error({title: "에러", message: `${e?.message || e}\n반 목록을 가져오는데 실패했습니다.`});
+      await dialog.error({title: "에러", message: `반 목록을 가져오는데 실패했습니다: ${e?.message || e}`});
       setClassList([]);
     } finally {
       setLoading(false);
@@ -84,14 +84,13 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
 
     try {
       setRunning(true);
-      setDone(false);
-
+      
       // target_class_name, target_teacher_name
       const res = await rpc.call("change_class_info", {
         target_class_name:   selectedClass,
         target_teacher_name: teacherName.trim(),
       });
-
+      
       if (res?.ok) {
         await dialog.confirm({ title: "성공", message: "교사명이 변경되었습니다." });
         setDone(true);
@@ -102,6 +101,9 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(async () => {
+        await handleRefresh()
+      }, 5000);
     }
   };
 

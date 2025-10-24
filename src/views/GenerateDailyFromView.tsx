@@ -29,6 +29,9 @@ export default function GenerateDailyFormView({ meta }: ViewProps) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setTimeout(() => {
+        setGenerated(false);
+      }, 5000);
     }
   }
 
@@ -65,7 +68,7 @@ export default function GenerateDailyFormView({ meta }: ViewProps) {
             ) : (
               <Play className="h-4 w-4" />
             )}
-            <span className="ml-2">{generated ? "생성 완료" : "생성"}</span>
+            <span className="ml-2">{generated ? "생성 완료" : running ? "생성 중..." : "생성"}</span>
           </Button>
         </div>
       </CardContent>

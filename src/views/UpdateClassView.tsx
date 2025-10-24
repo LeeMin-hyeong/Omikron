@@ -367,7 +367,6 @@ export default function UpdateClassView({ meta }: ViewProps) {
       if (res?.ok) {
         setProgressOpen(false);
         await dialog.confirm({title: "성공", message: "반 업데이트가 완료되었습니다."})
-        loadData();
       } else {
         throw new Error(res?.error ?? "반 업데이트 적용 중 오류가 발생했습니다.");
       }
@@ -376,6 +375,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
       await dialog.error({ title: "에러", message: `반 업데이트 적용 중 오류가 발생했습니다: ${e}` });
     } finally {
       setProgressOpen(false);
+      loadData();
     }
   };
 
@@ -536,9 +536,20 @@ export default function UpdateClassView({ meta }: ViewProps) {
               <div className="bg-amber-500 w-4 h-4 rounded mr-1"/> <p>: 아이소식에 존재하지 않지만 데이터 파일에는 존재하는 반(삭제)</p>
             </div>
           </div>
-          <Button className="rounded-xl bg-black text-white" onClick={handleOpenStep1} disabled={loading}>
-            반 업데이트
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              className="rounded-xl"
+              variant="outline"
+              onClick={loadData}
+              disabled={loading}
+              title="반 목록을 다시 불러옵니다."
+            >
+              {loading ? "불러오는 중…" : "새로고침"}
+            </Button>
+            <Button className="rounded-xl bg-black text-white" onClick={handleOpenStep1} disabled={loading}>
+              반 업데이트
+            </Button>
+          </div>
         </div>
       </CardContent>
 

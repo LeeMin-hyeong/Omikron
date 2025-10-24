@@ -36,6 +36,9 @@ export default function RenameDataFileView() {
         setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
       } finally {
         setLoading(false);
+        setTimeout(() => {
+          handleRefresh()
+        }, 5000);
       }
     };
 

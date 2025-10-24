@@ -108,7 +108,8 @@ const groups: {
 // === Main ===
 export default function OmikronPanel({ onAction, width = 1400, height = 830, sidebarPercent = 10 }: Props) {
   const [selected, setSelected] = useState<OmikronActionKey>("welcome")
-  const View = useMemo(() => getActionView(selected), [selected])
+  const [mountedKeys, setMountedKeys] = useState<OmikronActionKey[]>(["welcome"]);
+  // const View = useMemo(() => getActionView(selected), [selected])
   const [missing, setMissing] = useState(false);
   const { openHolidayDialog } = useHolidayDialog()
   const HELP_URL = "https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"
@@ -149,6 +150,10 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
       };
     }
   }, [missing]);
+
+  useEffect(() => {
+  setMountedKeys(prev => (prev.includes(selected) ? prev : [...prev, selected]));
+}, [selected]);
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-b from-point/10 to-transparent">
@@ -216,8 +221,19 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
             ) : (
               <>
                 {selected === "welcome" ? null : <FullHeader title={descriptions[selected].title} />}
-                <div className="h-full w-full overflow-hidden">
-                  <View key={selected} meta={descriptions[selected]} onAction={onAction} />
+                <div className="h-full w-full overflow-hidden relative">
+                  {mountedKeys.map((key) => {
+                    const ViewComp = getActionView(key);
+                    const visible = key === selected;
+                    return (
+                      <div
+                        key={key}
+                        className={visible ? "block h-full w-full" : "hidden h-0 w-0"}
+                      >
+                        <ViewComp meta={descriptions[key]} onAction={onAction} />
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}

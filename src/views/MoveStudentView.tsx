@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ChevronsRight, School, User } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 type ClassInfo = { id: string; name: string };
 type StudentInfo = { id: string; name: string };
@@ -33,6 +34,7 @@ export default function MoveStudentView({ onAction }: ViewProps) {
   const [studentId, setStudentId] = useState<string>("");
 
   const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
 
   const selectedStudent = useMemo(
     () => students.find((s) => s.id === studentId)?.name ?? "",
@@ -115,6 +117,7 @@ export default function MoveStudentView({ onAction }: ViewProps) {
     if (!yes) return;
 
     try {
+      setRunning(true);
       onAction?.("move-student");
       // target_student_name, target_class_name, current_class_name
       const res = await rpc.call("move_student", {
@@ -123,13 +126,18 @@ export default function MoveStudentView({ onAction }: ViewProps) {
         target_class_name:   toClass,
       }); // {ok:true} 기대
       if (res?.ok) {
-        await dialog.confirm({ title: "완료", message: "학생 반이 변경되었습니다." });
+        await dialog.confirm({ title: "완료", message: `${studentName} 학생을 ${toName} 반으로 이동하였습니다.` });
         setToClass("");
       } else {
         await dialog.error({ title: "실패", message: res?.error || "변경에 실패했습니다." });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } finally {
+      setRunning(false);
+      setTimeout(() => {
+        handleRefresh()
+      }, 5000);
     }
   };
 
@@ -145,7 +153,7 @@ export default function MoveStudentView({ onAction }: ViewProps) {
       <CardContent className="flex h-full flex-col">
         <div className="mb-3">
           <p className="mt-1 text-sm text-muted-foreground">
-            학생의 반을 변경합니다. 아이소식에서의 작업이 선행되어야 합니다.
+            학생의 반을 변경합니다. <b>아이소식에서의 작업이 선행</b>되어야 합니다.
           </p>
         </div>
         <Separator className="mb-4" />
@@ -238,7 +246,7 @@ export default function MoveStudentView({ onAction }: ViewProps) {
                 {/* ✅ 이동 버튼을 여기로 이동 */}
                 <Button
                   className="w-full rounded-xl bg-black text-white"
-                  disabled={!canSubmit}
+                  disabled={!canSubmit || running}
                   onClick={handleSubmit}
                   title={
                     !fromClass
@@ -252,7 +260,8 @@ export default function MoveStudentView({ onAction }: ViewProps) {
                       : undefined
                   }
                 >
-                  이동
+                  {running ? <Spinner /> : null }
+                  {running ? "이동 중..." : "이동" }
                 </Button>
               </div>
             </CardContent>

@@ -43,50 +43,54 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
 
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // 1) 반/학생(클래스 시트) + 2) 재시험(학생→시험) 동시 로드
+      const [datafileRes, makeupRes] = await Promise.all([
+        rpc.call("get_datafile_data", {}),   // [class_student_dict, class_test_dict]
+        rpc.call("get_makeuptest_data", {}), // {학생: {시험: row}}
+      ]);
+
+      // class_student_dict 파싱
+      let csd: ClassStudentDict = {};
+      if (Array.isArray(datafileRes) && typeof datafileRes[0] === "object") {
+        csd = datafileRes[0] as ClassStudentDict;
+      } else if (datafileRes?.class_student_dict) {
+        csd = datafileRes.class_student_dict as ClassStudentDict;
+      }
+      setClassStudentMap(csd);
+
+      // 재시험 맵 파싱
+      const makeup: MakeUpMap = (makeupRes ?? {}) as MakeUpMap;
+      setMakeupMap(makeup);
+
+      // 반 목록 세팅
+      const names = Object.keys(csd).sort();
+      setClasses(names.map((n) => ({ id: n, name: n })));
+
+      // 선택값 보정
+      // if (klass && !csd[klass]) {
+      setKlass("");
+      setStudents([]); setStudentId("");
+      setTests([]); setTestId("");
+      setScore("")
+      // }
+    } catch {
+      setClassStudentMap({});
+      setMakeupMap({});
+      setClasses([]);
+      setStudents([]); setTests([]);
+      setKlass(""); setStudentId(""); setTestId("");
+      setScore("")
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // 초기 로드: 반/학생 맵 + 재시험 맵
   useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        // 1) 반/학생(클래스 시트) + 2) 재시험(학생→시험) 동시 로드
-        const [datafileRes, makeupRes] = await Promise.all([
-          rpc.call("get_datafile_data", {}),   // [class_student_dict, class_test_dict]
-          rpc.call("get_makeuptest_data", {}), // {학생: {시험: row}}
-        ]);
-
-        // class_student_dict 파싱
-        let csd: ClassStudentDict = {};
-        if (Array.isArray(datafileRes) && typeof datafileRes[0] === "object") {
-          csd = datafileRes[0] as ClassStudentDict;
-        } else if (datafileRes?.class_student_dict) {
-          csd = datafileRes.class_student_dict as ClassStudentDict;
-        }
-        setClassStudentMap(csd);
-
-        // 재시험 맵 파싱
-        const makeup: MakeUpMap = (makeupRes ?? {}) as MakeUpMap;
-        setMakeupMap(makeup);
-
-        // 반 목록 세팅
-        const names = Object.keys(csd).sort();
-        setClasses(names.map((n) => ({ id: n, name: n })));
-
-        // 선택값 보정
-        if (klass && !csd[klass]) {
-          setKlass("");
-          setStudents([]); setStudentId("");
-          setTests([]); setTestId("");
-        }
-      } catch {
-        setClassStudentMap({});
-        setMakeupMap({});
-        setClasses([]);
-        setStudents([]); setTests([]);
-        setKlass(""); setStudentId(""); setTestId("");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -189,7 +193,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
                 <Select
                   value={klass}
                   onValueChange={setKlass}
-                  disabled={loading}
+                  disabled={loading || running}
                 >
                   <SelectTrigger className="rounded-xl w-full">
                     <SelectValue placeholder={loading ? "불러오는 중..." : "반 선택"} />
@@ -206,7 +210,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
                 <Select
                   value={studentId}
                   onValueChange={setStudentId}
-                  disabled={!klass || students.length === 0}
+                  disabled={!klass || students.length === 0 || loading || running}
                 >
                   <SelectTrigger className="rounded-xl w-full">
                     <SelectValue placeholder="학생 선택" />
@@ -233,7 +237,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
                 <Select
                   value={testId}
                   onValueChange={setTestId}
-                  disabled={!studentId || tests.length === 0}
+                  disabled={!studentId || tests.length === 0 || loading || running}
                 >
                   <SelectTrigger className="rounded-xl w-full">
                     <SelectValue placeholder={ studentId && tests.length === 0 ? "재시험이 없습니다" : "시험 선택" }/>
@@ -253,7 +257,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
                   placeholder="점수 입력 (맞은 개수/문제 개수)"
                   value={score}
                   onChange={(e) => setScore(e.target.value)}
-                  disabled={!testId || !studentId}
+                  disabled={!testId || !studentId || loading || running}
                 />
               </div>
             </div>
@@ -261,10 +265,19 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         </div>
 
         {/* 우하단 저장 버튼 */}
-        <div className="mt-6 flex items-center justify-end">
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <Button
+            className="rounded-xl"
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+            title="반 목록을 다시 불러옵니다."
+          >
+            {loading ? "불러오는 중…" : "새로고침"}
+          </Button>
           <Button
             className="rounded-xl bg-black text-white"
-            disabled={!canSave}
+            disabled={!canSave || running}
             onClick={handleSave}
             title={
               !klass ? "반을 선택하세요"
