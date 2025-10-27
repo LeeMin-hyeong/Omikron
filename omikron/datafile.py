@@ -638,7 +638,7 @@ def update_class():
     wb = open()
 
     # 지난 데이터 파일이 없으면 새로 생성
-    if not os.path.isfile(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
+    if not os.path.isfile(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
         post_data_wb = xl.Workbook()
         post_data_ws = post_data_wb.worksheets[0]
         post_data_ws.title = DataFile.FIRST_SHEET_NAME
@@ -661,10 +661,10 @@ def update_class():
         copy_post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
         copy_post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
-        post_data_wb.save(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+        post_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
     
     data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
-    post_data_wb = xl.load_workbook(f"./data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+    post_data_wb = xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
     for sheet_name in wb.sheetnames:
         if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue

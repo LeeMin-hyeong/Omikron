@@ -10,6 +10,7 @@ from tkinter import ttk, filedialog
 from tkinter.messagebox import askokcancel, askyesno
 from webbrowser import open_new
 
+import omikron.chrome
 import omikron.classinfo
 import omikron.config
 import omikron.datafile
@@ -611,16 +612,72 @@ class GUI():
         return True, target_row, makeup_test_score
 
     def update_class_dialog(self):
-        def move_selected(src: tk.Listbox, dst: tk.Listbox):
+        COLOR_MAP = {
+            "green":  "#108a00",   # chrome 전용 (왼↔중만)
+            "orange": "#cc7a00",   # classinfo 전용 (중↔오른만)
+            "black":  "#000000",   # 공통 (중↔오른만)
+        }
+
+        # 데이터 분류
+        chrome_set    = set(omikron.chrome.get_class_names())
+        classinfo_set = set(omikron.classinfo.get_class_names())
+
+        only_chrome   = sorted(chrome_set - classinfo_set)   # 초록
+        only_class    = sorted(classinfo_set - chrome_set)   # 주황
+        both          = sorted(classinfo_set & chrome_set)   # 검정
+
+        # 전역 컬러 테이블 (항목 → 색)
+        ITEM_COLOR = {}
+        for v in only_chrome:
+            ITEM_COLOR[v] = "green"
+        for v in only_class:
+            ITEM_COLOR[v] = "orange"
+        for v in both:
+            ITEM_COLOR[v] = "black"
+
+        def insert_with_color(lb: tk.Listbox, value: str):
+            """목록에 값 추가 후 지정 색상 적용(중복 방지)."""
+            existing = set(lb.get(0, tk.END))
+            if value in existing:
+                return
+            lb.insert(tk.END, value)
+            idx = lb.size() - 1
+            lb.itemconfig(idx, foreground=COLOR_MAP[ITEM_COLOR[value]])
+
+        def get_color(value: str) -> str:
+            return ITEM_COLOR.get(value, "black")
+
+        def can_move(value: str, src_name: str, dst_name: str) -> bool:
+            """
+            이동 제약:
+            - green(only chrome): left ↔ mid 만 허용
+            - orange/black(only class or both): mid ↔ right 만 허용
+            """
+            c = get_color(value)
+            if c == "green":
+                return {src_name, dst_name} <= {"left", "mid"}
+            else:  # orange, black
+                return {src_name, dst_name} <= {"mid", "right"}
+
+        def move_selected(src: tk.Listbox, dst: tk.Listbox, src_name: str, dst_name: str):
             sel = list(src.curselection())
             if not sel:
                 return
-            existing = set(dst.get(0, tk.END))
+            # 선택 항목 → 값 목록
             vals = [src.get(i) for i in sel]
-            for v in vals:
-                if v not in existing:
-                    dst.insert(tk.END, v)
-            for i in reversed(sel):
+
+            # 대상에 없는 것만, 허용 이동만 추가
+            dst_existing = set(dst.get(0, tk.END))
+            moved_idxs = []
+            for i, v in zip(sel, vals):
+                if not can_move(v, src_name, dst_name):
+                    continue
+                if v not in dst_existing:
+                    insert_with_color(dst, v)
+                    moved_idxs.append(i)
+
+            # 삭제는 인덱스 역순
+            for i in reversed(moved_idxs):
                 src.delete(i)
 
         def select_all(lb: tk.Listbox, *_):
@@ -628,8 +685,7 @@ class GUI():
 
         popup = tk.Toplevel(self.ui)
         popup.title("반 리스트 수정")
-        width  = 900
-        height = 520
+        width, height = 900, 520
         x = int((popup.winfo_screenwidth()/4) - (width/2))
         y = int((popup.winfo_screenheight()/2) - (height/2))
         popup.geometry(f"{width}x{height}+{x}+{y}")
@@ -687,11 +743,8 @@ class GUI():
             parent.rowconfigure(0, weight=1)
             parent.columnconfigure(0, weight=1)
 
-            col = ttk.Frame(parent)
-            col.grid(row=0, column=0, sticky="nsew")
-
-            inner = ttk.Frame(col)
-            inner.place(relx=0.5, rely=0.5, anchor="center")
+            col = ttk.Frame(parent); col.grid(row=0, column=0, sticky="nsew")
+            inner = ttk.Frame(col); inner.place(relx=0.5, rely=0.5, anchor="center")
 
             btn_left  = ttk.Button(inner, text="←", width=3, command=to_left)
             btn_right = ttk.Button(inner, text="→", width=3, command=to_right)
@@ -703,31 +756,29 @@ class GUI():
         lm_col = ttk.Frame(container); lm_col.grid(row=0, column=1, sticky="nsew")
         build_arrow_column(
             lm_col,
-            to_left = lambda: move_selected(lb_mid,  lb_left),
-            to_right= lambda: move_selected(lb_left, lb_mid),
+            to_left = lambda: move_selected(lb_mid,  lb_left,  "mid",  "left"),
+            to_right= lambda: move_selected(lb_left, lb_mid,   "left", "mid"),
         )
 
         # 가운데 ↔ 오른쪽
         mr_col = ttk.Frame(container); mr_col.grid(row=0, column=3, sticky="nsew")
         build_arrow_column(
             mr_col,
-            to_left = lambda: move_selected(lb_right, lb_mid),
-            to_right= lambda: move_selected(lb_mid,   lb_right),
+            to_left = lambda: move_selected(lb_right, lb_mid,  "right", "mid"),
+            to_right= lambda: move_selected(lb_mid,   lb_right,"mid",   "right"),
         )
 
         ttk.Separator(container, orient="horizontal").grid(
             row=1, column=0, columnspan=5, sticky="ew", pady=(12, 8)
         )
 
-        btnbar = ttk.Frame(container)
-        btnbar.grid(row=2, column=0, columnspan=5, sticky="e")
+        btnbar = ttk.Frame(container); btnbar.grid(row=2, column=0, columnspan=5, sticky="e")
 
-        result = {"ok": False, "mid": None, "right": None}
+        result = {"ok": False, "mid": None}
 
         def on_ok(*_):
             result["ok"] = True
             result["mid"] = list(lb_mid.get(0, tk.END))
-            result["right"] = list(lb_right.get(0, tk.END))
             popup.destroy()
 
         def on_cancel(*_):
@@ -736,24 +787,28 @@ class GUI():
         ttk.Button(btnbar, text="취소", command=on_cancel).pack(side="right", padx=(6, 0))
         ttk.Button(btnbar, text="확인", command=on_ok).pack(side="right")
 
+        # 단축키: Ctrl+A (각 리스트별 전체 선택)
         for lb in (lb_left, lb_mid, lb_right):
             lb.bind("<Control-a>", lambda e, _lb=lb: select_all(_lb))
 
-        classinfo_wb = omikron.classinfo.open()
-        classinfo_ws = omikron.classinfo.open_worksheet(classinfo_wb)
-
-        # TODO
-        for item in omikron.classinfo.check_updated_class(classinfo_ws):
-            lb_left.insert(tk.END, item)
-        for item in omikron.classinfo.get_class_names(classinfo_ws):
-            lb_mid.insert(tk.END, item)
+        # ── 초기 채우기
+        # 왼쪽: chrome에만 있는 반(초록)
+        for item in only_chrome:
+            insert_with_color(lb_left, item)
+        # 가운데: classinfo에 있는 반 (겹치는 애는 검정, classinfo만 있는 애는 주황)
+        for item in both:
+            insert_with_color(lb_mid, item)
+        for item in only_class:
+            insert_with_color(lb_mid, item)
+        # 오른쪽: 초기 비움
 
         self.ui.wait_window(popup)
 
         if result["ok"]:
-            return True, result["mid"], result["right"]
+            # 중앙 리스트만 리턴
+            return True, result["mid"]
         else:
-            return False, None, None
+            return False, None
 
     def change_class_info_dialog(self):
         class_wb = omikron.classinfo.open()
@@ -834,13 +889,13 @@ class GUI():
             OmikronLog.log(r"반 업데이트를 시작합니다.")
             OmikronLog.log(r"반 정보를 불러오는 중...")
 
-            completed, new_class_list, delete_class_list = self.update_class_dialog()
+            completed, new_class_list = self.update_class_dialog()
             if not completed:
                 OmikronLog.log(r"반 업데이트를 중단하였습니다.")
                 return
 
             OmikronLog.log(f"{ClassInfo.TEMP_FILE_NAME}.xlsx 생성 중...")
-            temp_path =  omikron.classinfo.make_temp_file_for_update(new_class_list, delete_class_list)
+            temp_path =  omikron.classinfo.make_temp_file_for_update(new_class_list)
 
             try:
                 excel = win32com.client.Dispatch("Excel.Application")
@@ -859,9 +914,6 @@ class GUI():
         else:
             if omikron.datafile.isopen():
                 OmikronLog.log(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
-                return
-
-            if not omikron.datafile.file_validation():
                 return
 
             if os.path.isfile(f"{omikron.config.DATA_DIR}/~${ClassInfo.TEMP_FILE_NAME}.xlsx"):
