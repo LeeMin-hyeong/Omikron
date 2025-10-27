@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { FileSpreadsheet, ChevronsRight, FolderOpen, } from "lucide-react";
+import { FileSpreadsheet, ChevronsRight, FolderOpen, FolderSync, } from "lucide-react";
 import { rpc } from "pyloid-js";
 import { Spinner } from "@/components/ui/spinner";
 import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
@@ -188,7 +188,7 @@ export default function InitView({
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
-              <FolderOpen className="h-4 w-4" /> 데이터 저장 위치 변경
+              <FolderSync className="h-4 w-4" /> 데이터 저장 위치 변경
             </Button>
             <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
               <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더

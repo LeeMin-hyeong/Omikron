@@ -18,6 +18,7 @@ import {
   GraduationCap,
   CalendarDays,
   FolderOpen,
+  FolderSync,
 } from "lucide-react"
 
 import { getActionView } from "@/views";
@@ -185,8 +186,11 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
+              <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더
+            </Button>
             <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
-              <FolderOpen className="h-4 w-4" /> 데이터 저장 위치 변경
+              <FolderSync className="h-4 w-4" /> 데이터 저장 위치 변경
             </Button>
             <Button variant="outline" className="rounded-xl" onClick={() => openHolidayDialog()}>
               <CalendarDays className="mr-2 h-4 w-4" /> 학원 휴일 설정
