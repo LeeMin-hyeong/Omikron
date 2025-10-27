@@ -3,14 +3,15 @@
 # import library
 import os
 import tkinter as tk
+import omikron.config
 
 from omikron.gui import GUI
 
 # initiate program directory structure
-if not os.path.exists("./data"):
-    os.makedirs("./data")
-if not os.path.exists("./data/backup"):
-    os.makedirs("./data/backup")
+if not os.path.exists(f"{omikron.config.DATA_DIR}/data"):
+    os.makedirs(f"{omikron.config.DATA_DIR}/data")
+if not os.path.exists(f"{omikron.config.DATA_DIR}/data/backup"):
+    os.makedirs(f"{omikron.config.DATA_DIR}/data/backup")
 os.environ["WDM_PROGRESS_BAR"] = "0"
 
 # GUI initiation

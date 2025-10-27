@@ -33,7 +33,7 @@ class GUI():
 
         # 창 크기
         self.width  = 320
-        self.height = 555 # button +25
+        self.height = 630 # button +25
 
         # 창 위치
         self.x = int((self.ui.winfo_screenwidth()/4) - (self.width/2))
@@ -62,6 +62,14 @@ class GUI():
         self.log.pack()
         
         # 버튼
+        tk.Label(self.ui, text="< 데이터 저장 위치 >").pack()
+
+        self.class_info_file_button = tk.Button(self.ui, cursor="hand2", text="데이터 저장 폴더 열기", width=40, command=self.open_data_dir_task)
+        self.class_info_file_button.pack()
+
+        self.data_file_button = tk.Button(self.ui, cursor="hand2", text="데이터 저장 위치 변경", width=40, command=self.change_data_dir_task)
+        self.data_file_button.pack()
+
         tk.Label(self.ui, text="< 기수 변경 관련 >").pack()
 
         self.class_info_file_button = tk.Button(self.ui, cursor="hand2", text="반 정보 기록 양식 생성", width=40, command=self.class_info_file_task)
@@ -133,8 +141,8 @@ class GUI():
         """
         classinfo_check = studentinfo_check = datafile_check = False
 
-        if os.path.isfile(f"{ClassInfo.DEFAULT_NAME}.xlsx"):
-            if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
+        if os.path.isfile(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx"):
+            if os.path.isfile(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                 self.class_info_file_button["text"] = "반 정보 수정 후 반 업데이트 계속하기"
             else:
                 self.class_info_file_button["text"] = "반 업데이트"
@@ -146,13 +154,13 @@ class GUI():
             self.class_info_file_button["state"] = tk.NORMAL
             self.data_file_button["state"]       = tk.DISABLED
 
-        if os.path.isfile(f"{StudentInfo.DEFAULT_NAME}.xlsx"):
+        if os.path.isfile(f"{omikron.config.DATA_DIR}/{StudentInfo.DEFAULT_NAME}.xlsx"):
             self.student_info_file_button["text"] = "학생 정보 업데이트"
             studentinfo_check = True
         else: 
             self.student_info_file_button["text"] = "학생 정보 기록 양식 생성"
 
-        if os.path.isfile(f"./data/{omikron.config.DATA_FILE_NAME}.xlsx"):
+        if os.path.isfile(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx"):
             self.data_file_button["text"]        = "데이터 파일 이름 변경"
             self.class_info_file_button["state"] = tk.NORMAL
             datafile_check = True
@@ -168,7 +176,7 @@ class GUI():
             self.add_student_button["state"]             = tk.NORMAL
             self.delete_student_button["state"]          = tk.NORMAL
             self.move_student_button["state"]            = tk.NORMAL
-            if os.path.isfile(f"./data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
+            if os.path.isfile(f"{omikron.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
                 self.save_makeup_test_result_button["state"] = tk.NORMAL
             else:
                 self.save_makeup_test_result_button["state"] = tk.DISABLED
@@ -282,8 +290,7 @@ class GUI():
 
         return `성공 여부`, `학생 이름`
         """
-        complete, class_student_dict, _ = omikron.datafile.get_data_sorted_dict()
-        if not complete: return False, None
+        class_student_dict, _ = omikron.datafile.get_data_sorted_dict()
 
         def quit_event():
             popup.quit()
@@ -336,8 +343,7 @@ class GUI():
 
         return `성공 여부`, `학생 이름`, `목표 반`, `현재 반`
         """
-        complete, class_student_dict, _ = omikron.datafile.get_data_sorted_dict()
-        if not complete: return False, None, None, None
+        class_student_dict, _ = omikron.datafile.get_data_sorted_dict()
 
         def quit_event():
             popup.quit()
@@ -400,8 +406,7 @@ class GUI():
         return `성공 여부`, `학생 이름`, `목표 반`
         """
         class_wb = omikron.classinfo.open()
-        complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-        if not complete: return False, None, None
+        class_ws = omikron.classinfo.open_worksheet(class_wb)
 
         class_names = omikron.classinfo.get_class_names(class_ws)
 
@@ -450,8 +455,7 @@ class GUI():
 
         return `성공 여부`, `학생 이름`, `목표 반`, `시험 이름`, `작성 행`, `작성 열`, `시험 점수`, `재시험 미응시 여부`
         """
-        complete, class_student_dict, class_test_dict = omikron.datafile.get_data_sorted_dict()
-        if not complete: return False, None, None, None, None, None, None, None
+        class_student_dict, class_test_dict = omikron.datafile.get_data_sorted_dict()
 
         def quit_event():
             popup.quit()
@@ -524,7 +528,7 @@ class GUI():
         target_row = class_student_dict[target_class_name][target_student_name]
         target_col = class_test_dict[target_class_name][target_test_name]
 
-        target_test_name = target_test_name[9:]
+        target_test_name = target_test_name[11:]
 
         return True, target_student_name, target_class_name, target_test_name, target_row, target_col, test_score, makeup_test_check
 
@@ -534,11 +538,9 @@ class GUI():
         
         return : `성공 여부`, `작성 행`, `재시험 점수`
         """
-        complete, class_student_dict, _ = omikron.datafile.get_data_sorted_dict()
-        if not complete: return False, None, None
+        class_student_dict, _ = omikron.datafile.get_data_sorted_dict()
 
-        complete, student_test_dict = omikron.makeuptest.get_studnet_test_index_dict()
-        if not complete: return False, None, None
+        student_test_dict = omikron.makeuptest.get_studnet_test_index_dict()
 
         def quit_event():
             popup.quit()
@@ -738,9 +740,9 @@ class GUI():
             lb.bind("<Control-a>", lambda e, _lb=lb: select_all(_lb))
 
         classinfo_wb = omikron.classinfo.open()
-        completed, classinfo_ws = omikron.classinfo.open_worksheet(classinfo_wb)
-        if not completed: return False, None, None
+        classinfo_ws = omikron.classinfo.open_worksheet(classinfo_wb)
 
+        # TODO
         for item in omikron.classinfo.check_updated_class(classinfo_ws):
             lb_left.insert(tk.END, item)
         for item in omikron.classinfo.get_class_names(classinfo_ws):
@@ -755,8 +757,7 @@ class GUI():
 
     def change_class_info_dialog(self):
         class_wb = omikron.classinfo.open()
-        complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-        if not complete: return False, None, None
+        class_ws = omikron.classinfo.open_worksheet(class_wb)
 
         class_names = omikron.classinfo.get_class_names(class_ws)
 
@@ -779,7 +780,7 @@ class GUI():
 
         def class_selection_call_back(event):
             selected_class_name = event.widget.get()
-            _, teacher_name, _, _ = omikron.classinfo.get_class_info(class_ws, selected_class_name)
+            _, teacher_name, _, _ = omikron.classinfo.get_class_info(selected_class_name, ws=class_ws)
             teacher_name_label.config(text=f"현재 선생님: {teacher_name}")
         target_class_var = tk.StringVar()
         class_combo = ttk.Combobox(popup, values=class_names, state="readonly", textvariable=target_class_var, width=25)
@@ -808,6 +809,19 @@ class GUI():
             return True, target_class_name, target_teacher_name
 
     # tasks
+    def open_data_dir_task(self):
+        os.startfile(omikron.config.DATA_DIR)
+        return
+
+    def change_data_dir_task(self):
+        dir_path = filedialog.askdirectory(initialdir=f"{omikron.config.DATA_DIR}/", title="변경할 데이터 저장 위치 선택")
+        if dir_path == "": return
+
+        omikron.config.change_data_path(dir_path)
+
+        OmikronLog.log("데이터 저장 위치를 변경하였습니다.")
+        return
+
     def class_info_file_task(self):
         if self.class_info_file_button["text"] == "반 정보 기록 양식 생성":
             thread = threading.Thread(target=omikron.thread.make_class_info_file_thread, daemon=True)
@@ -826,14 +840,12 @@ class GUI():
                 return
 
             OmikronLog.log(f"{ClassInfo.TEMP_FILE_NAME}.xlsx 생성 중...")
-            if not omikron.classinfo.make_temp_file_for_update(new_class_list, delete_class_list):
-                OmikronLog.log(r"변동 사항이 없어 중단하였습니다.")
-                return
+            temp_path =  omikron.classinfo.make_temp_file_for_update(new_class_list, delete_class_list)
 
             try:
                 excel = win32com.client.Dispatch("Excel.Application")
                 excel.Visible = True
-                wb = excel.Workbooks.Open(f"{os.getcwd()}\\{ClassInfo.TEMP_FILE_NAME}.xlsx")
+                wb = excel.Workbooks.Open(temp_path)
             except:
                 OmikronLog.error(r"모든 엑셀 프로그램을 종료한 뒤 다시 시도해 주세요.")
 
@@ -841,7 +853,7 @@ class GUI():
             if not askokcancel("반 정보 변경 확인", f"{ClassInfo.TEMP_FILE_NAME}.xlsx 파일의\n각 반의 상세 정보를 수정한 뒤 저장하고\n반 업데이트 계속하기 버튼을 눌러주세요.\n\n취소 선택 시 반 업데이트가 중단됩니다."):
                 wb.Close()
                 excel.Quit()
-                if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
+                if os.path.isfile(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                     omikron.classinfo.delete_temp()
                     OmikronLog.log(r"반 업데이트를 중단하였습니다.")
         else:
@@ -852,12 +864,12 @@ class GUI():
             if not omikron.datafile.file_validation():
                 return
 
-            if os.path.isfile(f"./~${ClassInfo.TEMP_FILE_NAME}.xlsx"):
+            if os.path.isfile(f"{omikron.config.DATA_DIR}/~${ClassInfo.TEMP_FILE_NAME}.xlsx"):
                 OmikronLog.log(f"'{ClassInfo.TEMP_FILE_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
                 return
 
             if not askokcancel("반 정보 변경 확인", "반 업데이트를 계속하시겠습니까?"):
-                if os.path.isfile(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx"):
+                if os.path.isfile(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                     omikron.classinfo.delete_temp()
                     OmikronLog.log(r"반 업데이트를 중단하였습니다.")
 
@@ -918,18 +930,16 @@ class GUI():
             OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
-        if not omikron.datafile.file_validation():
-            return
-
         if self.makeup_test_date is None:
             self.holiday_dialog()
 
-        filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
+        filepath = filedialog.askopenfilename(initialdir=f"{omikron.config.DATA_DIR}/", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
         if filepath == "": return
 
         if not omikron.dataform.data_validation(filepath):
             return
 
+        print("end task")
         thread = threading.Thread(target=lambda: omikron.thread.save_test_result_thread(filepath, self.makeup_test_date), daemon=True)
         thread.start()
 
@@ -937,7 +947,7 @@ class GUI():
         if self.makeup_test_date is None:
             self.holiday_dialog()
 
-        filepath = filedialog.askopenfilename(initialdir="./", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
+        filepath = filedialog.askopenfilename(initialdir=f"{omikron.config.DATA_DIR}/", title="데일리테스트 기록 양식 선택", filetypes=(("Excel files", "*.xlsx"),("all files", "*.*")))
         if filepath == "": return
 
         if not omikron.dataform.data_validation(filepath):
@@ -952,9 +962,6 @@ class GUI():
             return
         if omikron.makeuptest.isopen():
             OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
-            return
-
-        if not omikron.datafile.file_validation():
             return
 
         if self.makeup_test_date is None:
@@ -977,9 +984,6 @@ class GUI():
             OmikronLog.error(f"'{MakeupTestList.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
-        if not omikron.datafile.file_validation():
-            return
-
         complete, target_row, makeup_test_score = self.save_makeup_test_result_dialog()
         if not complete: return
 
@@ -991,9 +995,6 @@ class GUI():
             OmikronLog.error(r"데이터 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
-        if not omikron.datafile.file_validation():
-            return
-
         thread = threading.Thread(target=omikron.thread.conditional_formatting_thread, daemon=True)
         thread.start()
 
@@ -1003,9 +1004,6 @@ class GUI():
             return
         if omikron.studentinfo.isopen():
             OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
-            return
-
-        if not omikron.datafile.file_validation():
             return
 
         complete, target_student_name, target_class_name = self.add_student_dialog()
@@ -1026,9 +1024,6 @@ class GUI():
             OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
             return
 
-        if not omikron.datafile.file_validation():
-            return
-
         complete, target_student_name = self.delete_student_dialog()
         if not complete: return
 
@@ -1045,9 +1040,6 @@ class GUI():
             return
         if omikron.studentinfo.isopen():
             OmikronLog.error(f"'{StudentInfo.DEFAULT_NAME}' 파일을 닫은 뒤 다시 시도해 주세요.")
-            return
-
-        if not omikron.datafile.file_validation():
             return
 
         complete, target_student_name, target_class_name, current_class_name = self.move_student_dialog()

@@ -8,12 +8,18 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 import omikron.chrome
 import omikron.classinfo
+import omikron.config
 
 from omikron.defs import DataForm
 from omikron.log import OmikronLog
+from omikron.exception import NoMatchingSheetException
+
+
+class DataValidationException(Exception):
+    pass
 
 # 파일 기본 작업
-def make_file() -> bool:
+def make_file():
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = DataForm.DEFAULT_NAME
@@ -40,15 +46,14 @@ def make_file() -> bool:
         ws.cell(1, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     class_wb = omikron.classinfo.open(True)
-    complete, class_ws = omikron.classinfo.open_worksheet(class_wb)
-    if not complete: return False
+    class_ws = omikron.classinfo.open_worksheet(class_wb)
 
     for class_name, student_names in omikron.chrome.get_class_student_dict().items():
         if len(student_names) == 0:
             continue
 
-        complete, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_ws, class_name)
-        if not complete: continue
+        exist, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_name, ws=class_ws)
+        if not exist: continue
 
         WRITE_LOCATION = start = ws.max_row + 1
 
@@ -101,36 +106,33 @@ def make_file() -> bool:
         ws.cell(row, DataForm.MOCKTEST_SCORE_COLUMN).protection    = Protection(locked=False)
         ws.cell(row, DataForm.MAKEUP_TEST_CHECK_COLUMN).protection = Protection(locked=False)
 
-    if os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx"):
+    if os.path.isfile(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx"):
         i = 1
         while True:
-            if not os.path.isfile(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx"):
-                wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx")
+            if not os.path.isfile(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx"):
+                wb.save(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}) ({i}).xlsx")
                 break
             i += 1
     else:
-        wb.save(f"./데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx")
-
-    return True
+        wb.save(f"{omikron.config.DATA_DIR}/데일리테스트 기록 양식({datetime.today().strftime('%m.%d')}).xlsx")
 
 def open(filepath, data_only=True) -> xl.Workbook:
     return xl.load_workbook(filepath, data_only=data_only)
 
 def open_worksheet(wb:xl.Workbook):
     try:
-        return True, wb[DataForm.DEFAULT_NAME]
+        return wb[DataForm.DEFAULT_NAME]
     except:
-        OmikronLog.error(f"'{DataForm.DEFAULT_NAME}.xlsx'의 시트명을 '{DataForm.DEFAULT_NAME}'로 변경해 주세요.")
-        return False, None
+        raise NoMatchingSheetException(f"'{DataForm.DEFAULT_NAME}.xlsx'의 시트명을 '{DataForm.DEFAULT_NAME}'로 변경해 주세요.")
 
 # 파일 유틸리티
 def data_validation(filepath:str) -> bool:
     """
     데이터 입력 양식의 데이터가 올바르게 입력되었는지 확인
     """
+    errors = []
     wb = open(filepath)
-    complete, ws = open_worksheet(wb)
-    if not complete: return False
+    ws = open_worksheet(wb)
     
     form_checked      = True
     dailytest_checked = False
