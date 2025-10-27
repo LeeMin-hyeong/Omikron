@@ -8,7 +8,7 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   },
   "update-class": {
     title: "반 업데이트",
-    guide: "반 목록을 수정하여 데이터파일에 반영합니다. 수정된 반 정보 파일에서 반의 상세 정보를 작성해 주세요",
+    guide: "아이소식의 반 정보를 불러와 반 목록을 수정합니다. 수정된 반 정보 파일에서 반의 상세 정보를 작성해 주세요.",
     steps: ["반/학기 파라미터 확인", "기존 명부 백업", "신규 명부 반영", "요약 리포트 생성"],
   },
   "rename-data-file": {
@@ -18,12 +18,12 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   },
   "update-students": {
     title: "학생 정보 업데이트",
-    guide: "아이소식을 기준으로 학생 정보 리스트를 최신화합니다.",
+    guide: "아이소식에 등록된 학생 기준으로 '학생 정보.xlsx'를 최신화합니다.",
     steps: ["학생 이력 로드", "변경사항 계산", "엑셀 반영", "로그 저장"],
   },
   "update-teacher": {
     title: "담당 선생님 변경",
-    guide: "특정 반의 담당 선생님을 변경합니다.",
+    guide: "특정 반의 담당 선생님을 변경합니다. 반 정보 파일과 데이터 파일에 변경 사항이 반영됩니다.",
     steps: [],
   },
   "generate-daily-form": {

@@ -89,8 +89,8 @@ export default function HolidayDialog({
             학원 휴일을 체크하여 해당 날짜에 예정된 <b style={{color: "red"}}>재시험</b>을 <br/>
             <b style={{color: "red"}}>일주일(+7일) 연기</b>합니다.<br/>
             학생의 가능한 재시험 일정(학원 휴일로 인하여 연기된<br/>
-            재시험 일정을 포함) 중 <b style={{color: "red"}}>가장 가까운 일정</b>을 자동으로<br/>선택합니다.<br/>
-            학원 휴일은 데스크에 문의해주세요
+            재시험 일정 포함) 중 <b style={{color: "red"}}>가장 가까운 일정</b>을 자동으로<br/>선택합니다.<br/>
+            학원 휴일은 데스크에 문의해주세요.
         </DialogDescription>
 
         <div className="grid gap-2">

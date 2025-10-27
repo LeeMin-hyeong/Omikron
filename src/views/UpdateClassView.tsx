@@ -534,10 +534,10 @@ export default function UpdateClassView({ meta }: ViewProps) {
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <div className="text-sm text-muted-foreground flex flex-row justify-start items-center">
-              <div className="bg-green-500 w-4 h-4 rounded mr-1"/> <p>: 아이소식에는 존재하지만 데이터 파일에 존재하지 않는 반(추가)</p>
+              <div className="bg-green-500 w-4 h-4 rounded mr-1"/> <p>: 아이소식에는 존재하지만 데이터 파일에 존재하지 않는 반 (추가할 반)</p>
             </div>
             <div className="text-sm text-muted-foreground flex flex-row justify-start items-center">
-              <div className="bg-amber-500 w-4 h-4 rounded mr-1"/> <p>: 아이소식에 존재하지 않지만 데이터 파일에는 존재하는 반(삭제)</p>
+              <div className="bg-amber-500 w-4 h-4 rounded mr-1"/> <p>: 아이소식에 존재하지 않지만 데이터 파일에는 존재하는 반 (삭제할 반)</p>
             </div>
           </div>
           <div className="flex gap-2">

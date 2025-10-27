@@ -19,6 +19,7 @@ import {
   CalendarDays,
   FolderOpen,
   FolderSync,
+  CalendarCheck,
 } from "lucide-react"
 
 import { getActionView } from "@/views";
@@ -115,7 +116,8 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
   const [mountedKeys, setMountedKeys] = useState<OmikronActionKey[]>(["welcome"]);
   // const View = useMemo(() => getActionView(selected), [selected])
   const [missing, setMissing] = useState(false);
-  const { openHolidayDialog } = useHolidayDialog()
+  const [holidayChecked, setHolidayChecked] = useState(false);
+  const { openHolidayDialog, lastHolidaySelection } = useHolidayDialog()
   const HELP_URL = "https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4"
 
   // ✅ 프리체크 상태 + 지속 폴링
@@ -169,6 +171,10 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
   }, [missing]);
 
   useEffect(() => {
+    if(lastHolidaySelection) setHolidayChecked(true);
+  }, [lastHolidaySelection])
+
+  useEffect(() => {
   setMountedKeys(prev => (prev.includes(selected) ? prev : [...prev, selected]));
 }, [selected]);
 
@@ -192,11 +198,11 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
             <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
               <FolderSync className="h-4 w-4" /> 데이터 저장 위치 변경
             </Button>
-            <Button variant="outline" className="rounded-xl" onClick={() => openHolidayDialog()}>
-              <CalendarDays className="mr-2 h-4 w-4" /> 학원 휴일 설정
+            <Button variant="outline" className="rounded-xl w-40 justify-between" onClick={() => openHolidayDialog()}>
+              {holidayChecked ? <><CalendarCheck className="h-4 w-4"/>학원 휴일 설정됨</> : <><CalendarDays className="mr-4 h-4 w-4" /> 학원 휴일 설정</> } 
             </Button>
             <Button variant="outline" className="rounded-xl" onClick={handleOpenHelp}>
-              <HelpCircle className="mr-2 h-4 w-4" /> 사용법 및 도움말
+              <HelpCircle className="h-4 w-4" /> 사용법 및 도움말
             </Button>
           </div>
         </div>

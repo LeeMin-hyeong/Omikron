@@ -188,7 +188,7 @@ export default function InitView({
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
-              <FolderSync className="h-4 w-4" /> 데이터 저장 위치 변경
+              <FolderSync className="h-4 w-4" /> 데이터 저장 위치 설정
             </Button>
             <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
               <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더
