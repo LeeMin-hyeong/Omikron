@@ -18,7 +18,7 @@ type State = {
   missing: string[];
 };
 
-export default function InitView({
+export default function PrereqSetupView({
   state,
   onRefresh,
 }: {
