@@ -1,8 +1,10 @@
+import logging
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from win32process import CREATE_NO_WINDOW # only works in Windows
-from webdriver_manager.chrome import ChromeDriverManager
+# from webdriver_manager.chrome import ChromeDriverManager
 
 import omikron.dataform
 import omikron.studentinfo
@@ -14,7 +16,10 @@ from omikron.log import OmikronLog
 from omikron.util import calculate_makeup_test_schedule, date_to_kor_date
 
 try:
-    service = Service(ChromeDriverManager().install().replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver.exe"))
+    os.environ['WDM_LOG'] = str(logging.NOTSET)
+    os.environ['WDM_PROGRESS_BAR'] = str(0)
+    # service = Service(ChromeDriverManager().install().replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver.exe"))
+    service = Service()
     service.creation_flags = CREATE_NO_WINDOW
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
@@ -118,12 +123,10 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     기록 양식의 데이터를 추출하여 아이소식 스크립트 작성
     """
     form_wb = omikron.dataform.open(filepath)
-    complete, form_ws = omikron.dataform.open_worksheet(form_wb)
-    if not complete or form_ws is None: return False
+    form_ws = omikron.dataform.open_worksheet(form_wb)
 
     student_wb = omikron.studentinfo.open()
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete or student_ws is None: return False
+    student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
@@ -131,18 +134,24 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     
     # 아이소식 접속
     driver.get(URL)
+    driver.implicitly_wait(1)
     driver.execute_script(f"arguments[0].value = '{TEST_RESULT_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '시험 결과 전송'")
 
     driver.execute_script(f"window.open('{URL}')")
+    driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_NO_SCHEDULE_TAB])
     driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_NO_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '재시험 일정 없는 학생'")
 
     driver.execute_script(f"window.open('{URL}')")
+    driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_SCHEDULE_TAB])
     driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '재시험 일정 있는 학생'")
 
     driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
@@ -153,14 +162,16 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     for i in range(2, form_ws.max_row + 1):
         # 반 필터링
         if form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None:
-            class_name         = str(form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value)
-            daily_test_name    = str(form_ws.cell(i, DataForm.DAILYTEST_NAME_COLUMN).value)
-            mock_test_name     = str(form_ws.cell(i, DataForm.MOCKTEST_NAME_COLUMN).value)
-            daily_test_average = str(form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value)
-            mock_test_average  = str(form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value)
+            class_name         = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
+            daily_test_name    = form_ws.cell(i, DataForm.DAILYTEST_NAME_COLUMN).value
+            mock_test_name     = form_ws.cell(i, DataForm.MOCKTEST_NAME_COLUMN).value
+            daily_test_average = form_ws.cell(i, DataForm.DAILYTEST_AVERAGE_COLUMN).value
+            mock_test_average  = form_ws.cell(i, DataForm.MOCKTEST_AVERAGE_COLUMN).value
 
             # 반 전체가 시험을 응시하지 않은 경우
+            keep_continue = False
             if daily_test_name is None and mock_test_name is None:
+                keep_continue = True
                 continue
 
             # 테이블 인덱스
@@ -169,6 +180,10 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
             # 학생 인덱스 dict
             trs = driver.find_element(By.ID, f"table_{str(class_index)}").find_elements(By.CLASS_NAME, "style12")
             student_index_dict = {tr.find_element(By.CLASS_NAME, "style9").text.strip() : i for i, tr in enumerate(trs)}
+
+        # 반 전체가 시험을 응시하지 않은 경우
+        if keep_continue:
+            continue
 
         student_name     = form_ws.cell(i, DataForm.STUDENT_NAME_COLUMN).value
         daily_test_score = form_ws.cell(i, DataForm.DAILYTEST_SCORE_COLUMN).value
@@ -264,15 +279,12 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
 
         tds[1].find_element(By.TAG_NAME, "input").send_keys(' \b')
 
-    return True
-
-def send_individual_test_message(student_name:str, class_name:int, test_name:int, test_score:int, test_average:int, makeup_test_check:bool, makeup_test_date:dict) -> bool:
+def send_individual_test_message(student_name:str, class_name:int, test_name:int, test_score:int, test_average:int, makeup_test_check:bool, makeup_test_date:dict):
     """
     개별 시험에 대한 결과 메시지 전송
     """
     student_wb = omikron.studentinfo.open()
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete: return False
+    student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
@@ -280,6 +292,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     
     # 아이소식 접속
     driver.get(URL)
+    driver.execute_script("document.title = '시험 결과 전송'")
     driver.execute_script(f"arguments[0].value = '{TEST_RESULT_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
 
@@ -295,8 +308,8 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     try:
         student_index = student_index_dict[student_name]
     except KeyError:
-        OmikronLog.warning(f"아이소식의 {class_name} 내 {student_name} 학생이 존재하지 않습니다.")
-        return False
+        OmikronLog.error(f"아이소식의 {class_name} 내 {student_name} 학생이 존재하지 않습니다.")
+        return
 
     trs = driver.find_element(By.ID, f"table_{str(class_index)}").find_elements(By.CLASS_NAME, "style12")
     tds = trs[student_index].find_elements(By.TAG_NAME, "td")
@@ -305,12 +318,14 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     tds[2].find_element(By.TAG_NAME, "input").send_keys(test_average)
 
     if test_score >= 80:
-        return True
+        return
     if makeup_test_check:
-        return True
+        return
 
+    # 재시험 안내
     driver.execute_script(f"window.open('{URL}')")
     driver.switch_to.window(driver.window_handles[Chrome.INDIVIDUAL_MAKEUPTEST_TAB])
+    driver.execute_script("document.title = '재시험 안내'")
 
     # 학생 정보 검색
     info_exists, makeup_test_weekday, makeup_test_time, _ = omikron.studentinfo.get_student_info(student_ws, student_name)
@@ -340,7 +355,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
 
                         driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
-                        return True
+                        return
                     else:
                         OmikronLog.warning(f"{student_name}의 재시험 시간이 올바른 양식이 아닙니다.")
 
@@ -351,7 +366,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
 
                     driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
-                    return True
+                    return
 
             # 날짜 지정 / 시간 미지정
             driver.execute_script(f"arguments[0].value = '{calculated_schedule_str}'", tds[1].find_element(By.TAG_NAME, "input"))
@@ -359,7 +374,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
 
             driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
-            return True
+            return
         else:
             # 재시험 일정 계산 중 오류
             OmikronLog.warning(f"{student_name}의 재시험 요일이 올바른 양식이 아닙니다.")
@@ -375,4 +390,4 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
 
     driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
-    return True
+    return
