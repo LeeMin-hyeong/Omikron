@@ -27,9 +27,9 @@ import { descriptions } from "@/meta/descriptions";
 import type { OmikronActionKey } from "@/types/omikron";
 import FullHeader from "@/components/FullHeader";
 import { rpc } from "pyloid-js";
-import InitView from "./views/PrereqSetupView";
-import useHolidayDialog from "./components/holiday-dialog/useHolidayDialog";
-import { useAppDialog } from "./components/app-dialog/AppDialogProvider";
+import PrereqSetupView from "@/views/PrereqSetupView";
+import useHolidayDialog from "@/components/holiday-dialog/useHolidayDialog";
+import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 
 interface Props {
   onAction?: (key: OmikronActionKey) => void
@@ -246,7 +246,7 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
           {/* Right pane */}
           <section className="flex flex-col p-3 min-h-0">
             { state && !state.ok ? (
-              <InitView state={state} onRefresh={fetchState} />
+              <PrereqSetupView state={state} onRefresh={fetchState} />
             ) : (
               <>
                 {selected === "welcome" ? null : <FullHeader title={descriptions[selected].title} />}
