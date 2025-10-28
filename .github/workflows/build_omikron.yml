@@ -42,12 +42,7 @@ jobs:
         run: npm ci
 
       - name: Install uv (Astral)
-        shell: pwsh
-        run: |
-          iwr https://astral.sh/uv/install.ps1 -UseBasicParsing | iex
-          $uvbin = "$env:USERPROFILE\.local\bin"
-          echo "$uvbin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          uv --version
+        uses: astral-sh/setup-uv@v6
 
       - name: Setup Python
         uses: actions/setup-python@v5
