@@ -1,10 +1,7 @@
-import logging
-import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from win32process import CREATE_NO_WINDOW # only works in Windows
-# from webdriver_manager.chrome import ChromeDriverManager
 
 import omikron.dataform
 import omikron.studentinfo
@@ -16,9 +13,6 @@ from omikron.util import calculate_makeup_test_schedule, date_to_kor_date
 from omikron.progress import Progress
 
 try:
-    os.environ['WDM_LOG'] = str(logging.NOTSET)
-    os.environ['WDM_PROGRESS_BAR'] = str(0)
-    # service = Service(ChromeDriverManager().install().replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver.exe"))
     service = Service()
     service.creation_flags = CREATE_NO_WINDOW
     options = webdriver.ChromeOptions()

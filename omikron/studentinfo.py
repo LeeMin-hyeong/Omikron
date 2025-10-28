@@ -7,6 +7,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.datavalidation import DataValidation
 
 import omikron.chrome
+import omikron.config
 
 from omikron.defs import StudentInfo
 from omikron.exception import NoMatchingSheetException, FileOpenException

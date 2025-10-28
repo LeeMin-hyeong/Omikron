@@ -1,7 +1,5 @@
 import os
 import openpyxl as xl
-import pythoncom  
-import win32com.client
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
@@ -13,7 +11,6 @@ import omikron.config
 
 from omikron.defs import ClassInfo
 from omikron.exception import NoMatchingSheetException, FileOpenException
-
 
 # 파일 기본 작업
 def make_file():
@@ -39,7 +36,6 @@ def make_file():
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
     save(wb)
-
 
 def open(data_only:bool=True) -> xl.Workbook:
     return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
@@ -71,7 +67,7 @@ def isopen() -> bool:
 # 파일 유틸리티
 def make_backup_file():
     wb = open()
-    wb.save(f"{omikron.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
 
 def get_class_info(class_name:str, ws:Worksheet = None):
     """

@@ -13,7 +13,6 @@ import omikron.config
 from omikron.defs import DataForm
 from omikron.exception import NoMatchingSheetException
 
-
 class DataValidationException(Exception):
     pass
 
