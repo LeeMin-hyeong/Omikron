@@ -1,5 +1,4 @@
 # .github/workflows/build-windows.yml
-# this build file is for ^3.0.0
 name: Build Windows App (Manual)
 
 on:
@@ -9,9 +8,7 @@ on:
         description: "빌드할 브랜치 선택"
         required: true
         type: choice
-        options:
-          - v3.0.0
-          - main
+        options: [v3.0.0, main]
       version:
         description: "릴리스 태그(선택, ex: v3.0.0). 입력 시 Release 생성"
         required: false
@@ -26,9 +23,14 @@ concurrency:
 jobs:
   build-win:
     runs-on: windows-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+
     steps:
       - name: Checkout (selected branch)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref }}
 
@@ -51,10 +53,17 @@ jobs:
 
       - name: Project setup
         shell: pwsh
-        run: npm run setup
+        run: |
+          chcp 65001 > $null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+          npm run setup
 
       - name: Build
-        run: npm run build
+        shell: pwsh
+        run: |
+          chcp 65001 > $null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+          npm run build
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
