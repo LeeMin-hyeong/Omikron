@@ -34,6 +34,10 @@ echo.
 cd OmikronTemp
 C:\Users\%USERNAME%\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.10_qbz5n2kfra8p0\LocalCache\local-packages\Python310\Scripts\pyinstaller.exe -F --exclude numpy -n Omikron.exe omikron.py
 
+IF %ERRORLEVEL% NEQ 0 (
+    pause
+    exit
+)
 cd ..
 move OmikronTemp\dist\* .
 rd /s /q OmikronTemp
