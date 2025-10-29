@@ -924,6 +924,7 @@ class GUI():
                 if os.path.isfile(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx"):
                     omikron.classinfo.delete_temp()
                     OmikronLog.log(r"반 업데이트를 중단하였습니다.")
+                    return
 
             thread = threading.Thread(target=omikron.thread.update_class_thread, daemon=True)
             thread.start()
