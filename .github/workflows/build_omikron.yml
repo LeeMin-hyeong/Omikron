@@ -1,0 +1,4 @@
+name: Build Windows App (Manual)
+
+on:
+  workflow_dispatch:
