@@ -30,9 +30,13 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
     try {
       setLoading(true);
       const res = await rpc.call("get_class_list", {});
-      setClassList(Array.isArray(res) ? (res as string[]) : []);
-      if (selectedClass && !res?.includes(selectedClass)) {
-        setSelectedClass("");
+      if(res?.ok){
+        setClassList(Array.isArray(res.data) ? (res.data as string[]) : []);
+        if (selectedClass && !res.data?.includes(selectedClass)) {
+          setSelectedClass("");
+        }
+      } else {
+        await dialog.error({ title: "반 정보 파일 데이터 수집 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `반 목록을 가져오는데 실패했습니다: ${e?.message || e}`});
@@ -92,10 +96,10 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       });
       
       if (res?.ok) {
-        await dialog.confirm({ title: "성공", message: "교사명이 변경되었습니다." });
+        await dialog.confirm({ title: "성공", message: "담당 선생님이 변경되었습니다." });
         setDone(true);
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "변경에 실패했습니다." });
+        await dialog.error({ title: "담당 선생님 변경 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });

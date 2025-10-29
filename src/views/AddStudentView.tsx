@@ -28,23 +28,27 @@ export default function AddStudentView({ onAction }: ViewProps) {
       setLoading(true);
       const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
 
-      // 응답 파싱(호환 처리)
-      let classStudentDict: Record<string, unknown> = {};
-      if (Array.isArray(res) && res.length >= 1 && typeof res[0] === "object") {
-        classStudentDict = res[0] as Record<string, unknown>;
-      } else if (res?.class_student_dict) {
-        classStudentDict = res.class_student_dict as Record<string, unknown>;
-      }
-
-      // 반 목록 생성(이름 기준)
-      const names = Object.keys(classStudentDict).sort();
-      const list = names.map((name) => ({ id: name, name }));
-
-      setClasses(list);
-
-      // 선택값이 목록에 없으면 초기화
-      if (toClass && !list.some((c) => (c.id ?? c.name) === toClass)) {
-        setToClass("");
+      if(res?.ok) {        
+        // 응답 파싱(호환 처리)
+        let classStudentDict: Record<string, unknown> = {};
+        if (Array.isArray(res.data) && res.data.length >= 1 && typeof res.data[0] === "object") {
+          classStudentDict = res.data[0] as Record<string, unknown>;
+        } else if (res.data?.class_student_dict) {
+          classStudentDict = res.data.class_student_dict as Record<string, unknown>;
+        }
+        
+        // 반 목록 생성(이름 기준)
+        const names = Object.keys(classStudentDict).sort();
+        const list = names.map((name) => ({ id: name, name }));
+        
+        setClasses(list);
+        
+        // 선택값이 목록에 없으면 초기화
+        if (toClass && !list.some((c) => (c.id ?? c.name) === toClass)) {
+          setToClass("");
+        }
+      } else {
+        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: res?.error || "" })
       }
     } catch {
       setClasses([]);
@@ -79,15 +83,23 @@ export default function AddStudentView({ onAction }: ViewProps) {
         target_class_name: toClass,
       }); // 서버: {ok:true}
       if (res?.ok) {
-        await dialog.confirm({ title: "완료", message: "학생이 반에 추가되었습니다." });
-        setStudent("");
+        const warnings: string[] = Array.isArray(res?.warnings) ? res.warnings : [];
+        if (warnings.length > 0) {
+          await dialog.warning({
+            title: `완료 (경고 ${warnings.length}건)`,
+            message: warnings.join("\n"),
+          });
+        } else {
+          await dialog.confirm({ title: "완료", message: "학생이 반에 추가되었습니다." });
+        }
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "추가에 실패했습니다." });
+        await dialog.error({ title: "학생 추가 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      setStudent("");
       setTimeout(() => {
         handleRefresh()
       }, 5000);

@@ -633,7 +633,7 @@ def update_class():
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx")
     wb = excel.Workbooks.Open(abs_path)
     wb.Save()
     wb.Close()
@@ -782,7 +782,7 @@ def update_class():
 
     return rescoping_formula(wb)
 
-def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.Workbook=None):
+def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
     """
     학생 추가
     
@@ -793,9 +793,13 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
     if wb is None:
         wb = open()
 
+    warnings = []
+
     for ws in wb.worksheets:
         if ws.title not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
+
+        exist = False
 
         CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
@@ -805,7 +809,7 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
                 class_index = row+2
                 break
         else:
-            prog.warning(f"{ws.title} 시트에 {target_class_name} 반이 존재하지 않습니다.")
+            warnings.append(f"{ws.title} 시트에 {target_class_name} 반이 존재하지 않습니다.")
             continue
 
         while ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
@@ -816,10 +820,13 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
             elif ws.cell(class_index, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(class_index, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
                 class_index += 1
             elif ws.cell(class_index, STUDENT_NAME_COLUMN).value == student_name:
-                prog.error(f"{student_name} 학생이 이미 존재합니다.")
-                return False, None
+                warnings.append(f"{ws.title} 시트에 {student_name} 학생이 이미 존재합니다.")
+                exist = True
+                break
             else:
                 class_index += 1
+
+        if exist: continue
 
         ws.insert_rows(class_index)
         # ws.cell(class_index, TEST_TIME_COLUMN).value         = ws.cell(class_index-1, TEST_TIME_COLUMN).value
@@ -837,7 +844,9 @@ def add_student(student_name:str, target_class_name:str, prog: Progress, wb:xl.W
         ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
         ws.cell(class_index, AVERAGE_SCORE_COLUMN).font      = Font(bold=True)
 
-    return rescoping_formula(wb)
+    rescoping_formula(wb)
+
+    return warnings
 
 def delete_student(student_name:str):
     """
@@ -867,7 +876,7 @@ def delete_student(student_name:str):
                 # 퇴원한 학생이 보이지 않도록 수정(필터 검색 시 확인 가능)
                 ws.row_dimensions[row].hidden = True
 
-    return True, wb
+    save(wb)
 
 def move_student(student_name:str, target_class_name:str, current_class_name:str):
     """

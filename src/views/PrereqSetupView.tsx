@@ -42,7 +42,7 @@ export default function PrereqSetupView({
       if (res?.ok) {
         onRefresh();
       } else {
-        dialog.error(res?.error || "반 정보 생성에 실패했습니다.");
+        await dialog.error({title: "반 정보 파일 생성 실패", message: res?.error});
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `${e}`})
@@ -59,7 +59,7 @@ export default function PrereqSetupView({
       if (res?.ok) {
         onRefresh();
       } else {
-        dialog.error(res?.error || "데이터 파일 생성에 실패했습니다.");
+        await dialog.error({title: "데이터 파일 생성 실패", message: res?.error});
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `${e}`})
@@ -76,7 +76,7 @@ export default function PrereqSetupView({
       if (res?.ok) {
         onRefresh();
       } else {
-        dialog.error(res?.error || "학생 정보 생성에 실패했습니다.");
+        await dialog.error({title: "학생 정보 파일 생성 실패", message: res?.error});
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `${e}`})
@@ -91,7 +91,7 @@ export default function PrereqSetupView({
       if (res?.ok) {
         await dialog.confirm({title: "성공", message: "데이터 저장 위치를 변경하였습니다."})
       } else {
-        alert(res?.error || "데이터 파일 생성에 실패했습니다.");
+        await dialog.error({title: "데이터 저장 위치 변경 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `${e}`})

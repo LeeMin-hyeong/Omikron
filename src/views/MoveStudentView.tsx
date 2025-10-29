@@ -46,24 +46,28 @@ export default function MoveStudentView({ onAction }: ViewProps) {
     try {
       setLoading(true);
       const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, _]
-      let csd: ClassStudentDict = {};
-      if (Array.isArray(res) && res.length >= 1 && typeof res[0] === "object") {
-        csd = res[0] as ClassStudentDict;
-      } else if (res?.class_student_dict) {
-        csd = res.class_student_dict as ClassStudentDict;
+      if(res?.ok){
+        let csd: ClassStudentDict = {};
+        if (Array.isArray(res.data) && res.data.length >= 1 && typeof res.data[0] === "object") {
+          csd = res.data[0] as ClassStudentDict;
+        } else if (res.data?.class_student_dict) {
+          csd = res.data.class_student_dict as ClassStudentDict;
+        }
+        setClassStudentMap(csd);
+  
+        const classNames = Object.keys(csd).sort();
+        setClasses(classNames.map((name) => ({ id: name, name })));
+  
+        // 기존 선택값 보정
+        if (fromClass && !csd[fromClass]) {
+          setFromClass("");
+          setStudents([]);
+          setStudentId("");
+        }
+        if (toClass && !csd[toClass]) setToClass("");
+      } else {
+        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: res?.error || "" })
       }
-      setClassStudentMap(csd);
-
-      const classNames = Object.keys(csd).sort();
-      setClasses(classNames.map((name) => ({ id: name, name })));
-
-      // 기존 선택값 보정
-      if (fromClass && !csd[fromClass]) {
-        setFromClass("");
-        setStudents([]);
-        setStudentId("");
-      }
-      if (toClass && !csd[toClass]) setToClass("");
     } catch {
       setClassStudentMap({});
       setClasses([]);
@@ -129,7 +133,7 @@ export default function MoveStudentView({ onAction }: ViewProps) {
         await dialog.confirm({ title: "완료", message: `${studentName} 학생을 ${toName} 반으로 이동하였습니다.` });
         setToClass("");
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "변경에 실패했습니다." });
+        await dialog.error({ title: "학생 반 이동 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });

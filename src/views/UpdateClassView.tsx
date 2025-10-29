@@ -245,46 +245,52 @@ export default function UpdateClassView({ meta }: ViewProps) {
         rpc.call("get_datafile_data", {}),
         rpc.call("get_aisosic_data", {}), // ★ 아이소식 전체 목록(string[])
       ]);
-
-      // 데이터 파일의 반 목록
-      let classStudentDict: Record<string, unknown> = {};
-      if (Array.isArray(dfRes) && typeof dfRes[0] === "object") {
-        classStudentDict = dfRes[0] as Record<string, unknown>;
-      } else if (dfRes?.class_student_dict) {
-        classStudentDict = dfRes.class_student_dict as Record<string, unknown>;
+      
+      if(dfRes.ok && aisosicRes.ok){
+        // 데이터 파일의 반 목록
+        let classStudentDict: Record<string, unknown> = {};
+        if (Array.isArray(dfRes.data) && typeof dfRes.data[0] === "object") {
+          classStudentDict = dfRes.data[0] as Record<string, unknown>;
+        } else if (dfRes.data?.class_student_dict) {
+          classStudentDict = dfRes.data.class_student_dict as Record<string, unknown>;
+        }
+        const currentNames = Object.keys(classStudentDict).sort();
+  
+        // 아이소식 전체 목록
+        const aisosicAll: string[] = Array.isArray(aisosicRes.data) ? aisosicRes.data : [];
+        const aisosicSet = new Set(aisosicAll);
+  
+        // 아이소식에는 있는데 데이터파일엔 없는 목록(=추가 후보 → 좌측, 초록)
+        const aisosicOnlyNames = aisosicAll.filter((n) => !classStudentDict[n]);
+  
+        // 데이터파일에는 있지만 아이소식엔 없는 목록(=주황)
+        const dataOnlyNames = currentNames.filter((n) => !aisosicSet.has(n));
+        const dataOnlySet = new Set(dataOnlyNames);
+  
+        // 리스트 주입 (플래그를 아이템에 넣어서 이동해도 유지)
+        center.setItems(
+          currentNames.map((n) => ({
+            id: n,
+            name: n,
+            dataOnly: dataOnlySet.has(n),  // 주황
+          }))
+        );
+  
+        left.setItems(
+          aisosicOnlyNames.map((n) => ({
+            id: n,
+            name: n,
+            aisosicOnly: true,             // 초록
+          }))
+        );
+  
+        right.setItems([]); // 초기엔 비움
+        left.clearSelection(); center.clearSelection(); right.clearSelection();
+      } else if (!dfRes.ok) {
+        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: dfRes?.error || "" })
+      } else if (!aisosicRes.ok) {
+        await dialog.error({ title: "아이소식 데이터 수집 실패", message: aisosicRes?.error || "" })
       }
-      const currentNames = Object.keys(classStudentDict).sort();
-
-      // 아이소식 전체 목록
-      const aisosicAll: string[] = Array.isArray(aisosicRes) ? aisosicRes : [];
-      const aisosicSet = new Set(aisosicAll);
-
-      // 아이소식에는 있는데 데이터파일엔 없는 목록(=추가 후보 → 좌측, 초록)
-      const aisosicOnlyNames = aisosicAll.filter((n) => !classStudentDict[n]);
-
-      // 데이터파일에는 있지만 아이소식엔 없는 목록(=주황)
-      const dataOnlyNames = currentNames.filter((n) => !aisosicSet.has(n));
-      const dataOnlySet = new Set(dataOnlyNames);
-
-      // 리스트 주입 (플래그를 아이템에 넣어서 이동해도 유지)
-      center.setItems(
-        currentNames.map((n) => ({
-          id: n,
-          name: n,
-          dataOnly: dataOnlySet.has(n),  // 주황
-        }))
-      );
-
-      left.setItems(
-        aisosicOnlyNames.map((n) => ({
-          id: n,
-          name: n,
-          aisosicOnly: true,             // 초록
-        }))
-      );
-
-      right.setItems([]); // 초기엔 비움
-      left.clearSelection(); center.clearSelection(); right.clearSelection();
     } catch (e) {
       left.setItems([]); center.setItems([]); right.setItems([]);
       left.clearSelection(); center.clearSelection(); right.clearSelection();
@@ -341,20 +347,26 @@ export default function UpdateClassView({ meta }: ViewProps) {
   // 1단계 다음 → 2단계 목록 로드
   const goStep2 = async () => {
     if (!step1Checked) return;
+    setStep1Open(false);
     setStep2Open(true);
     setStep2Checked(false);
     setStep2Loading(true);
     try {
       // 임시 파일에서 반 이름 리스트 가져오기
       const res = await rpc.call("get_new_class_list", {}); // string[]
-      setTempClasses(Array.isArray(res) ? res : []);
+      if(res?.ok){
+        setTempClasses(Array.isArray(res.data) ? res.data : []);
+      } else {
+        setStep2Loading(false);
+        setStep2Open(false);
+        await dialog.error({ title: "임시 반 정보 데이터 수집 실패", message: res?.error || "" })
+      }
     } catch (e) {
       setTempClasses([]);
       setStep2Open(false);
       await dialog.error({ title: "에러", message: `에러가 발생하였습니다: ${e}` })
     } finally {
       setStep2Loading(false);
-      setStep1Open(false);
     }
   };
 
@@ -372,7 +384,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
         setProgressOpen(false);
         await dialog.confirm({title: "성공", message: "반 업데이트가 완료되었습니다."})
       } else {
-        throw new Error(res?.error ?? "반 업데이트 적용 중 오류가 발생했습니다.");
+        await dialog.error({ title: "반 업데이트 실패", message: res?.error || "" });
       }
     } catch (e) {
       console.error(e);
@@ -385,12 +397,11 @@ export default function UpdateClassView({ meta }: ViewProps) {
 
   const handleCancle = async () => {
     try {
-      const res = await rpc.call("delete_class_info_temp", {});
-      if(res?.ok) {
-        loadData();
-      }
+      await rpc.call("delete_class_info_temp", {});
     } catch (e) {
       dialog.error({title: "에러", message: `${e}`})
+    } finally {
+      loadData();
     }
   }
 

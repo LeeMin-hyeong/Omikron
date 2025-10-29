@@ -2,6 +2,7 @@ import os
 import json
 
 from omikron.errorui import no_config_file_error, corrupted_config_file_error
+from omikron.exception import FileOpenException
 
 try:
     config = json.load(open("./config.json", encoding="UTF8"))
@@ -31,8 +32,10 @@ if not os.path.exists(f"{DATA_DIR}/data/backup"):
 def change_data_file_name(new_filename:str):
     global config, DATA_FILE_NAME, DATA_DIR
 
-    os.rename(f"{DATA_DIR}/data/{DATA_FILE_NAME}.xlsx", f"{DATA_DIR}/data/{new_filename}.xlsx")
-
+    try:
+        os.rename(f"{DATA_DIR}/data/{DATA_FILE_NAME}.xlsx", f"{DATA_DIR}/data/{new_filename}.xlsx")
+    except:
+        raise FileOpenException(f"{DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
     DATA_FILE_NAME = config["dataFileName"] = new_filename
 
     json.dump(config, open("./config.json", 'w', encoding="UTF8"), ensure_ascii=False, indent="    ")

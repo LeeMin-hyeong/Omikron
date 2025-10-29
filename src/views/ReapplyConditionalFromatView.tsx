@@ -24,7 +24,7 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
       if (res?.ok) {
         const warnings: string[] = Array.isArray(res?.warnings) ? res.warnings : [];
         if (warnings.length > 0) {
-          await dialog.confirm({
+          await dialog.warning({
             title: `완료 (경고 ${warnings.length}건)`,
             message: warnings.join("\n"),
           });
@@ -33,7 +33,7 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
         }
         setDone(true);
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "재지정에 실패했습니다." });
+        await dialog.error({ title: "조건부 서식 재지정 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });

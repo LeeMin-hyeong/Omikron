@@ -52,30 +52,36 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         rpc.call("get_makeuptest_data", {}), // {학생: {시험: row}}
       ]);
 
-      // class_student_dict 파싱
-      let csd: ClassStudentDict = {};
-      if (Array.isArray(datafileRes) && typeof datafileRes[0] === "object") {
-        csd = datafileRes[0] as ClassStudentDict;
-      } else if (datafileRes?.class_student_dict) {
-        csd = datafileRes.class_student_dict as ClassStudentDict;
+      if(datafileRes.ok && makeupRes.ok){
+        // class_student_dict 파싱
+        let csd: ClassStudentDict = {};
+        if (Array.isArray(datafileRes.data) && typeof datafileRes.data[0] === "object") {
+          csd = datafileRes.data[0] as ClassStudentDict;
+        } else if (datafileRes.data?.class_student_dict) {
+          csd = datafileRes.data.class_student_dict as ClassStudentDict;
+        }
+        setClassStudentMap(csd);
+  
+        // 재시험 맵 파싱
+        const makeup: MakeUpMap = (makeupRes.data ?? {}) as MakeUpMap;
+        setMakeupMap(makeup);
+  
+        // 반 목록 세팅
+        const names = Object.keys(csd).sort();
+        setClasses(names.map((n) => ({ id: n, name: n })));
+  
+        // 선택값 보정
+        // if (klass && !csd[klass]) {
+        setKlass("");
+        setStudents([]); setStudentId("");
+        setTests([]); setTestId("");
+        setScore("")
+        // }
+      } else if (!datafileRes.ok) {
+        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: datafileRes?.error || "" })
+      } else if (!makeupRes.ok) {
+        await dialog.error({ title: "재시험 명단 파일 데이터 수집 실패", message: makeupRes?.error || "" })
       }
-      setClassStudentMap(csd);
-
-      // 재시험 맵 파싱
-      const makeup: MakeUpMap = (makeupRes ?? {}) as MakeUpMap;
-      setMakeupMap(makeup);
-
-      // 반 목록 세팅
-      const names = Object.keys(csd).sort();
-      setClasses(names.map((n) => ({ id: n, name: n })));
-
-      // 선택값 보정
-      // if (klass && !csd[klass]) {
-      setKlass("");
-      setStudents([]); setStudentId("");
-      setTests([]); setTestId("");
-      setScore("")
-      // }
     } catch {
       setClassStudentMap({});
       setMakeupMap({});
@@ -160,7 +166,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다." });
         setScore("");
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "저장에 실패했습니다." });
+        await dialog.error({ title: "재시험 결과 저장 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });

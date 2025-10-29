@@ -151,6 +151,8 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
       const res = await rpc.call("change_data_dir", {});
       if (res?.ok) {
         await dialog.confirm({title: "성공", message: "데이터 저장 위치를 변경하였습니다."})
+      } else {
+        await dialog.error({title: "데이터 저장 위치 변경 실패", message: res?.error});
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `${e}`})

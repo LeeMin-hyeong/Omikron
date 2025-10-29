@@ -59,7 +59,10 @@ def save_to_temp(wb:xl.Workbook):
     wb.save(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
 
 def delete_temp():
-    os.remove(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    try:
+        os.remove(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    except:
+        raise FileOpenException(f"{ClassInfo.DEFAULT_NAME} 파일이 열려 있어 삭제에 실패했습니다.")
 
 def isopen() -> bool:
     return os.path.isfile(f"{omikron.config.DATA_DIR}/~${ClassInfo.DEFAULT_NAME}.xlsx")

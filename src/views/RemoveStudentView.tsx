@@ -38,34 +38,38 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
     try {
       setLoading(true);
       const res = await rpc.call("get_datafile_data", {});
-      // res가 [class_student_dict, class_test_dict] 형태로 들어옴
-      let csd: ClassStudentDict = {};
-
-      if (Array.isArray(res) && res.length >= 1 && typeof res[0] === "object") {
-        csd = res[0] as ClassStudentDict;
-      } else if (res?.class_student_dict) {
-        // 혹시 서버가 객체 키로 감싸서 보낼 수도 있으니 호환 처리
-        csd = res.class_student_dict as ClassStudentDict;
-      }
-
-      setClassStudentMap(csd);
-
-      // 클래스 목록 갱신
-      const cls = Object.keys(csd).sort();
-      const list = cls.map((name) => ({ id: name, name }));
-      setClasses(list);
-
-      // 선택 유지/초기화
-      if (fromClass && !csd[fromClass]) {
-        setFromClass("");
-        setStudents([]);
-        setStudent("");
-      } else if (fromClass) {
-        // 이미 선택된 반이 여전히 존재하면 학생 목록만 리프레시
-        const dict = csd[fromClass] || {};
-        const studs = Object.keys(dict).map((name) => ({ id: name, name }));
-        setStudents(studs);
-        if (student && !dict[student]) setStudent("");
+      if(res?.ok){
+        // res가 [class_student_dict, class_test_dict] 형태로 들어옴
+        let csd: ClassStudentDict = {};
+  
+        if (Array.isArray(res.data) && res.data.length >= 1 && typeof res.data[0] === "object") {
+          csd = res.data[0] as ClassStudentDict;
+        } else if (res.data?.class_student_dict) {
+          // 혹시 서버가 객체 키로 감싸서 보낼 수도 있으니 호환 처리
+          csd = res.data.class_student_dict as ClassStudentDict;
+        }
+  
+        setClassStudentMap(csd);
+  
+        // 클래스 목록 갱신
+        const cls = Object.keys(csd).sort();
+        const list = cls.map((name) => ({ id: name, name }));
+        setClasses(list);
+  
+        // 선택 유지/초기화
+        if (fromClass && !csd[fromClass]) {
+          setFromClass("");
+          setStudents([]);
+          setStudent("");
+        } else if (fromClass) {
+          // 이미 선택된 반이 여전히 존재하면 학생 목록만 리프레시
+          const dict = csd[fromClass] || {};
+          const studs = Object.keys(dict).map((name) => ({ id: name, name }));
+          setStudents(studs);
+          if (student && !dict[student]) setStudent("");
+        }
+      } else {
+        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: res?.error || "" })
       }
     } catch (e) {
       setClassStudentMap({});
@@ -120,7 +124,7 @@ export default function RemoveStudentView({ onAction }: ViewProps) {
         setStudents((prev) => prev.filter((s) => s.name !== student));
         setStudent("");
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "퇴원 처리에 실패했습니다." });
+        await dialog.error({ title: "퇴원 처리 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });

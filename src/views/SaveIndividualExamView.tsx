@@ -54,36 +54,40 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
     try {
       setLoading(true);
       const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
-      let csd: ClassStudentDict = {};
-      let ctd: ClassTestDict = {};
-
-      if (Array.isArray(res)) {
-        csd = (res[0] ?? {}) as ClassStudentDict;
-        ctd = (res[1] ?? {}) as ClassTestDict;
-      } else if (res?.class_student_dict) {
-        csd = res.class_student_dict as ClassStudentDict;
-        ctd = res.class_test_dict as ClassTestDict;
-      }
-
-      setClassStudentMap(csd);
-      setClassTestMap(ctd);
-
-      // 반 목록
-      const classNames = Object.keys(csd).sort();
-      setClasses(classNames.map((name) => ({ id: name, name })));
-
-      // 기존 선택 유지/보정
-      // if (klass && !csd[klass]) {
+      if(res?.ok){
+        let csd: ClassStudentDict = {};
+        let ctd: ClassTestDict = {};
+        
+        if (Array.isArray(res.data)) {
+          csd = (res.data[0] ?? {}) as ClassStudentDict;
+          ctd = (res.data[1] ?? {}) as ClassTestDict;
+        } else if (res.data?.class_student_dict) {
+          csd = res.data.class_student_dict as ClassStudentDict;
+          ctd = res.data.class_test_dict as ClassTestDict;
+        }
+        
+        setClassStudentMap(csd);
+        setClassTestMap(ctd);
+        
+        // 반 목록
+        const classNames = Object.keys(csd).sort();
+        setClasses(classNames.map((name) => ({ id: name, name })));
+        
+        // 기존 선택 유지/보정
+        // if (klass && !csd[klass]) {
         setKlass("");
         setStudents([]); setStudentId("");
         setTests([]); setTestId("");
         setScore("")
         // }
-      } catch {
-        setClassStudentMap({});
-        setClassTestMap({});
-        setClasses([]);
-        setScore("")
+      } else {
+        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: res?.error || "" })
+      }
+    } catch {
+      setClassStudentMap({});
+      setClassTestMap({});
+      setClasses([]);
+      setScore("")
     } finally {
       setLoading(false);
     }
@@ -176,7 +180,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
         await dialog.confirm({ title: "완료", message: "점수가 저장되었습니다.\n시험 결과 메시지를 확인하고 전송해주세요." });
         setScore("");
       } else {
-        await dialog.error({ title: "실패", message: res?.error || "저장에 실패했습니다." });
+        await dialog.error({ title: "개별 시험 결과 저장 실패", message: res?.error || "" });
       }
     } catch (e: any) {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
