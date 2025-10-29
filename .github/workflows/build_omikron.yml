@@ -51,6 +51,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Upgrade Python deps (safe within constraints)
+        shell: pwsh
+        run: |
+          uv sync --upgrade
+
       - name: Project setup
         shell: pwsh
         run: |
