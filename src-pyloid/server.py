@@ -426,24 +426,8 @@ async def make_data_form(ctx: RPCContext):
 @server.method()
 async def reapply_conditional_format(ctx: RPCContext):
     try:
-        job_id = str(uuid.uuid4())
-        emit = make_emit(job_id)
-        prog = Progress(emit, total=3)
-
-        prog_warnings: list[str] = []
-        _orig_warning = prog.warning
-
-        def _capture_warning(msg: str):
-            try:
-                prog_warnings.append(str(msg))
-            finally:
-                # 원래 동작(실시간 이벤트 전송)도 유지
-                _orig_warning(msg)
-
-        prog.warning = _capture_warning  # type: ignore[attr-defined]
-
-        omikron.datafile.conditional_formatting(prog)
-        return {"ok": True}
+        warnings = omikron.datafile.conditional_formatting()
+        return {"ok": True, "warnings": warnings}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

@@ -519,7 +519,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 
     return test_average
 
-def conditional_formatting(prog: Progress):
+def conditional_formatting():
     file_validation()
 
     pythoncom.CoInitialize()
@@ -530,6 +530,8 @@ def conditional_formatting(prog: Progress):
     wb.Close()
     excel.Quit()
     pythoncom.CoUninitialize()
+
+    warnings = []
 
     wb           = open()
     data_only_wb = open(data_only=True)
@@ -616,9 +618,11 @@ def conditional_formatting(prog: Progress):
                     ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
             else:
                 ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
-                prog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
+                warnings.append(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     save(wb)
+
+    return warnings
 
 def update_class():
     """
