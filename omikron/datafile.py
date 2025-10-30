@@ -524,7 +524,7 @@ def conditional_formatting(prog: Progress):
 
     pythoncom.CoInitialize()
     excel = win32com.client.Dispatch("Excel.Application")
-    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx")
     wb = excel.Workbooks.Open(abs_path)
     wb.Save()
     wb.Close()
@@ -643,39 +643,39 @@ def update_class():
     wb = open()
 
     # 지난 데이터 파일이 없으면 새로 생성
-    if not os.path.isfile(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx"):
-        post_data_wb = xl.Workbook()
-        post_data_ws = post_data_wb.worksheets[0]
-        post_data_ws.title = DataFile.FIRST_SHEET_NAME
-        # post_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
-        # post_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
-        post_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
-        post_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
-        post_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
-        post_data_ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
-        post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-        post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+    if not os.path.isfile(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx"):
+        pre_data_wb = xl.Workbook()
+        pre_data_ws = pre_data_wb.worksheets[0]
+        pre_data_ws.title = DataFile.FIRST_SHEET_NAME
+        # pre_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
+        # pre_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
+        pre_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
+        pre_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
+        pre_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
+        pre_data_ws[gcl(DataFile.AVERAGE_SCORE_COLUMN)+"1"] = "학생 평균"
+        pre_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
+        pre_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
         for col in range(1, DataFile.DATA_COLUMN):
-            post_data_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
-            post_data_ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
+            pre_data_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
+            pre_data_ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
         
         # 모의고사 sheet 생성
-        copy_post_data_ws                 = post_data_wb.copy_worksheet(post_data_wb[DataFile.FIRST_SHEET_NAME])
-        copy_post_data_ws.title           = DataFile.SECOND_SHEET_NAME
-        copy_post_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-        copy_post_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+        copy_pre_data_ws                 = pre_data_wb.copy_worksheet(pre_data_wb[DataFile.FIRST_SHEET_NAME])
+        copy_pre_data_ws.title           = DataFile.SECOND_SHEET_NAME
+        copy_pre_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
+        copy_pre_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
-        post_data_wb.save(f"{omikron.config.DATA_DIR}data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+        pre_data_wb.save(f"{omikron.config.DATA_DIR}data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
     
     data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
-    post_data_wb = xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+    pre_data_wb = xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
     for sheet_name in wb.sheetnames:
         if sheet_name not in (DataFile.FIRST_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
             continue
 
         data_only_ws = data_only_wb[sheet_name]
-        post_data_ws = post_data_wb[sheet_name]
+        pre_data_ws  = pre_data_wb[sheet_name]
         ws           = wb[sheet_name]
 
         CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
@@ -686,22 +686,22 @@ def update_class():
 
         for row in range(2, data_only_ws.max_row+1):
             if data_only_ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
-                POST_DATA_WRITE_ROW = post_data_ws.max_row+1
-                # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
-                # copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
-                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.CLASS_NAME_COLUMN),    data_only_ws.cell(row, CLASS_NAME_COLUMN))
-                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.TEACHER_NAME_COLUMN),  data_only_ws.cell(row, TEACHER_NAME_COLUMN))
-                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.STUDENT_NAME_COLUMN),  data_only_ws.cell(row, STUDENT_NAME_COLUMN))
-                copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, DataFile.AVERAGE_SCORE_COLUMN), data_only_ws.cell(row, AVERAGE_SCORE_COLUMN))
-                POST_DATA_WRITE_COLUMN = DataFile.MAX+1
+                PRE_DATA_WRITE_ROW = pre_data_ws.max_row+1
+                # copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
+                # copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
+                copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.CLASS_NAME_COLUMN),    data_only_ws.cell(row, CLASS_NAME_COLUMN))
+                copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.TEACHER_NAME_COLUMN),  data_only_ws.cell(row, TEACHER_NAME_COLUMN))
+                copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.STUDENT_NAME_COLUMN),  data_only_ws.cell(row, STUDENT_NAME_COLUMN))
+                copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.AVERAGE_SCORE_COLUMN), data_only_ws.cell(row, AVERAGE_SCORE_COLUMN))
+                PRE_DATA_WRITE_COLUMN = DataFile.MAX+1
                 for col in range(AVERAGE_SCORE_COLUMN+1, data_only_ws.max_column+1):
-                    copy_cell(post_data_ws.cell(POST_DATA_WRITE_ROW, POST_DATA_WRITE_COLUMN), data_only_ws.cell(row, col))
-                    post_data_ws.column_dimensions[gcl(POST_DATA_WRITE_COLUMN)].width = 14
-                    POST_DATA_WRITE_COLUMN += 1
+                    copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, PRE_DATA_WRITE_COLUMN), data_only_ws.cell(row, col))
+                    pre_data_ws.column_dimensions[gcl(PRE_DATA_WRITE_COLUMN)].width = 14
+                    PRE_DATA_WRITE_COLUMN += 1
 
         ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
 
-    post_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.POST_DATA_FILE_NAME}.xlsx")
+    pre_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
 
     ws = wb[DataFile.FIRST_SHEET_NAME]
     old_class_names = get_class_names(ws)
