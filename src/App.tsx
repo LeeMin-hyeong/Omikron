@@ -139,7 +139,7 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
     try {
       const res = await rpc.call("check_data_files", {});
       setState(res);
-      if(!res.ok) setMissing(true);
+      setMissing(!res.ok);
     } catch {
       // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
       setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
@@ -194,12 +194,16 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
-              <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더
-            </Button>
-            <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
-              <FolderSync className="h-4 w-4" /> 데이터 저장 위치 변경
-            </Button>
+          { state && !state.ok ? null : (
+            <div className="flex gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
+                <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더
+              </Button>
+              <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
+                <FolderSync className="h-4 w-4" /> 데이터 저장 위치 변경
+              </Button>
+            </div>
+          )}
             <Button variant="outline" className="rounded-xl w-40 justify-between" onClick={() => openHolidayDialog()}>
               {holidayChecked ? <><CalendarCheck className="h-4 w-4"/>학원 휴일 설정됨</> : <><CalendarDays className="mr-4 h-4 w-4" /> 학원 휴일 설정</> } 
             </Button>
