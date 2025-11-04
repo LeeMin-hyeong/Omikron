@@ -100,6 +100,21 @@ export default function PrereqSetupView({
     }
   }
 
+  const changeDataFileNameBySelect = async () => {
+    try {
+      const res = await rpc.call("change_data_file_name_by_select", {});
+      if (res?.ok) {
+        await dialog.confirm({title: "성공", message: "데이터 파일 이름을 변경하였습니다."})
+      } else if (!res?.ok && res.error){
+        await dialog.error({title: "데이터 파일 이름 변경 실패", message: res?.error || "" });
+      }
+    } catch (e: any) {
+      await dialog.error({title: "에러", message: `${e}`})
+    } finally {
+      onRefresh();
+    }
+  }
+
   // 공통 타일
   const Tile = ({
     title,
@@ -157,6 +172,16 @@ export default function PrereqSetupView({
         </div>
         <Separator className="mb-4" />
 
+        <div className="text-sm text-foreground items-end gap-2">
+          <span>
+            {"사용 중인 데이터 파일과 저장된 이름이 다른가요? "}
+            <button onClick={changeDataFileNameBySelect}>
+              <b className="underline cursor-pointer">여기를 클릭하여 데이터 파일 선택하기</b>
+              </button>
+          </span>
+
+        </div>
+
         <div className="h-full grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-3">
           <Tile
             title="반 정보.xlsx"
@@ -184,7 +209,7 @@ export default function PrereqSetupView({
 
         <div className="mt-auto flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
-            부족: {state.missing.length === 0 ? "없음" : state.missing.join(", ")}
+            부족: {state.missing.length === 0 ? "없음" : state.missing.join(" | ")}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>

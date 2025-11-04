@@ -51,3 +51,10 @@ def change_data_path(dir_path:str):
         os.makedirs(f"{DATA_DIR}/data")
     if not os.path.exists(f"{DATA_DIR}/data/backup"):
         os.makedirs(f"{DATA_DIR}/data/backup")
+
+def change_data_file_name_by_select(new_filename:str):
+    global config, DATA_FILE_NAME
+
+    DATA_FILE_NAME = config["dataFileName"] = new_filename
+
+    json.dump(config, open("./config.json", 'w', encoding="UTF8"), ensure_ascii=False, indent="    ")

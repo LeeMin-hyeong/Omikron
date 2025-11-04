@@ -562,3 +562,18 @@ async def save_retest_result(ctx: RPCContext, target_row:int, makeup_test_score:
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+@server.method()
+async def change_data_file_name_by_select(ctx: RPCContext):
+    try:
+        selected_file = ctx.pyloid.open_file_dialog(omikron.config.DATA_DIR)
+        if not selected_file:
+            return {"ok": False}
+
+        new_filename = Path(selected_file).stem
+
+        omikron.config.change_data_file_name_by_select(new_filename)
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
