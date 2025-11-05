@@ -10,7 +10,7 @@ permissions:
   actions: write    # 다른 워크플로우(dispatch) 실행
 
 env:
-  TARGET_BRANCH: v3.0.0
+  TARGET_BRANCH: main
   VERSION_FILE: .ci/selenium-version.txt
   BUILD_WORKFLOW_FILE: build-windows.yml
 

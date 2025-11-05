@@ -8,7 +8,7 @@ on:
         description: "빌드할 브랜치 선택"
         required: true
         type: choice
-        options: [v3.0.0, main]
+        options: [main]
       version:
         description: "릴리스 태그(선택, ex: v3.0.0). 입력 시 Release 생성"
         required: false
