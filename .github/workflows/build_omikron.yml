@@ -1,4 +1,95 @@
+# .github/workflows/build-windows.yml
 name: Build Windows App (Manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "빌드할 브랜치 선택"
+        required: true
+        type: choice
+        options: [v3.0.0, main]
+      version:
+        description: "릴리스 태그(선택, ex: v3.0.0). 입력 시 Release 생성"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-build
+  cancel-in-progress: false
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
+
+    steps:
+      - name: Checkout (selected branch)
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps (JS)
+        run: npm ci
+
+      - name: Install uv (Astral)
+        uses: astral-sh/setup-uv@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Upgrade Python deps (safe within constraints)
+        shell: pwsh
+        run: |
+          uv sync --upgrade
+
+      - name: Project setup
+        shell: pwsh
+        run: |
+          chcp 65001 > $null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+          npm run setup
+
+      - name: Build
+        shell: pwsh
+        run: |
+          chcp 65001 > $null
+          [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+          npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-win-${{ github.run_number }}
+          path: dist/**
+          if-no-files-found: error
+
+  release:
+    if: ${{ inputs.version != '' }}
+    needs: build-win
+    runs-on: windows-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          files: artifacts/**/*
