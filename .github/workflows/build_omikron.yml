@@ -70,11 +70,23 @@ jobs:
           [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
           npm run build
 
-      - name: Upload dist artifact
+      # === 여기서 dist를 zip으로 묶어서 단일 파일만 업로드 ===
+      - name: Pack as omikron-win.zip (+ sha256)
+        shell: pwsh
+        run: |
+          chcp 65001 > $null
+          Remove-Item -Force -ErrorAction SilentlyContinue omikron-win.zip
+          Compress-Archive -Path "dist\*" -DestinationPath "omikron-win.zip" -Force
+          # (선택) SHA256 생성
+          certutil -hashfile omikron-win.zip SHA256 | Select-Object -Skip 1 | Select-Object -First 1 | % { $_.Trim() } | Out-File -Encoding ascii omikron-win.zip.sha256
+
+      - name: Upload artifact (zip only)
         uses: actions/upload-artifact@v4
         with:
-          name: dist-win-${{ github.run_number }}
-          path: dist/**
+          name: omikron-win
+          path: |
+            omikron-win.zip
+            omikron-win.zip.sha256
           if-no-files-found: error
 
   release:
@@ -82,14 +94,17 @@ jobs:
     needs: build-win
     runs-on: windows-latest
     steps:
-      - name: Download artifacts
+      - name: Download artifact (zip)
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: omikron-win
+          path: artifacts/omikron-win
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (zip only)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.version }}
           name: ${{ inputs.version }}
-          files: artifacts/**/*
+          files: |
+            artifacts/omikron-win/omikron-win.zip
+            artifacts/omikron-win/omikron-win.zip.sha256
