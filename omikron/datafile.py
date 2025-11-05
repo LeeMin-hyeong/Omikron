@@ -670,7 +670,7 @@ def update_class():
         copy_pre_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
         copy_pre_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
-        pre_data_wb.save(f"{omikron.config.DATA_DIR}data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
+        pre_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
     
     data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
     pre_data_wb = xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
