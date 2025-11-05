@@ -119,11 +119,7 @@ def get_new_class_names():
     return get_class_names(temp_ws)
 
 # 파일 작업
-<<<<<<< HEAD
-def make_temp_file_for_update(new_class_list, delete_class_list) -> bool:
-=======
 def make_temp_file_for_update(new_class_list:list[str]):
->>>>>>> v3.0.0
     """
     반 업데이트 작업에 필요한 임시 반 정보 파일 생성
 
