@@ -11,6 +11,7 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+dist-front/
 downloads/
 eggs/
 .eggs/
@@ -142,3 +143,10 @@ init.bat
 
 # EXE files
 *.exe
+
+node_modules
+
+!src/lib
+!src-pyloid/build
+!src-pyloid/build/build.py
+!src-pyloid/build/windows_optimize.spec

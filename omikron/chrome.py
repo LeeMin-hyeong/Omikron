@@ -2,7 +2,6 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from win32process import CREATE_NO_WINDOW # only works in Windows
-from webdriver_manager.chrome import ChromeDriverManager
 
 import omikron.dataform
 import omikron.studentinfo
@@ -10,11 +9,11 @@ import omikron.studentinfo
 from omikron.config import URL, TEST_RESULT_MESSAGE, MAKEUP_TEST_NO_SCHEDULE_MESSAGE, MAKEUP_TEST_SCHEDULE_MESSAGE
 from omikron.defs import Chrome, DataForm
 from omikron.errorui import chrome_driver_version_error
-from omikron.log import OmikronLog
 from omikron.util import calculate_makeup_test_schedule, date_to_kor_date
+from omikron.progress import Progress
 
 try:
-    service = Service(ChromeDriverManager().install().replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver.exe"))
+    service = Service()
     service.creation_flags = CREATE_NO_WINDOW
     options = webdriver.ChromeOptions()
     options.add_argument("headless")
@@ -113,17 +112,15 @@ def check_student_exists(student_name:str, target_class_name:str) -> bool:
     return False
 
 # 크롬 작업
-def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
+def send_test_result_message(filepath:str, makeup_test_date:dict, prog:Progress) -> bool:
     """
     기록 양식의 데이터를 추출하여 아이소식 스크립트 작성
     """
     form_wb = omikron.dataform.open(filepath)
-    complete, form_ws = omikron.dataform.open_worksheet(form_wb)
-    if not complete or form_ws is None: return False
+    form_ws = omikron.dataform.open_worksheet(form_wb)
 
     student_wb = omikron.studentinfo.open()
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete or student_ws is None: return False
+    student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
@@ -131,18 +128,24 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
     
     # 아이소식 접속
     driver.get(URL)
+    driver.implicitly_wait(1)
     driver.execute_script(f"arguments[0].value = '{TEST_RESULT_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '시험 결과 전송'")
 
     driver.execute_script(f"window.open('{URL}')")
+    driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_NO_SCHEDULE_TAB])
     driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_NO_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '재시험 일정 없는 학생'")
 
     driver.execute_script(f"window.open('{URL}')")
+    driver.implicitly_wait(1)
     driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_SCHEDULE_TAB])
     driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
+    driver.execute_script("document.title = '재시험 일정 있는 학생'")
 
     driver.switch_to.window(driver.window_handles[Chrome.DAILYTEST_RESULT_TAB])
 
@@ -195,7 +198,7 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
         try:
             student_index = student_index_dict[student_name]
         except KeyError:
-            OmikronLog.warning(f"아이소식의 {class_name} 내 {student_name} 학생이 존재하지 않습니다.")
+            prog.warning(f"아이소식의 {class_name} 내 {student_name} 학생이 존재하지 않습니다.")
             continue
 
         trs = driver.find_element(By.ID, f"table_{str(class_index)}").find_elements(By.CLASS_NAME, "style12")
@@ -213,7 +216,7 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
         # 학생 정보 검색
         info_exists, makeup_test_weekday, makeup_test_time, _ = omikron.studentinfo.get_student_info(student_ws, student_name)
         if not info_exists:
-            OmikronLog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
+            prog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
         if info_exists and makeup_test_weekday is not None:
             # 재시험 일정 계산
@@ -238,7 +241,7 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
 
                             continue
                         else:
-                            OmikronLog.warning(f"{student_name}의 재시험 시간이 올바른 양식이 아닙니다.")
+                            prog.warning(f"{student_name}의 재시험 시간이 올바른 양식이 아닙니다.")
                     else:
                         # 단일 재시험 시간
                         driver.execute_script(f"arguments[0].value = '{calculated_schedule_str} {str(makeup_test_time)}시'", tds[1].find_element(By.TAG_NAME, "input"))
@@ -253,7 +256,7 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
                 continue
             else:
                 # 재시험 일정 계산 중 오류
-                OmikronLog.warning(f"{student_name}의 재시험 요일이 올바른 양식이 아닙니다.")
+                prog.warning(f"{student_name}의 재시험 요일이 올바른 양식이 아닙니다.")
 
         # 재시험 일정 없음
         driver.switch_to.window(driver.window_handles[Chrome.MAKEUPTEST_NO_SCHEDULE_TAB])
@@ -266,13 +269,12 @@ def send_test_result_message(filepath:str, makeup_test_date:dict) -> bool:
 
     return True
 
-def send_individual_test_message(student_name:str, class_name:int, test_name:int, test_score:int, test_average:int, makeup_test_check:bool, makeup_test_date:dict) -> bool:
+def send_individual_test_message(student_name:str, class_name:int, test_name:int, test_score:int, test_average:int, makeup_test_check:bool, makeup_test_date:dict, prog:Progress) -> bool:
     """
     개별 시험에 대한 결과 메시지 전송
     """
     student_wb = omikron.studentinfo.open()
-    complete, student_ws = omikron.studentinfo.open_worksheet(student_wb)
-    if not complete: return False
+    student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
@@ -280,6 +282,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     
     # 아이소식 접속
     driver.get(URL)
+    driver.execute_script("document.title = '시험 결과 전송'")
     driver.execute_script(f"arguments[0].value = '{TEST_RESULT_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))
     driver.find_element(By.XPATH, '//*[@id="ctitle"]').send_keys(' \b')
 
@@ -295,7 +298,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     try:
         student_index = student_index_dict[student_name]
     except KeyError:
-        OmikronLog.warning(f"아이소식의 {class_name} 내 {student_name} 학생이 존재하지 않습니다.")
+        prog.warning(f"아이소식의 {class_name} 내 {student_name} 학생이 존재하지 않습니다.")
         return False
 
     trs = driver.find_element(By.ID, f"table_{str(class_index)}").find_elements(By.CLASS_NAME, "style12")
@@ -309,13 +312,15 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     if makeup_test_check:
         return True
 
+    # 재시험 안내
     driver.execute_script(f"window.open('{URL}')")
     driver.switch_to.window(driver.window_handles[Chrome.INDIVIDUAL_MAKEUPTEST_TAB])
+    driver.execute_script("document.title = '재시험 안내'")
 
     # 학생 정보 검색
     info_exists, makeup_test_weekday, makeup_test_time, _ = omikron.studentinfo.get_student_info(student_ws, student_name)
     if not info_exists:
-        OmikronLog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
+        prog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
     if info_exists and makeup_test_weekday is not None:
         # 재시험 일정 계산
@@ -342,7 +347,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
 
                         return True
                     else:
-                        OmikronLog.warning(f"{student_name}의 재시험 시간이 올바른 양식이 아닙니다.")
+                        prog.warning(f"{student_name}의 재시험 시간이 올바른 양식이 아닙니다.")
 
                 else:
                     # 단일 재시험 시간
@@ -362,7 +367,7 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
             return True
         else:
             # 재시험 일정 계산 중 오류
-            OmikronLog.warning(f"{student_name}의 재시험 요일이 올바른 양식이 아닙니다.")
+            prog.warning(f"{student_name}의 재시험 요일이 올바른 양식이 아닙니다.")
 
     # 재시험 일정 없음
     driver.execute_script(f"arguments[0].value = '{MAKEUP_TEST_NO_SCHEDULE_MESSAGE}'", driver.find_element(By.XPATH, '//*[@id="ctitle"]'))

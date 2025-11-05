@@ -7,12 +7,13 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment, Border, Side
 
 import omikron.chrome
+import omikron.config
 
 from omikron.defs import ClassInfo
-from omikron.log import OmikronLog
+from omikron.exception import NoMatchingSheetException, FileOpenException
 
 # 파일 기본 작업
-def make_file() -> bool:
+def make_file():
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = ClassInfo.DEFAULT_NAME
@@ -36,44 +37,51 @@ def make_file() -> bool:
 
     save(wb)
 
-    return True
-
 def open(data_only:bool=True) -> xl.Workbook:
-    return xl.load_workbook(f"./{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
 
 def open_temp(data_only:bool=True) -> xl.Workbook:
-    return xl.load_workbook(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx", data_only=data_only)
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx", data_only=data_only)
 
 def open_worksheet(wb:xl.Workbook):
     try:
-        return True, wb[ClassInfo.DEFAULT_NAME]
+        return wb[ClassInfo.DEFAULT_NAME]
     except:
-        OmikronLog.error(f"'{ClassInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{ClassInfo.DEFAULT_NAME}'로 변경해 주세요.")
-        return False, None
+        raise NoMatchingSheetException(f"'{ClassInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{ClassInfo.DEFAULT_NAME}'로 변경해 주세요.")
 
 def save(wb:xl.Workbook):
-    wb.save(f"./{ClassInfo.DEFAULT_NAME}.xlsx")
+    try:
+        wb.save(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx")
+    except:
+        raise FileOpenException(f"{ClassInfo.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요")
 
 def save_to_temp(wb:xl.Workbook):
-    wb.save(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
 
 def delete_temp():
-    os.remove(f"./{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    try:
+        os.remove(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx")
+    except:
+        raise FileOpenException(f"{ClassInfo.DEFAULT_NAME} 파일이 열려 있어 삭제에 실패했습니다.")
 
 def isopen() -> bool:
-    return os.path.isfile(f"./~${ClassInfo.DEFAULT_NAME}.xlsx")
+    return os.path.isfile(f"{omikron.config.DATA_DIR}/~${ClassInfo.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
 def make_backup_file():
     wb = open()
-    wb.save(f"./data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d')}).xlsx")
+    wb.save(f"{omikron.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
 
-def get_class_info(ws:Worksheet, class_name:str):
+def get_class_info(class_name:str, ws:Worksheet = None):
     """
     반 정보 파일로부터 특정 반의 정보 추출
 
     return `반 정보 존재 여부`, `담당 선생님`, `수업 요일`, `테스트 응시 시간`
     """
+    if ws is None:
+        wb = open()
+        ws = open_worksheet(wb)
+
     for row in range(2, ws.max_row + 1):
         if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == class_name:
             teacher_name  = ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value
@@ -85,10 +93,14 @@ def get_class_info(ws:Worksheet, class_name:str):
     
     return True, teacher_name, class_weekday, test_time
 
-def get_class_names(ws:Worksheet) -> list[str]:
+def get_class_names(ws:Worksheet = None) -> list[str]:
     """
     반 정보 기준 반 이름 리스트 추출
     """
+    if ws is None:
+        wb = open()
+        ws = open_worksheet(wb)
+
     class_names = []
     for row in range(2, ws.max_row + 1):
         class_name = ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value
@@ -97,40 +109,21 @@ def get_class_names(ws:Worksheet) -> list[str]:
 
     return sorted(class_names)
 
-def check_updated_class(ws:Worksheet):
+def get_new_class_names():
     """
-    아이소식에 존재하지만 반 정보 파일에 없는 반 목록 리턴
+    임시 반 정보 파일에서 새 반 리스트를 리턴
     """
-    latest_class_names = omikron.chrome.get_class_names()
-    class_names        = get_class_names(ws)
+    temp_wb = open_temp()
+    temp_ws = open_worksheet(temp_wb)
 
-    return sorted(list(set(latest_class_names).difference(class_names)))
-
-def check_difference_between():
-    """
-    반 정보 파일과 임시 반 정보 파일의 반 목록을 비교
-
-    return `성공 여부`, `반 정보 파일에만 존재하는 반 리스트`, `임시 반 정보 파일에만 존재하는 반 리스트`
-    """
-    wb       = open()
-    temp_wb  = open_temp()
-
-    complete, ws = open_worksheet(wb)
-    if not complete: return False, None, None
-
-    complete, temp_ws = open_worksheet(temp_wb)
-    if not complete: return False, None, None
-
-    class_names        = get_class_names(ws)
-    latest_class_names = get_class_names(temp_ws)
-
-    deleted_class_names      = list(set(class_names).difference(latest_class_names))
-    unregistered_class_names = list(set(latest_class_names).difference(class_names))
-
-    return True, deleted_class_names, unregistered_class_names
+    return get_class_names(temp_ws)
 
 # 파일 작업
+<<<<<<< HEAD
 def make_temp_file_for_update(new_class_list, delete_class_list) -> bool:
+=======
+def make_temp_file_for_update(new_class_list:list[str]):
+>>>>>>> v3.0.0
     """
     반 업데이트 작업에 필요한 임시 반 정보 파일 생성
 
@@ -139,18 +132,21 @@ def make_temp_file_for_update(new_class_list, delete_class_list) -> bool:
     make_backup_file()
 
     wb = open()
-    complete, ws = open_worksheet(wb)
-    if not complete: return False
+    ws = open_worksheet(wb)
 
-    class_names  = get_class_names(ws)
+    class_names = get_class_names(ws)
 
     unregistered_class_names = sorted(list(set(new_class_list).difference(class_names)))
-    if len(unregistered_class_names) == 0 and len(delete_class_list) == 0:
-        return False
 
     for row in range(2, ws.max_row+1):
-        while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value in delete_class_list:
+        while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is not None and ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value not in new_class_list:
             ws.delete_rows(row)
+
+    temp_path = os.path.abspath(f'{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
+
+    if len(unregistered_class_names) == 0:
+        save_to_temp(wb)
+        return temp_path
 
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, ClassInfo.CLASS_NAME_COLUMN).value is not None:
@@ -168,28 +164,25 @@ def make_temp_file_for_update(new_class_list, delete_class_list) -> bool:
 
     save_to_temp(wb)
 
-    return True
+    return temp_path
 
 def change_class_info(target_class_name:str, target_teacher_name:str):
     """
     특정 반의 담당 선생님 변경
-
-    return `성공 여부`, `변경된 반 정보 파일`
     """
     make_backup_file()
 
     wb = open()
-    complete, ws = open_worksheet(wb)
-    if not complete: return False, None
+    ws = open_worksheet(wb)
 
     for row in range(2, ws.max_row + 1):
         if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value == target_class_name:
             ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value = target_teacher_name
             break
     else:
-        OmikronLog.error(f"'{target_class_name}' 반이 존재하지 않습니다.")
-        return False, None
+        raise Exception(f"'{target_class_name}' 반이 존재하지 않습니다.")
 
-    save_to_temp(wb)
+    save(wb)
 
-    return True, wb
+def update_class():
+    save(open_temp())

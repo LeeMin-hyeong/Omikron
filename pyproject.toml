@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omikron"
+version = "0.1.0"
+description = "Internal lib"
+requires-python = ">=3.10"
+
+dependencies = [
+    "pyloid",
+    "openpyxl>=3.1",
+    "selenium>=4.38.0",
+    "pywin32",
+    "python-dateutil"
+]
+
+[dependency-groups]
+dev = [
+    "pyloid-builder",
+    "pyloid-watcher",
+    "ruff",
+]
+
+[tool.setuptools]
+packages = ["omikron"]
