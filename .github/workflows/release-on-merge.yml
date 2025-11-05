@@ -50,7 +50,7 @@ jobs:
       - name: Dispatch build-windows.yml (build + create release)
         env:
           GH_TOKEN: ${{ github.token }}
-          REF: v3.0.0
+          REF: main
           VERSION: ${{ steps.bump.outputs.next }}
         run: |
           echo "Dispatch build-windows.yml (ref=$REF, version=$VERSION)"
