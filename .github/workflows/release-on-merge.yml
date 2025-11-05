@@ -1,0 +1,69 @@
+name: Release on Dependabot Merge (v3.0.0)
+
+on:
+  pull_request:
+    types: [ closed ]
+    branches: [ v3.0.0 ]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    if: >
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'v3.0.0'
+    runs-on: ubuntu-latest
+    env:
+      BUILD_WORKFLOW_FILE: build-windows.yml
+    steps:
+      - name: Compute next patch tag from latest release
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LATEST=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases?per_page=100" |
+            jq -r '[.[]
+              | select(.tag_name|test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))]
+              | first.tag_name // ""')
+
+          if [ -z "$LATEST" ]; then
+            # 초기 기준이 없다면 v3.0.0을 기준으로 시작
+            LATEST="v3.0.0"
+          fi
+
+          MAJOR=$(echo "$LATEST" | sed -E 's/^v([0-9]+)\..*$/\1/')
+          MINOR=$(echo "$LATEST" | sed -E 's/^v[0-9]+\.([0-9]+)\..*$/\1/')
+          PATCH=$(echo "$LATEST" | sed -E 's/^v[0-9]+\.[0-9]+\.([0-9]+)$/\1/')
+          NEXT="v${MAJOR}.${MINOR}.$((PATCH+1))"
+
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          echo "next=$NEXT" >> $GITHUB_OUTPUT
+          echo "Latest=$LATEST, Next=$NEXT"
+
+      - name: Dispatch build-windows.yml (build + create release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: v3.0.0
+          VERSION: ${{ steps.bump.outputs.next }}
+        run: |
+          echo "Dispatch build-windows.yml (ref=$REF, version=$VERSION)"
+          curl -fsSL -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/${{ env.BUILD_WORKFLOW_FILE }}/dispatches" \
+            -d @- <<EOF
+          {
+            "ref": "${REF}",
+            "inputs": {
+              "ref": "${REF}",
+              "version": "${VERSION}"
+            }
+          }
+          EOF
