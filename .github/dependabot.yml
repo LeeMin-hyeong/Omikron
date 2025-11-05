@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: daily
+      time: "15:00"              # UTC 15:00 = KST 자정
+    allow:
+      - dependency-name: "selenium"
+    open-pull-requests-limit: 2
+    groups:
+      selenium:
+        patterns: ["selenium"]
+    commit-message:
+      prefix: "deps(pip)"
+      include: "scope"
+    labels: ["deps", "selenium"]
+
+  # npm watch
+  # - package-ecosystem: npm
+  #   directory: "/"
+  #   target-branch: "main"
+  #   schedule:
+  #     interval: daily
+  #     time: "15:00"
+  #   open-pull-requests-limit: 2
+  #   commit-message:
+  #     prefix: "deps(npm)"
+  #     include: "scope"
+  #   labels: ["deps"]
