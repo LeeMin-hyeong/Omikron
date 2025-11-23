@@ -1,6 +1,5 @@
 import sys
 import tkinter as tk
-from omikron.defs import VERSION
 
 def no_config_file_error():
     """
@@ -14,7 +13,7 @@ def no_config_file_error():
     y = int((ui.winfo_screenheight()/2) - (height/2))
     ui.geometry(f"{width}x{height}+{x}+{y}")
 
-    ui.title(VERSION)
+    ui.title("Omikron")
     ui.resizable(False, False)
 
     tk.Label(ui).pack()
@@ -39,7 +38,7 @@ def corrupted_config_file_error():
     y = int((ui.winfo_screenheight()/2) - (height/2))
     ui.geometry(f"{width}x{height}+{x}+{y}")
 
-    ui.title(VERSION)
+    ui.title("Omikron")
     ui.resizable(False, False)
 
     tk.Label(ui).pack()
@@ -64,7 +63,7 @@ def chrome_driver_version_error():
     y = int((ui.winfo_screenheight()/2) - (height/2))
     ui.geometry(f"{width}x{height}+{x}+{y}")
 
-    ui.title(VERSION)
+    ui.title("Omikron")
     ui.resizable(False, False)
 
     tk.Label(ui).pack()
