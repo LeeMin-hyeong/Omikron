@@ -1,8 +1,8 @@
-name: Dependabot PR - Build & Auto-merge (v3.0.0)
+name: Dependabot PR - Build & Auto-merge (main)
 
 on:
   pull_request:
-    branches: [ v3.0.0 ]
+    branches: [ main ]
     types: [ opened, synchronize, reopened, ready_for_review ]
 
 permissions:
