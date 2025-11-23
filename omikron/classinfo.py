@@ -5,6 +5,7 @@ from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Alignment, Border, Side
+from openpyxl.worksheet.datavalidation import DataValidation
 
 import omikron.chrome
 import omikron.config
@@ -17,23 +18,34 @@ def make_file():
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = ClassInfo.DEFAULT_NAME
-    ws[gcl(ClassInfo.CLASS_NAME_COLUMN)+"1"]    = "반명"
-    ws[gcl(ClassInfo.TEACHER_NAME_COLUMN)+"1"]  = "선생님명"
-    ws[gcl(ClassInfo.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
-    ws[gcl(ClassInfo.TEST_TIME_COLUMN)+"1"]     = "시간"
+    ws[gcl(ClassInfo.CLASS_NAME_COLUMN)+"1"]     = "반명"
+    ws[gcl(ClassInfo.TEACHER_NAME_COLUMN)+"1"]   = "선생님명"
+    ws[gcl(ClassInfo.CLASS_WEEKDAY_COLUMN)+"1"]  = "요일"
+    ws[gcl(ClassInfo.TEST_TIME_COLUMN)+"1"]      = "시간"
+    ws[gcl(ClassInfo.MOCKTEST_CHECK_COLUMN)+"1"] = "모의고사 응시여부"
 
-    ws.freeze_panes = "A2"
+    ws["Z1"] = "Y"
+    ws.auto_filter.ref = "A:"+gcl(ClassInfo.MAX)
+    ws.freeze_panes    = "A2"
+    ws.column_dimensions.group("Z", hidden=True)
 
     # 반 루프
     for class_name in omikron.chrome.get_class_names():
         WRITE_LOCATION = ws.max_row + 1
         ws.cell(WRITE_LOCATION, 1).value = class_name
 
+        dv = DataValidation(type="list", formula1="=Z1", allow_blank=True, errorStyle="stop", showErrorMessage=True)
+        dv.error = "이 셀의 값은 'Y'이어야 합니다."
+        ws.add_data_validation(dv)
+        dv.add(ws.cell(WRITE_LOCATION, ClassInfo.MOCKTEST_CHECK_COLUMN))
+
     # 정렬 및 테두리
     for row in range(1, ws.max_row + 1):
-        for col in range(1, ws.max_column + 1):
+        for col in range(1, ClassInfo.MAX + 1):
             ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+
+    ws.cell(1, ClassInfo.MOCKTEST_CHECK_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
 
     save(wb)
 
@@ -87,13 +99,14 @@ def get_class_info(class_name:str, ws:Worksheet = None):
             teacher_name  = ws.cell(row, ClassInfo.TEACHER_NAME_COLUMN).value
             class_weekday = ws.cell(row, ClassInfo.CLASS_WEEKDAY_COLUMN).value
             test_time     = ws.cell(row, ClassInfo.TEST_TIME_COLUMN).value
+            mock_test_check = ws.cell(row, ClassInfo.MOCKTEST_CHECK_COLUMN).value == "Y"
             break
     else:
-        return False, None, None, None
+        return False, None, None, None, False
     
-    return True, teacher_name, class_weekday, test_time
+    return True, teacher_name, class_weekday, test_time, mock_test_check
 
-def get_class_names(ws:Worksheet = None) -> list[str]:
+def get_class_names(ws:Worksheet = None, mocktest = False) -> list[str]:
     """
     반 정보 기준 반 이름 리스트 추출
     """
@@ -106,6 +119,8 @@ def get_class_names(ws:Worksheet = None) -> list[str]:
         class_name = ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value
         if class_name is not None:
             class_names.append(class_name)
+        if mocktest and ws.cell(row, ClassInfo.MOCKTEST_CHECK_COLUMN).value == "Y":
+            class_names.append(class_name + " (모의고사)")
 
     return sorted(class_names)
 
@@ -116,7 +131,7 @@ def get_new_class_names():
     temp_wb = open_temp()
     temp_ws = open_worksheet(temp_wb)
 
-    return get_class_names(temp_ws)
+    return get_class_names(temp_ws, True)
 
 # 파일 작업
 def make_temp_file_for_update(new_class_list:list[str]):
