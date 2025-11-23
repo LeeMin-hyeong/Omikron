@@ -169,7 +169,7 @@ def make_temp_file_for_update(new_class_list:list[str]):
 
     for row in range(WRITE_RANGE, ws.max_row + 1):
         if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is None: break
-        for col in range(1, ws.max_column + 1):
+        for col in range(1, ClassInfo.MAX + 1):
             ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
             ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
