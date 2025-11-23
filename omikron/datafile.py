@@ -342,7 +342,7 @@ def save_test_data(filepath:str, prog: Progress):
                         CLASS_START = row
                         break
                 else:
-                    prog.warning(f"{sheet_name} 시트: {class_name} 반이 존재하지 않습니다.")
+                    prog.warning(f"{class_name} 반이 존재하지 않습니다.")
                     no_class = True
                     continue
 
@@ -400,7 +400,7 @@ def save_test_data(filepath:str, prog: Progress):
                     ws.cell(row, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
                     break
             else:
-                prog.warning(f"{sheet_name} 시트: {class_name} 반에 {student_name} 학생이 존재하지 않습니다.")
+                prog.warning(f"{class_name} 반에 {student_name} 학생이 존재하지 않습니다.")
 
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
     save_to_temp(wb)
@@ -419,44 +419,44 @@ def save_test_data(filepath:str, prog: Progress):
     wb           = open_temp()
     data_only_wb = open_temp(data_only=True)
 
-    for sheet_name in wb.sheetnames:
-        if sheet_name not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+    # for sheet_name in wb.sheetnames:
+    #     if sheet_name not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+    #         continue
+
+    ws           = wb[DataFile.DEFAULT_SHEET_NAME]
+    data_only_ws = data_only_wb[DataFile.DEFAULT_SHEET_NAME]
+
+    _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+
+    for row in range(2, data_only_ws.max_row+1):
+        if data_only_ws.cell(row, STUDENT_NAME_COLUMN).value is None:
+            break
+
+        # 학생 별 평균 점수에 대한 조건부 서식
+        student_average = data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value
+        if type(student_average) in (int, float):
+            if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
+                ws.cell(row, AVERAGE_SCORE_COLUMN).fill = class_average_color(student_average)
+            else:
+                ws.cell(row, AVERAGE_SCORE_COLUMN).fill = student_average_color(student_average)
+
+        # 신규생 하이라이트
+        if ws.cell(row, STUDENT_NAME_COLUMN).value in ("날짜", "시험명", "시험 평균"):
+            continue
+        if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
+            continue
+        if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
             continue
 
-        ws           = wb[sheet_name]
-        data_only_ws = data_only_wb[sheet_name]
-
-        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-
-        for row in range(2, data_only_ws.max_row+1):
-            if data_only_ws.cell(row, STUDENT_NAME_COLUMN).value is None:
-                break
-
-            # 학생 별 평균 점수에 대한 조건부 서식
-            student_average = data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value
-            if type(student_average) in (int, float):
-                if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                    ws.cell(row, AVERAGE_SCORE_COLUMN).fill = class_average_color(student_average)
-                else:
-                    ws.cell(row, AVERAGE_SCORE_COLUMN).fill = student_average_color(student_average)
-
-            # 신규생 하이라이트
-            if ws.cell(row, STUDENT_NAME_COLUMN).value in ("날짜", "시험명", "시험 평균"):
-                continue
-            if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
-                continue
-            if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
-                continue
-
-            exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
-            if exist:
-                if new_student:
-                    ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
-                else:
-                    ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+        exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
+        if exist:
+            if new_student:
+                ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
             else:
                 ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
-                prog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
+        else:
+            ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+            prog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
     prog.step("조건부 서식 로딩 완료")
