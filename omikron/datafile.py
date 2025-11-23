@@ -544,87 +544,87 @@ def conditional_formatting():
     student_wb   = omikron.studentinfo.open()
     student_ws   = omikron.studentinfo.open_worksheet(student_wb)
 
-    for sheet_name in wb.sheetnames:
-        if sheet_name not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
-            continue
+    # for sheet_name in wb.sheetnames:
+    #     if sheet_name not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
+    #         continue
 
-        ws           = wb[sheet_name]
-        data_only_ws = data_only_wb[sheet_name]
+    ws           = wb[DataFile.DEFAULT_SHEET_NAME]
+    data_only_ws = data_only_wb[DataFile.DEFAULT_SHEET_NAME]
 
-        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+    _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
-        for row in range(2, ws.max_row+1):
-            if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
-                break
+    for row in range(2, ws.max_row+1):
+        if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
+            break
+        if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
+            DATE_ROW = row
+        if ws.cell(row, STUDENT_NAME_COLUMN).value != "시험명":
+            ws.row_dimensions[row].height = 18
+
+        # 데이터 조건부 서식
+        for col in range(1, data_only_ws.max_column+1):
+            try:
+                if col > AVERAGE_SCORE_COLUMN and ws.cell(DATE_ROW, col).value is None:
+                    break
+            except:
+                if col > AVERAGE_SCORE_COLUMN and ws.cell(row, col).value is None:
+                    break
+
+            ws.column_dimensions[gcl(col)].width = 14
             if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
-                DATE_ROW = row
-            if ws.cell(row, STUDENT_NAME_COLUMN).value != "시험명":
-                ws.row_dimensions[row].height = 18
+                ws.cell(row, col).border = Border(top = Side(border_style="medium", color="000000"))
+            elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
+                ws.cell(row, col).border = Border(bottom = Side(border_style="thin", color="909090"))
+            elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
+                ws.cell(row, col).border = Border(top = Side(border_style="thin", color="909090"), bottom = Side(border_style="medium", color="000000"))
+            else:
+                ws.cell(row, col).border = None
 
-            # 데이터 조건부 서식
-            for col in range(1, data_only_ws.max_column+1):
-                try:
-                    if col > AVERAGE_SCORE_COLUMN and ws.cell(DATE_ROW, col).value is None:
-                        break
-                except:
-                    if col > AVERAGE_SCORE_COLUMN and ws.cell(row, col).value is None:
-                        break
+            # 학생 평균 점수 열 기준 분기   
+            if col <= AVERAGE_SCORE_COLUMN:
+                continue
 
-                ws.column_dimensions[gcl(col)].width = 14
-                if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
-                    ws.cell(row, col).border = Border(top = Side(border_style="medium", color="000000"))
-                elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
-                    ws.cell(row, col).border = Border(bottom = Side(border_style="thin", color="909090"))
-                elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                    ws.cell(row, col).border = Border(top = Side(border_style="thin", color="909090"), bottom = Side(border_style="medium", color="000000"))
-                else:
-                    ws.cell(row, col).border = None
-
-                # 학생 평균 점수 열 기준 분기   
-                if col <= AVERAGE_SCORE_COLUMN:
-                    continue
-
-                if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
-                    ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-                elif data_only_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                    ws.cell(row, col).font = Font(bold=True)
-                    if type(data_only_ws.cell(row, col).value) in (int, float):
-                        ws.cell(row, col).fill = class_average_color(data_only_ws.cell(row, col).value)
-                elif type(data_only_ws.cell(row, col).value) in (int, float):
-                    ws.cell(row, col).fill = test_score_color(data_only_ws.cell(row, col).value)
-                else:
-                    ws.cell(row, col).fill = PatternFill(fill_type=None)
-
-            # 학생별 평균 조건부 서식
-            if type(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value) in (int, float):
-                if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                    ws.cell(row, AVERAGE_SCORE_COLUMN).fill = class_average_color(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value)
-                else:
-                    ws.cell(row, AVERAGE_SCORE_COLUMN).fill = student_average_color(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value)
+            if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
+                ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+            elif data_only_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
+                ws.cell(row, col).font = Font(bold=True)
+                if type(data_only_ws.cell(row, col).value) in (int, float):
+                    ws.cell(row, col).fill = class_average_color(data_only_ws.cell(row, col).value)
+            elif type(data_only_ws.cell(row, col).value) in (int, float):
+                ws.cell(row, col).fill = test_score_color(data_only_ws.cell(row, col).value)
             else:
                 ws.cell(row, col).fill = PatternFill(fill_type=None)
 
-            # 학생별 평균 폰트 설정
-            if ws.cell(row, STUDENT_NAME_COLUMN).value in ("날짜", "시험명", "시험 평균"):
-                ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
-                continue
-            if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
-                ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)
-                continue
-            if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
-                ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, color="FFFF0000")
-                continue
+        # 학생별 평균 조건부 서식
+        if type(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value) in (int, float):
+            if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
+                ws.cell(row, AVERAGE_SCORE_COLUMN).fill = class_average_color(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value)
+            else:
+                ws.cell(row, AVERAGE_SCORE_COLUMN).fill = student_average_color(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value)
+        else:
+            ws.cell(row, col).fill = PatternFill(fill_type=None)
 
-            # 신규생 하이라이트
-            exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
-            if exist:
-                if new_student:
-                    ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
-                else:
-                    ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+        # 학생별 평균 폰트 설정
+        if ws.cell(row, STUDENT_NAME_COLUMN).value in ("날짜", "시험명", "시험 평균"):
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            continue
+        if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)
+            continue
+        if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, color="FFFF0000")
+            continue
+
+        # 신규생 하이라이트
+        exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
+        if exist:
+            if new_student:
+                ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
             else:
                 ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
-                warnings.append(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
+        else:
+            ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+            warnings.append(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     save(wb)
 
@@ -927,48 +927,46 @@ def rescoping_formula(wb:xl.Workbook=None):
     if wb is None:
         wb = open()
 
-    for ws in wb.worksheets:
-        if ws.title not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
-            continue
+    ws = wb[DataFile.DEFAULT_SHEET_NAME]
 
-        _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+    _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
-        # 평균 범위 재지정
-        for row in range(2, ws.max_row+1):
-            if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
-                break
-            striked = False
-            colored = False
-            if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
-                striked = True
-            if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None:
-                if ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
-                    colored = True
+    # 평균 범위 재지정
+    for row in range(2, ws.max_row+1):
+        if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
+            break
+        striked = False
+        colored = False
+        if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
+            striked = True
+        if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None:
+            if ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
+                colored = True
 
-            if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
-                DATE_ROW = row
-                CLASS_START = row+2
-            elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                CLASS_END = row-1
-                ws[f"{gcl(AVERAGE_SCORE_COLUMN)}{row}"] = ArrayFormula(f"{gcl(AVERAGE_SCORE_COLUMN)}{row}", f"=ROUND(AVERAGE(IFERROR({gcl(AVERAGE_SCORE_COLUMN)}{CLASS_START}:{gcl(AVERAGE_SCORE_COLUMN)}{CLASS_END}, \"\")), 0)")
-                if CLASS_START >= CLASS_END:
-                    continue
-                for col in range(AVERAGE_SCORE_COLUMN+1, ws.max_column+1):
-                    if ws.cell(DATE_ROW, col).value is None:
-                        break
-                    ws.cell(row, col).value = f"=ROUND(AVERAGE({gcl(col)}{CLASS_START}:{gcl(col)}{CLASS_END}), 0)"
-                    ws.cell(row, col).font  = Font(bold=True)
-            elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
+        if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
+            DATE_ROW = row
+            CLASS_START = row+2
+        elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
+            CLASS_END = row-1
+            ws[f"{gcl(AVERAGE_SCORE_COLUMN)}{row}"] = ArrayFormula(f"{gcl(AVERAGE_SCORE_COLUMN)}{row}", f"=ROUND(AVERAGE(IFERROR({gcl(AVERAGE_SCORE_COLUMN)}{CLASS_START}:{gcl(AVERAGE_SCORE_COLUMN)}{CLASS_END}, \"\")), 0)")
+            if CLASS_START >= CLASS_END:
                 continue
-            else:
-                ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{row}:XFD{row}), 0)"
+            for col in range(AVERAGE_SCORE_COLUMN+1, ws.max_column+1):
+                if ws.cell(DATE_ROW, col).value is None:
+                    break
+                ws.cell(row, col).value = f"=ROUND(AVERAGE({gcl(col)}{CLASS_START}:{gcl(col)}{CLASS_END}), 0)"
+                ws.cell(row, col).font  = Font(bold=True)
+        elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
+            continue
+        else:
+            ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{row}:XFD{row}), 0)"
 
-            if striked:
-                ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)
-            elif colored:
-                ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, color="FFFF0000")
-            else:
-                ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+        if striked:
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)
+        elif colored:
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, color="FFFF0000")
+        else:
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
 
     save(wb)
 
@@ -977,14 +975,12 @@ def change_class_info(target_class_name:str, target_teacher_name:str):
     특정 반의 담당 선생님 변경
     """
     wb = open()
-    for ws in wb.worksheets:
-        if ws.title not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
-            continue
+    ws = wb[DataFile.DEFAULT_SHEET_NAME]
 
-        CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, _, _ = find_dynamic_columns(ws)
+    CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, _, _ = find_dynamic_columns(ws)
 
-        for row in range(2, ws.max_row+1):
-            if ws.cell(row, CLASS_NAME_COLUMN).value == target_class_name:
-                ws.cell(row, TEACHER_NAME_COLUMN).value = target_teacher_name
+    for row in range(2, ws.max_row+1):
+        if ws.cell(row, CLASS_NAME_COLUMN).value == target_class_name:
+            ws.cell(row, TEACHER_NAME_COLUMN).value = target_teacher_name
 
     save(wb)
