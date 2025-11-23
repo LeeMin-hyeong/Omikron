@@ -55,7 +55,7 @@ if __name__ == '__main__':
 			'--onefile',
 			'--windowed',
 			'--add-data=./src-pyloid/icons/:./src-pyloid/icons/',
-			'--add-data=./src/assets/omikron.png:./src/assets/omikron.png'
+			'--add-data=./src/assets/omikron.png:./src/assets/omikron.png',
 			f'--icon={icon}',
 		]
 	)

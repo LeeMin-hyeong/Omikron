@@ -147,7 +147,7 @@ def safe_extract_zip(zip_path: Path, dest_dir: Path):
 
 def find_new_root(staging_root: Path) -> Path:
     """staging_root/omikron 을 새 버전 루트로 사용."""
-    omikron_dir = staging_root / "omikron"
+    omikron_dir = staging_root / "omikron-win"
     if omikron_dir.exists() and omikron_dir.is_dir():
         return omikron_dir
     raise RuntimeError("스테이징에서 omikron 폴더를 찾지 못했습니다.")
