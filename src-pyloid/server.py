@@ -231,9 +231,9 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
 
 
 @server.method()
-async def get_datafile_data(ctx: RPCContext, mocktest = False) -> Dict[Any, Any]:
+async def get_datafile_data(ctx: RPCContext) -> Dict[Any, Any]:
     try:
-        return {"ok": True, "data": omikron.datafile.get_data_sorted_dict(mocktest)}
+        return {"ok": True, "data": omikron.datafile.get_data_sorted_dict()}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 

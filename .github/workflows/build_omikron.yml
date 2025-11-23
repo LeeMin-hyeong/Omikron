@@ -75,23 +75,8 @@ jobs:
         shell: pwsh
         run: |
           chcp 65001 > $null
-          $zipRoot = "omikron-win"
-          $version = "${{ inputs.version }}"
           Remove-Item -Force -ErrorAction SilentlyContinue omikron-win.zip
-          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $zipRoot
-
-          if (-not $version) {
-            $version = git rev-parse --short HEAD
-          }
-          Set-Content -Path "dist/main/version.txt" -Value $version -Encoding ascii
-
-          New-Item -ItemType Directory -Path $zipRoot | Out-Null
-          Copy-Item -Recurse -Force "dist/main/_internal" -Destination "$zipRoot/_internal"
-          Copy-Item -Force "dist/main/main.exe" -Destination "$zipRoot/main.exe"
-          Copy-Item -Force "dist/omikron.exe" -Destination "$zipRoot/omikron.exe"
-          Copy-Item -Force "dist/main/version.txt" -Destination "$zipRoot/version.txt"
-
-          Compress-Archive -Path $zipRoot -DestinationPath "omikron-win.zip" -Force
+          Compress-Archive -Path "dist\*" -DestinationPath "omikron-win.zip" -Force
           # (선택) SHA256 생성
           certutil -hashfile omikron-win.zip SHA256 | Select-Object -Skip 1 | Select-Object -First 1 | % { $_.Trim() } | Out-File -Encoding ascii omikron-win.zip.sha256
 

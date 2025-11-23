@@ -4,9 +4,7 @@ from pyloid.utils import get_platform
 
 
 main_script = './src-pyloid/main.py'
-name = 'main'
-updater_script = './src-pyloid/updater.py'
-entry_name = 'Omikron'
+name = 'omikron'
 dist_path = './dist'
 work_path = './build'
 
@@ -43,21 +41,6 @@ if __name__ == '__main__':
 			'--add-data=./dist-front/:./dist-front/',
 			f'--icon={icon}',
 		],
-	)
-	pyinstaller(
-		updater_script,
-		[
-			f'--name={entry_name}',
-			f'--distpath={dist_path}',
-			f'--workpath={work_path}',
-			'--clean',
-			'--noconfirm',
-			'--onefile',
-			'--windowed',
-			'--add-data=./src-pyloid/icons/:./src-pyloid/icons/',
-			'--add-data=./src/assets/omikron.png:./src/assets/omikron.png'
-			f'--icon={icon}',
-		]
 	)
 
 	if get_platform() == 'windows':

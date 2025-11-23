@@ -50,7 +50,7 @@ def make_file() -> bool:
         if len(student_names) == 0:
             continue
 
-        exist, teacher_name, class_weekday, test_time, _ = omikron.classinfo.get_class_info(class_name, ws=class_ws)
+        exist, teacher_name, class_weekday, test_time = omikron.classinfo.get_class_info(class_name, ws=class_ws)
         if not exist: continue
 
         WRITE_LOCATION = start = ws.max_row + 1

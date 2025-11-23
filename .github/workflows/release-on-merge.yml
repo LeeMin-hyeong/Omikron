@@ -1,9 +1,9 @@
-name: Release on Dependabot Merge (main)
+name: Release on Dependabot Merge (v3.0.0)
 
 on:
   pull_request:
     types: [ closed ]
-    branches: [ main ]
+    branches: [ v3.0.0 ]
 
 permissions:
   contents: write
@@ -14,10 +14,10 @@ jobs:
     if: >
       github.actor == 'dependabot[bot]' &&
       github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main'
+      github.event.pull_request.base.ref == 'v3.0.0'
     runs-on: ubuntu-latest
     env:
-      BUILD_WORKFLOW_FILE: build_omikron.yml
+      BUILD_WORKFLOW_FILE: build-windows.yml
     steps:
       - name: Compute next patch tag from latest release
         id: bump

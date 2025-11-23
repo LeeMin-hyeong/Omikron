@@ -1,3 +1,5 @@
+VERSION = "Omikron v3.0.0"
+
 class Chrome:
     ACTUAL_CLASS_START_INDEX   =  3 # 아이소식 내 실제 반이 시작되는 테이블 인덱스
 
@@ -9,8 +11,8 @@ class Chrome:
 class DataFile:
     PRE_DATA_FILE_NAME        = "지난 데이터"
     TEMP_FILE_NAME             = "9IwTEoG59MS6h2UoqveD"
-    DEFAULT_SHEET_NAME           = "테스트 데이터"
-    # SECOND_SHEET_NAME          = "모의고사"
+    FIRST_SHEET_NAME           = "데일리테스트"
+    SECOND_SHEET_NAME          = "모의고사"
     # TEST_TIME_COLUMN           =  1
     # CLASS_WEEKDAY_COLUMN       =  2
     CLASS_NAME_COLUMN          =  1
@@ -59,7 +61,7 @@ class ClassInfo:
     CLASS_WEEKDAY_COLUMN       = 3
     TEST_TIME_COLUMN           = 4
     MOCKTEST_CHECK_COLUMN      = 5
-    MAX                        = MOCKTEST_CHECK_COLUMN
+    MAX                        = TEST_TIME_COLUMN
 
 class StudentInfo: 
     DEFAULT_NAME               = "학생 정보"

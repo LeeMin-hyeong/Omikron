@@ -53,7 +53,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await rpc.call("get_datafile_data", { mocktest: true }); // [class_student_dict, class_test_dict]
+      const res = await rpc.call("get_datafile_data", {}); // [class_student_dict, class_test_dict]
       if(res?.ok){
         let csd: ClassStudentDict = {};
         let ctd: ClassTestDict = {};
