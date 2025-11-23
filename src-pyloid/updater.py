@@ -95,7 +95,7 @@ def download_asset(asset, dst: Path) -> Path:
 # ===================== 버전 / 체크섬 =====================
 def read_local_version() -> str:
     if LOCAL_VER_PATH.exists():
-        return LOCAL_VER_PATH.read_text(encoding="utf-8").strip()
+        return LOCAL_VER_PATH.read_text(encoding="utf-8").strip().lstrip("vV")
     return "0.0.0"
 
 def parse_semver(v: str):
