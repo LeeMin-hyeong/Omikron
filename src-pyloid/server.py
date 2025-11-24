@@ -567,7 +567,7 @@ async def save_retest_result(ctx: RPCContext, target_row:int, makeup_test_score:
 @server.method()
 async def change_data_file_name_by_select(ctx: RPCContext):
     try:
-        selected_file = ctx.pyloid.open_file_dialog(omikron.config.DATA_DIR)
+        selected_file = ctx.pyloid.open_file_dialog(f"{omikron.config.DATA_DIR}/data")
         if not selected_file:
             return {"ok": False}
 
@@ -575,5 +575,19 @@ async def change_data_file_name_by_select(ctx: RPCContext):
 
         omikron.config.change_data_file_name_by_select(new_filename)
         return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+@server.method()
+async def open_file_picker(ctx: RPCContext):
+    try:
+        selected_file = ctx.pyloid.open_file_dialog(omikron.config.DATA_DIR)
+        if not selected_file:
+            return {"ok": False}
+
+        path_obj = Path(selected_file)
+        file_b64 = base64.b64encode(path_obj.read_bytes()).decode()
+
+        return {"ok": True, "path": str(path_obj), "name": path_obj.name, "b64": file_b64}
     except Exception as e:
         return {"ok": False, "error": str(e)}

@@ -273,6 +273,8 @@ def send_individual_test_message(student_name:str, class_name:int, test_name:int
     """
     개별 시험에 대한 결과 메시지 전송
     """
+    if " (모의고사)" in class_name: class_name = class_name[:-7]
+
     student_wb = omikron.studentinfo.open()
     student_ws = omikron.studentinfo.open_worksheet(student_wb)
 
