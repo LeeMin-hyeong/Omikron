@@ -12,7 +12,7 @@ export default function WelcomeView() {
           width={400}
           className="h-auto max-w-full py-3"
         />
-        <p>오미크론 프로그램</p>
+        <p>오미크론 데이터 관리 프로그램</p>
         <p>왼쪽의 메뉴를 클릭하여 시작하세요</p>
       </CardContent>
     </Card>
