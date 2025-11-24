@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { AlertTriangle, FileSpreadsheet, FileUp, Loader2, Play, Square, SquareCheck, X } from "lucide-react"
+import { rpc } from "pyloid-js"
 import { fileToBase64 } from "@/utils/rpc"
 import { usePrereq } from "@/contexts/prereq"
 import { useAppDialog } from "@/components/app-dialog/AppDialogProvider"
@@ -19,7 +20,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
 
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [picking, setPicking] = useState(false)
 
   const [jobId, setJobId] = useState<string>()
   const prog: ProgressPayload = useProgressPoller(jobId)
@@ -33,11 +34,54 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
 
   const acceptExt = /\.(xlsx|xlsm|xls|csv)$/i
 
+  const setAcceptedFile = (candidate: File | null) => {
+    if (!candidate || running) return
+    if (!acceptExt.test(candidate.name)) {
+      void dialog.error({ title: "?? ?? ??", message: "???? ?? ??????. (.xlsx, .xlsm, .xls, .csv)" })
+      return
+    }
+    setFile(candidate)
+  }
+
   const handleFiles = (list: FileList | null) => {
     if (!list || list.length === 0 || running) return
     const arr = Array.from(list)
     const first = arr.find((f) => acceptExt.test(f.name))
-    if (first) setFile(first)
+    if (first) setAcceptedFile(first)
+  }
+
+  const base64ToFile = (b64: string, filename: string) => {
+    const binary = atob(b64)
+    const len = binary.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i += 1) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return new File([bytes], filename)
+  }
+
+  const pickFromBackend = async () => {
+    if (running || picking) return
+    setPicking(true)
+    try {
+      const res = await rpc.call("open_file_picker", {})
+      if (!res?.ok) {
+        if (res?.error) {
+          await dialog.error({ title: "파일 선택 실패", message: res.error })
+        }
+        return
+      }
+      if (!res?.b64 || !res?.name) {
+        await dialog.error({ title: "파일 선택 실패", message: "파일 정보를 받아오지 못했습니다." })
+        return
+      }
+      const selected = base64ToFile(res.b64, res.name)
+      setAcceptedFile(selected)
+    } catch (err: any) {
+      await dialog.error({ title: "파일 선택 실패", message: String(err?.message ?? err) })
+    } finally {
+      setPicking(false)
+    }
   }
 
   const start = async () => {
@@ -114,7 +158,6 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
         })
         .then(() => {
           setJobId(undefined)
-          if (inputRef.current) inputRef.current.value = ""
           setFile(null)
         })
     } else if (prog.status === "done" && lastStatusRef.current !== "done") {
@@ -126,7 +169,6 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
         })
         .then(() => {
           setJobId(undefined)
-          if (inputRef.current) inputRef.current.value = ""
           setFile(null)
         })
     }
@@ -145,22 +187,26 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
               <div className="flex h-full min-h-0 flex-col p-3">
                 <p className="text-sm text-muted-foreground pb-2">{meta.guide}</p>
                 <Separator className="mb-1" />
+
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => !running && inputRef.current?.click()}
+                  onClick={() => {
+                    if (running || picking) return
+                    void pickFromBackend()
+                  }}
                   onKeyDown={(e) => {
-                    if (running) return
-                    if (e.key === "Enter" || e.key === " ") inputRef.current?.click()
+                    if (running || picking) return
+                    if (e.key === "Enter" || e.key === " ") void pickFromBackend()
                   }}
                   onDragOver={(e) => {
-                    if (running) return
+                    if (running || picking) return
                     e.preventDefault()
                     setDragging(true)
                   }}
-                  onDragLeave={() => !running && setDragging(false)}
+                  onDragLeave={() => !running && !picking && setDragging(false)}
                   onDrop={(e) => {
-                    if (running) return
+                    if (running || picking) return
                     e.preventDefault()
                     setDragging(false)
                     handleFiles(e.dataTransfer.files)
@@ -168,7 +214,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
                   className={`relative mt-2 flex h-full min-h-0 flex-col items-center justify-center
                               rounded-xl border transition
                               ${dragging ? "border-point bg-point/5" : "border-dashed border-border/70 hover:bg-accent/40"}
-                              ${running ? "pointer-events-none opacity-90" : "cursor-pointer"}`}
+                              ${running || picking ? "pointer-events-none opacity-90" : "cursor-pointer"}`}
                 >
                   {file && (
                     <button
@@ -178,7 +224,6 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
                       onClick={(e) => {
                         e.stopPropagation()
                         if (!running) setFile(null)
-                        if (inputRef.current) inputRef.current.value = ""
                       }}
                       aria-label="파일 제거"
                     >
@@ -187,9 +232,13 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
                   )}
                   {!file ? (
                     <div className="flex flex-col items-center justify-center px-3 py-2 text-center">
-                      <FileUp className="mb-1 h-6 w-6" />
+                      {picking ? (
+                        <Loader2 className="mb-1 h-6 w-6 animate-spin" />
+                      ) : (
+                        <FileUp className="mb-1 h-6 w-6" />
+                      )}
                       <div className="text-sm">
-                        파일을 끌어다 놓거나 <span className="underline">클릭하여 선택</span>
+                        {picking ? "데이터 폴더에서 불러오는 중..." : "파일을 끌어오거나 클릭해서 선택"}
                       </div>
                       <div className="text-xs text-muted-foreground">지원 형식: .xlsx .xlsm .xls .csv</div>
                     </div>
@@ -204,17 +253,9 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
                       </div>
                     </div>
                   )}
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept=".xlsx,.xlsm,.xls,.csv"
-                    className="hidden"
-                    onChange={(e) => handleFiles(e.target.files)}
-                  />
                 </div>
               </div>
             </div>
-
             <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 overflow-hidden">
               <div className="min-h-0 overflow-hidden rounded-xl border border-border/60 bg-card/50">
                 <div className="flex h-full min-h-0 flex-col p-3">
@@ -282,8 +323,8 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
               <Button
                 className="rounded-xl bg-black text-white"
                 onClick={start}
-                disabled={!file || running}
-                title={!file ? "파일을 먼저 선택하세요" : running ? "진행 중입니다" : "실행"}
+                disabled={!file || running || picking}
+                title={!file ? "파일을 먼저 선택해주세요" : running ? "진행 중입니다" : "실행"}
               >
                 {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                 {running ? "진행 중" : "실행"}
