@@ -293,7 +293,7 @@ async def is_cell_empty(ctx: RPCContext, row:int, col:int):
 async def change_data_dir(ctx:RPCContext):
     try:
         new_dir = ctx.pyloid.select_directory_dialog(omikron.config.DATA_DIR)
-        if new_dir is None: return {"ok": True}
+        if new_dir is None: return {"ok": False}
         abspath = os.path.abspath(new_dir)
         omikron.config.change_data_path(abspath)
         return {"ok": True}

@@ -91,7 +91,9 @@ export default function PrereqSetupView({
       if (res?.ok) {
         await dialog.confirm({title: "성공", message: "데이터 저장 위치를 변경하였습니다."})
       } else {
-        await dialog.error({title: "데이터 저장 위치 변경 실패", message: res?.error || "" });
+        if (res?.error){
+          await dialog.error({title: "데이터 저장 위치 변경 실패", message: res?.error});
+        }
       }
     } catch (e: any) {
       await dialog.error({title: "에러", message: `${e}`})
