@@ -247,7 +247,7 @@ class Updater:
 
         # === 투명 배경 + 둥근 흰 카드 ===
         self.trans_color = "#00FF00"   # 완전 투명으로 사용할 색
-        self.card_color  = "#ECECEC"   # 카드(사각형) 색
+        self.card_color  = "#F5F5F5"   # 카드(사각형) 색
 
         self.root.configure(bg=self.trans_color)
         # Windows에서 trans_color를 완전 투명으로

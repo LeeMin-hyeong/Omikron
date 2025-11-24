@@ -980,7 +980,7 @@ def change_class_info(target_class_name:str, target_teacher_name:str):
     CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, _, _ = find_dynamic_columns(ws)
 
     for row in range(2, ws.max_row+1):
-        if ws.cell(row, CLASS_NAME_COLUMN).value == target_class_name:
+        if ws.cell(row, CLASS_NAME_COLUMN).value in (target_class_name, target_class_name+" (모의고사)"):
             ws.cell(row, TEACHER_NAME_COLUMN).value = target_teacher_name
 
     save(wb)

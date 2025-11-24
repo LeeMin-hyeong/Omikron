@@ -291,11 +291,14 @@ async def is_cell_empty(ctx: RPCContext, row:int, col:int):
 
 @server.method()
 async def change_data_dir(ctx:RPCContext):
-    new_dir = ctx.pyloid.select_directory_dialog()
-    if new_dir is None: return
-    abspath = os.path.abspath(new_dir)
-    omikron.config.change_data_path(abspath)
-    return {"ok": True}
+    try:
+        new_dir = ctx.pyloid.select_directory_dialog(omikron.config.DATA_DIR)
+        if new_dir is None: return {"ok": True}
+        abspath = os.path.abspath(new_dir)
+        omikron.config.change_data_path(abspath)
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @server.method()
@@ -577,6 +580,7 @@ async def change_data_file_name_by_select(ctx: RPCContext):
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
 
 @server.method()
 async def open_file_picker(ctx: RPCContext):
