@@ -247,7 +247,7 @@ class Updater:
 
         # === 투명 배경 + 둥근 흰 카드 ===
         self.trans_color = "#00FF00"   # 완전 투명으로 사용할 색
-        self.card_color  = "#FFFFFF"   # 카드(사각형) 색
+        self.card_color  = "#ECECEC"   # 카드(사각형) 색
 
         self.root.configure(bg=self.trans_color)
         # Windows에서 trans_color를 완전 투명으로
@@ -280,7 +280,7 @@ class Updater:
             8, 8,
             self.width - 8,
             self.height - 8,
-            radius=20,
+            radius=8,
             fill=self.card_color
         )
 
@@ -317,7 +317,7 @@ class Updater:
         )
 
         # 상태 텍스트
-        self.status_var = tk.StringVar(value="시작 중…")
+        self.status_var = tk.StringVar(value="오미크론 프로그램 업데이트 체커")
         self.status_label = tk.Label(
             self.bottom_frame,
             textvariable=self.status_var,
@@ -350,11 +350,11 @@ class Updater:
             pass
         style.configure(
             "Omikron.Horizontal.TProgressbar",
-            troughcolor="#EEEEEE",
-            bordercolor="#EEEEEE",
-            background="#FF4D4F",
-            lightcolor="#FF4D4F",
-            darkcolor="#FF4D4F",
+            troughcolor="#383838",
+            bordercolor="#383838",
+            background="#ed1b24",
+            lightcolor="#ed1b24",
+            darkcolor="#ed1b24",
         )
         self.progress.configure(style="Omikron.Horizontal.TProgressbar")
 
@@ -436,10 +436,9 @@ class Updater:
         t.start()
 
     def run_update_flow(self):
-        self.set_status("프로그램 실행 여부 확인 중…", 5)
         if is_main_running():
             log("메인 프로그램이 이미 실행 중입니다. 업데이트를 건너뜁니다.")
-            self.set_status("이미 Omikron이 실행 중입니다.\n업데이트는 건너뜁니다.", 100)
+            self.set_status("이미 Omikron이 실행 중입니다.", 100)
             time.sleep(1.5)
 
             def _close():
@@ -501,7 +500,7 @@ class Updater:
 
         except (HTTPError, URLError) as e:
             log(f"네트워크 오류: {e}")
-            self.set_status("네트워크 오류가 발생했지만\n앱을 실행합니다.", 100)
+            self.set_status("네트워크 오류가 발생하였습니다.\n앱을 실행합니다.", 100)
             time.sleep(0.5)
         except Exception as e:
             log(f"업데이트 실패: {e}")
