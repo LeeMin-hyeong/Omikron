@@ -4,24 +4,32 @@
 
 해당 프로그램은 Windows10 이상의 환경에서 실행 가능합니다.
 
-## 설치 방법
+## 설치
 
-프로그램 설치를 위해 다음 프로그램이 필요합니다.
-* [Git](https://git-scm.com/download/win)
-* [Python 3.10+](https://apps.microsoft.com/detail/9PJPW5LDXLZ5?hl=ko-KR&gl=US)
+[릴리즈 설치](https://github.com/LeeMin-hyeong/Omikron/releases)
 
-프로그램을 모두 설치하였다면 ``Omikron_installer.bat`` 를 실행하여 Omikron 프로그램을 설치해 주세요.
+``omikron-win.zip``을 다운받아 압축을 해제하고 ``omikron.exe``를 실행합니다.
 
 ## 프로그램 사용법 및 도움말
 
-프로그램을 실행시키기 위해 ``config.json`` 파일이 필요합니다.
+프로그램을 실행하기 위해 ``config.json`` 파일이 필요합니다.
 * ``config.json`` 은 학원 아이소식의 주소와 메세지 양식 등이 포함되어 있습니다.
+``` json
+{
+    "dataFileName": "",
+    "dataDir": "",
+    "url": "",
+    "dailyTest": "",
+    "makeupTest": "",
+    "makeupTestDate": ""
+}
+```
 
 프로그램 실행 및 조작을 위해 다음 프로그램이 필요합니다.
 * Google Chrome
 * Microsoft Excel
 
-[사용법 및 도움말](https://omikron-db.notion.site/ad673cca64c146d28adb3deaf8c83a0d?pvs=4)
+[사용법 및 도움말](https://omikron-db.notion.site/instruction)
 
 ## 업데이트 내역
 
