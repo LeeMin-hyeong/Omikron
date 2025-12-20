@@ -222,7 +222,7 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
             MAKEUP_TEST_WRITE_ROW = row
             break
 
-    exist, teacher_name, _, _ = omikron.classinfo.get_class_info(class_name, class_ws)
+    exist, teacher_name, _, _, _ = omikron.classinfo.get_class_info(class_name, class_ws)
     if not exist:
         prog.warning(f"{class_name}의 반 정보가 존재하지 않습니다.")
 
