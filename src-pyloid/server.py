@@ -129,7 +129,6 @@ def _send_exam_message_job(job_id: str, *, filename: str, b64: str, makeup_test_
         if not ok:
             prog.error("메시지 작성 중 오류가 발생했습니다.")
             return
-        prog.step("Chrome 자동화를 실행하여 메시지를 작성합니다.")
 
         prog.step("작업 완료")
 
@@ -510,6 +509,7 @@ async def update_class(ctx: RPCContext):
     try:
         omikron.datafile.update_class()
         omikron.classinfo.update_class()
+        omikron.classinfo.delete_temp()
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
