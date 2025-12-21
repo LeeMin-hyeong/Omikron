@@ -39,7 +39,7 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
   "send-exam-message": {
     title: "시험 결과 메시지 전송",
     guide: "저장된 결과를 기반으로 학부모 메시지를 생성하고 전송합니다.",
-    steps: ["데이터 입력 양식 유효성 검사", "메시지 작성", "작성 완료"],
+    steps: ["데이터 입력 양식 유효성 검사", "시험 결과 요약", "시험 결과 메시지 작성", "재시험 안내 메시지 작성", "재시험 일정 안내 메시지 작성", "메시지 작성 완료"],
   },
   "save-individual-exam": {
     title: "개별 시험 결과 저장",
