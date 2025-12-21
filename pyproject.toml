@@ -13,7 +13,9 @@ dependencies = [
     "openpyxl>=3.1",
     "selenium==4.39.0",
     "pywin32",
-    "python-dateutil"
+    "python-dateutil",
+    "beautifulsoup4",
+    "requests",
 ]
 
 [dependency-groups]
