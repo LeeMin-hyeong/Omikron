@@ -7,7 +7,6 @@ from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.formula import ArrayFormula
 from openpyxl.worksheet.worksheet import Worksheet
-from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
 
 import omikron.chrome
 import omikron.classinfo
@@ -19,6 +18,7 @@ from omikron.defs import DataFile, DataForm
 from omikron.exception import NoMatchingSheetException, FileOpenException
 from omikron.util import copy_cell, class_average_color, student_average_color, test_score_color
 from omikron.progress import Progress
+from omikron.style import *
 
 class NoReservedColumnError(Exception):
     """
@@ -41,7 +41,7 @@ def make_file():
     ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
     for col in range(1, DataFile.DATA_COLUMN):
-        ws.cell(1, col).border = Border(bottom = Side(border_style="medium", color="000000"))
+        ws.cell(1, col).border = BORDER_BOTTOM_MEDIUM_000
 
     class_wb = omikron.classinfo.open(True)
     class_ws = omikron.classinfo.open_worksheet(class_wb)
@@ -78,7 +78,7 @@ def make_file():
             ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험명"
 
             for col in range(1, DataFile.DATA_COLUMN):
-                ws.cell(WRITE_LOCATION, col).border = Border(bottom = Side(border_style="thin", color="909090"))
+                ws.cell(WRITE_LOCATION, col).border = BORDER_BOTTOM_THIN_9090
 
             class_start = WRITE_LOCATION + 1
 
@@ -91,7 +91,7 @@ def make_file():
                 ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
                 ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = student_name
                 ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(DataFile.DATA_COLUMN)}{WRITE_LOCATION}:XFD{WRITE_LOCATION}), 0)"
-                ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font  = Font(bold=True)
+                ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font  = FONT_BOLD
             
             # 시험별 평균
             class_end = WRITE_LOCATION
@@ -102,15 +102,15 @@ def make_file():
             ws.cell(WRITE_LOCATION, DataFile.TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, DataFile.STUDENT_NAME_COLUMN).value  = "시험 평균"
             ws[f"{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{WRITE_LOCATION}"] = ArrayFormula(f"{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{WRITE_LOCATION}", f"=ROUND(AVERAGE(IFERROR({gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_start}:{gcl(DataFile.AVERAGE_SCORE_COLUMN)}{class_end}, \"\")), 0)")
-            ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            ws.cell(WRITE_LOCATION, DataFile.AVERAGE_SCORE_COLUMN).font = FONT_BOLD
 
             for col in range(1, DataFile.DATA_COLUMN):
-                ws.cell(WRITE_LOCATION, col).border = Border(top = Side(border_style="thin", color="909090"), bottom = Side(border_style="medium", color="000000"))
+                ws.cell(WRITE_LOCATION, col).border = BORDER_TOP_THIN_9090_BOTTOM_MEDIUM_000
 
     # 정렬
     for row in range(1, ws.max_row + 1):
         for col in range(1, ws.max_column + 1):
-            ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+            ws.cell(row, col).alignment = ALIGN_CENTER
     
     # 모의고사 sheet 생성
     # copy_ws                 = wb.copy_worksheet(wb[DataFile.DEFAULT_SHEET_NAME])
@@ -120,11 +120,11 @@ def make_file():
 
     save(wb)
 
-def open(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx", data_only=data_only)
+def open(data_only:bool=False, read_only:bool=False) -> xl.Workbook:
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx", data_only=data_only, read_only=read_only)
 
-def open_temp(data_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only)
+def open_temp(data_only:bool=False, read_only:bool=False) -> xl.Workbook:
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only, read_only=read_only)
 
 def save(wb:xl.Workbook):
     try:
@@ -143,13 +143,12 @@ def isopen() -> bool:
     return os.path.isfile(f"{omikron.config.DATA_DIR}/data/~${omikron.config.DATA_FILE_NAME}.xlsx")
 
 def file_validation():
-    wb = open()
+    wb = open(read_only=True)
 
     if DataFile.DEFAULT_SHEET_NAME not in wb.sheetnames:
         raise NoMatchingSheetException(f"데이터 파일: {DataFile.DEFAULT_SHEET_NAME} 시트가 존재하지 않습니다.")
 
-    # if DataFile.SECOND_SHEET_NAME not in wb.sheetnames:
-    #     raise NoMatchingSheetException(f"데이터 파일: {DataFile.SECOND_SHEET_NAME} 시트가 존재하지 않습니다.")
+    wb.close()
 
 # 파일 유틸리티
 def make_backup_file():
@@ -268,7 +267,7 @@ def is_cell_empty(row:int, col:int) -> bool:
 
     데일리테스트 시트 한정 기능
     """
-    wb = open(data_only=True)
+    wb = open(data_only=True, read_only=True)
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
 
     if ws.cell(row, col).value is None:
@@ -367,17 +366,17 @@ def save_test_data(filepath:str, prog: Progress):
                 ws.column_dimensions[gcl(WRITE_COLUMN)].width    = 14
                 ws.cell(CLASS_START, WRITE_COLUMN).value         = datetime.today().date()
                 ws.cell(CLASS_START, WRITE_COLUMN).number_format = "yyyy.mm.dd(aaa)"
-                ws.cell(CLASS_START, WRITE_COLUMN).alignment     = Alignment(horizontal="center", vertical="center")
-                ws.cell(CLASS_START, WRITE_COLUMN).border        = Border(top = Side(border_style="medium", color="000000"))
+                ws.cell(CLASS_START, WRITE_COLUMN).alignment     = ALIGN_CENTER
+                ws.cell(CLASS_START, WRITE_COLUMN).border        = BORDER_TOP_MEDIUM_000
 
                 ws.cell(CLASS_START + 1, WRITE_COLUMN).value     = test_name
-                ws.cell(CLASS_START + 1, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-                ws.cell(CLASS_START + 1, WRITE_COLUMN).border    = Border(bottom = Side(border_style="thin", color="909090"))
+                ws.cell(CLASS_START + 1, WRITE_COLUMN).alignment = ALIGN_CENTER_WRAP
+                ws.cell(CLASS_START + 1, WRITE_COLUMN).border    = BORDER_BOTTOM_THIN_9090
 
                 ws.cell(CLASS_END, WRITE_COLUMN).value           = AVERAGE_FORMULA
-                ws.cell(CLASS_END, WRITE_COLUMN).font            = Font(bold=True)
-                ws.cell(CLASS_END, WRITE_COLUMN).alignment       = Alignment(horizontal="center", vertical="center")
-                ws.cell(CLASS_END, WRITE_COLUMN).border          = Border(top = Side(border_style="thin", color="909090"), bottom = Side(border_style="medium", color="000000"))
+                ws.cell(CLASS_END, WRITE_COLUMN).font            = FONT_BOLD
+                ws.cell(CLASS_END, WRITE_COLUMN).alignment       = ALIGN_CENTER
+                ws.cell(CLASS_END, WRITE_COLUMN).border          = BORDER_TOP_THIN_9090_BOTTOM_MEDIUM_000
                 
                 if type(test_average) in (int, float):
                     ws.cell(CLASS_END, WRITE_COLUMN).fill = class_average_color(test_average)
@@ -397,7 +396,7 @@ def save_test_data(filepath:str, prog: Progress):
                     if type(test_score) in (int, float):
                         ws.cell(row, WRITE_COLUMN).fill = test_score_color(test_score)
 
-                    ws.cell(row, WRITE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row, WRITE_COLUMN).alignment = ALIGN_CENTER
                     break
             else:
                 prog.warning(f"{class_name} 반에 {student_name} 학생이 존재하지 않습니다.")
@@ -408,13 +407,20 @@ def save_test_data(filepath:str, prog: Progress):
 
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
-    excel = win32com.client.Dispatch("Excel.Application")
-    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
-    wb = excel.Workbooks.Open(abs_path)
-    wb.Save()
-    wb.Close()
-    excel.Quit()
-    pythoncom.CoUninitialize()
+    excel = None
+    try:
+        excel = win32com.client.Dispatch("Excel.Application")
+        abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+        wb_com = excel.Workbooks.Open(abs_path)
+        wb_com.Save()
+        wb_com.Close()
+    finally:
+        try:
+            if excel is not None:
+                excel.Quit()
+        except:
+            pass
+        pythoncom.CoUninitialize()
 
     wb           = open_temp()
     data_only_wb = open_temp(data_only=True)
@@ -451,11 +457,11 @@ def save_test_data(filepath:str, prog: Progress):
         exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
         if exist:
             if new_student:
-                ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+                ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NEW_STUDENT
             else:
-                ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+                ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NONE
         else:
-            ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+            ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NONE
             prog.warning(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
@@ -480,18 +486,25 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     # 시험 점수 기록
     ws.cell(target_row, target_col).value     = test_score
     ws.cell(target_row, target_col).fill      = test_score_color(test_score)
-    ws.cell(target_row, target_col).alignment = Alignment(horizontal="center", vertical="center")
+    ws.cell(target_row, target_col).alignment = ALIGN_CENTER
 
     save_to_temp(wb)
 
     pythoncom.CoInitialize()
-    excel = win32com.client.Dispatch("Excel.Application")
-    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
-    wb = excel.Workbooks.Open(abs_path)
-    wb.Save()
-    wb.Close()
-    excel.Quit()
-    pythoncom.CoUninitialize()
+    excel = None
+    try:
+        excel = win32com.client.Dispatch("Excel.Application")
+        abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+        wb_com = excel.Workbooks.Open(abs_path)
+        wb_com.Save()
+        wb_com.Close()
+    finally:
+        try:
+            if excel is not None:
+                excel.Quit()
+        except:
+            pass
+        pythoncom.CoUninitialize()
 
     wb           = open_temp()
     data_only_wb = open_temp(True)
@@ -529,18 +542,25 @@ def conditional_formatting():
     file_validation()
 
     pythoncom.CoInitialize()
-    excel = win32com.client.Dispatch("Excel.Application")
-    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx")
-    wb = excel.Workbooks.Open(abs_path)
-    wb.Save()
-    wb.Close()
-    excel.Quit()
-    pythoncom.CoUninitialize()
+    excel = None
+    try:
+        excel = win32com.client.Dispatch("Excel.Application")
+        abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+        wb_com = excel.Workbooks.Open(abs_path)
+        wb_com.Save()
+        wb_com.Close()
+    finally:
+        try:
+            if excel is not None:
+                excel.Quit()
+        except:
+            pass
+        pythoncom.CoUninitialize()
 
     warnings = []
 
     wb           = open()
-    data_only_wb = open(data_only=True)
+    data_only_wb = open(data_only=True, read_only=True)
     student_wb   = omikron.studentinfo.open()
     student_ws   = omikron.studentinfo.open_worksheet(student_wb)
 
@@ -572,11 +592,11 @@ def conditional_formatting():
 
             ws.column_dimensions[gcl(col)].width = 14
             if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
-                ws.cell(row, col).border = Border(top = Side(border_style="medium", color="000000"))
+                ws.cell(row, col).border = BORDER_BOTTOM_MEDIUM_000
             elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
-                ws.cell(row, col).border = Border(bottom = Side(border_style="thin", color="909090"))
+                ws.cell(row, col).border = BORDER_BOTTOM_THIN_9090
             elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                ws.cell(row, col).border = Border(top = Side(border_style="thin", color="909090"), bottom = Side(border_style="medium", color="000000"))
+                ws.cell(row, col).border = BORDER_TOP_THIN_9090_BOTTOM_MEDIUM_000
             else:
                 ws.cell(row, col).border = None
 
@@ -587,13 +607,13 @@ def conditional_formatting():
             if ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
                 ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
             elif data_only_ws.cell(row, STUDENT_NAME_COLUMN).value == "시험 평균":
-                ws.cell(row, col).font = Font(bold=True)
+                ws.cell(row, col).font = FONT_BOLD
                 if type(data_only_ws.cell(row, col).value) in (int, float):
                     ws.cell(row, col).fill = class_average_color(data_only_ws.cell(row, col).value)
             elif type(data_only_ws.cell(row, col).value) in (int, float):
                 ws.cell(row, col).fill = test_score_color(data_only_ws.cell(row, col).value)
             else:
-                ws.cell(row, col).fill = PatternFill(fill_type=None)
+                ws.cell(row, col).fill = FILL_NONE
 
         # 학생별 평균 조건부 서식
         if type(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value) in (int, float):
@@ -602,28 +622,28 @@ def conditional_formatting():
             else:
                 ws.cell(row, AVERAGE_SCORE_COLUMN).fill = student_average_color(data_only_ws.cell(row, AVERAGE_SCORE_COLUMN).value)
         else:
-            ws.cell(row, col).fill = PatternFill(fill_type=None)
+            ws.cell(row, col).fill = FILL_NONE
 
         # 학생별 평균 폰트 설정
         if ws.cell(row, STUDENT_NAME_COLUMN).value in ("날짜", "시험명", "시험 평균"):
-            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = FONT_BOLD
             continue
         if ws.cell(row, STUDENT_NAME_COLUMN).font.strike:
-            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = FONT_BOLD_STRIKE
             continue
         if ws.cell(row, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(row, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
-            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, color="FFFF0000")
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = FONT_BOLD_RED
             continue
 
         # 신규생 하이라이트
         exist, _, _, new_student = omikron.studentinfo.get_student_info(student_ws, ws.cell(row, STUDENT_NAME_COLUMN).value)
         if exist:
             if new_student:
-                ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+                ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NEW_STUDENT
             else:
-                ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+                ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NONE
         else:
-            ws.cell(row, STUDENT_NAME_COLUMN).fill = PatternFill(fill_type=None)
+            ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NONE
             warnings.append(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
     save(wb)
@@ -638,27 +658,31 @@ def update_class():
 
     make_backup_file()
 
-    new_class_names = omikron.classinfo.get_new_class_names()
+    new_class_names = set(omikron.classinfo.get_new_class_names())
 
     # 조건부 서식 수식 로딩
     pythoncom.CoInitialize()
-    excel = win32com.client.Dispatch("Excel.Application")
-    abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx")
-    wb = excel.Workbooks.Open(abs_path)
-    wb.Save()
-    wb.Close()
-    excel.Quit()
-    pythoncom.CoUninitialize()
-
-    wb = open()
+    excel = None
+    try:
+        excel = win32com.client.Dispatch("Excel.Application")
+        abs_path = os.path.abspath(f"{omikron.config.DATA_DIR}/data/{omikron.config.DATA_FILE_NAME}.xlsx")
+        wb_com = excel.Workbooks.Open(abs_path)
+        wb_com.Save()
+        wb_com.Close()
+    finally:
+        try:
+            if excel is not None:
+                excel.Quit()
+        except:
+            pass
+        pythoncom.CoUninitialize()
 
     # 지난 데이터 파일이 없으면 새로 생성
     if not os.path.isfile(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx"):
         pre_data_wb = xl.Workbook()
         pre_data_ws = pre_data_wb.worksheets[0]
         pre_data_ws.title = DataFile.DEFAULT_SHEET_NAME
-        # pre_data_ws[gcl(DataFile.TEST_TIME_COLUMN)+"1"]     = "시간"
-        # pre_data_ws[gcl(DataFile.CLASS_WEEKDAY_COLUMN)+"1"] = "요일"
+
         pre_data_ws[gcl(DataFile.CLASS_NAME_COLUMN)+"1"]    = "반"
         pre_data_ws[gcl(DataFile.TEACHER_NAME_COLUMN)+"1"]  = "담당"
         pre_data_ws[gcl(DataFile.STUDENT_NAME_COLUMN)+"1"]  = "이름"
@@ -667,38 +691,24 @@ def update_class():
         pre_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
 
         for col in range(1, DataFile.DATA_COLUMN):
-            pre_data_ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center")
-            pre_data_ws.cell(1, col).border    = Border(bottom = Side(border_style="medium", color="000000"))
-        
-        # 모의고사 sheet 생성
-        # copy_pre_data_ws                 = pre_data_wb.copy_worksheet(pre_data_wb[DataFile.DEFAULT_SHEET_NAME])
-        # copy_pre_data_ws.title           = DataFile.SECOND_SHEET_NAME
-        # copy_pre_data_ws.freeze_panes    = f"{gcl(DataFile.DATA_COLUMN)}2"
-        # copy_pre_data_ws.auto_filter.ref = f"A:{gcl(DataFile.MAX)}"
+            pre_data_ws.cell(1, col).alignment = ALIGN_CENTER
+            pre_data_ws.cell(1, col).border    = BORDER_BOTTOM_MEDIUM_000
 
         pre_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
-    
-    data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
-    pre_data_wb = xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
-    # for sheet_name in wb.sheetnames:
-    #     if sheet_name not in (DataFile.DEFAULT_SHEET_NAME):
-    #         continue
+    else:
+        pre_data_wb = xl.load_workbook(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
+
+    # 지난 데이터 이동
+    data_only_wb = open(data_only=True, read_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
 
     data_only_ws = data_only_wb[DataFile.DEFAULT_SHEET_NAME]
     pre_data_ws  = pre_data_wb[DataFile.DEFAULT_SHEET_NAME]
-    ws           = wb[DataFile.DEFAULT_SHEET_NAME]
 
-    CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
-
-    for row in range(2, ws.max_row+1):
-        while ws.cell(row, CLASS_NAME_COLUMN).value is not None and ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
-            ws.delete_rows(row)
+    CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(data_only_ws)
 
     for row in range(2, data_only_ws.max_row+1):
         if data_only_ws.cell(row, CLASS_NAME_COLUMN).value not in new_class_names:
             PRE_DATA_WRITE_ROW = pre_data_ws.max_row+1
-            # copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.TEST_TIME_COLUMN),     data_only_ws.cell(row, TEST_TIME_COLUMN))
-            # copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.CLASS_WEEKDAY_COLUMN), data_only_ws.cell(row, CLASS_WEEKDAY_COLUMN))
             copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.CLASS_NAME_COLUMN),    data_only_ws.cell(row, CLASS_NAME_COLUMN))
             copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.TEACHER_NAME_COLUMN),  data_only_ws.cell(row, TEACHER_NAME_COLUMN))
             copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, DataFile.STUDENT_NAME_COLUMN),  data_only_ws.cell(row, STUDENT_NAME_COLUMN))
@@ -706,26 +716,38 @@ def update_class():
             PRE_DATA_WRITE_COLUMN = DataFile.MAX+1
             for col in range(AVERAGE_SCORE_COLUMN+1, data_only_ws.max_column+1):
                 copy_cell(pre_data_ws.cell(PRE_DATA_WRITE_ROW, PRE_DATA_WRITE_COLUMN), data_only_ws.cell(row, col))
-                pre_data_ws.column_dimensions[gcl(PRE_DATA_WRITE_COLUMN)].width = 14
                 PRE_DATA_WRITE_COLUMN += 1
 
+    for col in range(DataFile.MAX + 1, pre_data_ws.max_column + 1):
+        pre_data_ws.column_dimensions[gcl(col)].width = 14
+
+    data_only_wb.close()
+    data_only_wb = None
+    pre_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
+    pre_data_wb = None
+
+    # 데이터 파일 지난 데이터 삭제 및 신규 반 추가
+    wb = open()
+    ws = wb[DataFile.DEFAULT_SHEET_NAME]
+
+    to_delete = []
+    for row in range(2, ws.max_row + 1):
+        v = ws.cell(row, CLASS_NAME_COLUMN).value
+        if v is not None and v not in new_class_names:
+            to_delete.append(row)
+
+    for row in reversed(to_delete):
+        ws.delete_rows(row)
     ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
 
-    pre_data_wb.save(f"{omikron.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
-
-    ws = wb[DataFile.DEFAULT_SHEET_NAME]
-    old_class_names = get_class_names(ws)
-    unregistered_class_names = list(set(new_class_names).difference(old_class_names))
+    old_class_names = set(get_class_names(ws))
+    unregistered_class_names = list(new_class_names.difference(old_class_names))
 
     if len(unregistered_class_names) > 0:
         class_wb = omikron.classinfo.open_temp()
         class_ws = omikron.classinfo.open_worksheet(class_wb)
 
         class_student_dict = omikron.chrome.get_class_student_dict()
-
-        # for sheet_name in wb.sheetnames:
-        #     if sheet_name not in (DataFile.DEFAULT_SHEET_NAME, DataFile.SECOND_SHEET_NAME):
-        #         continue
 
         ws = wb[DataFile.DEFAULT_SHEET_NAME]
 
@@ -746,49 +768,41 @@ def update_class():
             if not exist: continue
 
             # 시험명
-            # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-            # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
             ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
             ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = "날짜"
             WRITE_LOCATION += 1
             
-            # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-            # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
             ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
             ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = "시험명"
 
             for col in range(1, AVERAGE_SCORE_COLUMN + 1):
-                ws.cell(WRITE_LOCATION, col).border = Border(bottom = Side(border_style="thin", color="909090"))
+                ws.cell(WRITE_LOCATION, col).border = BORDER_BOTTOM_THIN_9090
 
             WRITE_LOCATION += 1
 
             # 학생 루프
             for studnet_name in class_student_dict[temp_name]:
-                # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-                # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
                 ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
                 ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
                 ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = studnet_name
                 WRITE_LOCATION += 1
             
             # 시험별 평균
-            # ws.cell(WRITE_LOCATION, TEST_TIME_COLUMN).value     = test_time
-            # ws.cell(WRITE_LOCATION, CLASS_WEEKDAY_COLUMN).value = class_weekday
             ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
             ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
             ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = "시험 평균"
 
             for col in range(1, AVERAGE_SCORE_COLUMN+1):
-                ws.cell(WRITE_LOCATION, col).border = Border(top = Side(border_style="thin", color="909090"), bottom = Side(border_style="medium", color="000000"))
+                ws.cell(WRITE_LOCATION, col).border = BORDER_TOP_THIN_9090_BOTTOM_MEDIUM_000
 
             WRITE_LOCATION += 1
 
         # 정렬
         for row in range(WRITE_RANGE, ws.max_row + 1):
             for col in range(1, AVERAGE_SCORE_COLUMN + 1):
-                ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row, col).alignment = ALIGN_CENTER
 
         # 필터 범위 재지정
         ws.auto_filter.ref = f"A:{gcl(AVERAGE_SCORE_COLUMN)}"
@@ -850,14 +864,14 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
         ws.cell(class_index, TEACHER_NAME_COLUMN).value      = ws.cell(class_index-1, TEACHER_NAME_COLUMN).value
         ws.cell(class_index, STUDENT_NAME_COLUMN).value      = student_name
 
-        # ws.cell(class_index, TEST_TIME_COLUMN).alignment     = Alignment(horizontal="center", vertical="center")
-        # ws.cell(class_index, CLASS_WEEKDAY_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-        ws.cell(class_index, CLASS_NAME_COLUMN).alignment    = Alignment(horizontal="center", vertical="center")
-        ws.cell(class_index, TEACHER_NAME_COLUMN).alignment  = Alignment(horizontal="center", vertical="center")
-        ws.cell(class_index, STUDENT_NAME_COLUMN).alignment  = Alignment(horizontal="center", vertical="center")
+        # ws.cell(class_index, TEST_TIME_COLUMN).alignment     = ALIGN_CENTER
+        # ws.cell(class_index, CLASS_WEEKDAY_COLUMN).alignment = ALIGN_CENTER
+        ws.cell(class_index, CLASS_NAME_COLUMN).alignment    = ALIGN_CENTER
+        ws.cell(class_index, TEACHER_NAME_COLUMN).alignment  = ALIGN_CENTER
+        ws.cell(class_index, STUDENT_NAME_COLUMN).alignment  = ALIGN_CENTER
 
-        ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = Alignment(horizontal="center", vertical="center")
-        ws.cell(class_index, AVERAGE_SCORE_COLUMN).font      = Font(bold=True)
+        ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = ALIGN_CENTER
+        ws.cell(class_index, AVERAGE_SCORE_COLUMN).font      = FONT_BOLD
 
     rescoping_formula(wb)
 
@@ -880,9 +894,9 @@ def delete_student(student_name:str):
         if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name:
             for col in range(1, ws.max_column+1):
                 if ws.cell(row, col).font.bold:
-                    ws.cell(row, col).font = Font(bold=True, strike=True)
+                    ws.cell(row, col).font = FONT_BOLD_STRIKE
                 else:
-                    ws.cell(row, col).font = Font(strike=True)
+                    ws.cell(row, col).font = FONT_STRIKE
             
             # 퇴원한 학생이 반 평균에 영향을 주지 않도록 수정
             ws.cell(row, AVERAGE_SCORE_COLUMN).value = ""
@@ -911,9 +925,9 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
         if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name and ws.cell(row, CLASS_NAME_COLUMN).value in (current_class_name, current_class_name+" (모의고사)"):
             for col in range(1, ws.max_column+1):
                 if ws.cell(row, col).font.bold:
-                    ws.cell(row, col).font = Font(bold=True, color="FFFF0000")
+                    ws.cell(row, col).font = FONT_BOLD_RED
                 else:
-                    ws.cell(row, col).font = Font(color="FFFF0000")
+                    ws.cell(row, col).font = FONT_RED
             # break
 
     return add_student(student_name, target_class_name, wb)
@@ -955,18 +969,18 @@ def rescoping_formula(wb:xl.Workbook=None):
                 if ws.cell(DATE_ROW, col).value is None:
                     break
                 ws.cell(row, col).value = f"=ROUND(AVERAGE({gcl(col)}{CLASS_START}:{gcl(col)}{CLASS_END}), 0)"
-                ws.cell(row, col).font  = Font(bold=True)
+                ws.cell(row, col).font  = FONT_BOLD
         elif ws.cell(row, STUDENT_NAME_COLUMN).value == "시험명":
             continue
         else:
             ws.cell(row, AVERAGE_SCORE_COLUMN).value = f"=ROUND(AVERAGE({gcl(AVERAGE_SCORE_COLUMN+1)}{row}:XFD{row}), 0)"
 
         if striked:
-            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, strike=True)
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = FONT_BOLD_STRIKE
         elif colored:
-            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True, color="FFFF0000")
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = FONT_BOLD_RED
         else:
-            ws.cell(row, AVERAGE_SCORE_COLUMN).font = Font(bold=True)
+            ws.cell(row, AVERAGE_SCORE_COLUMN).font = FONT_BOLD
 
     save(wb)
 
