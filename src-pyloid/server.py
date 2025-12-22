@@ -509,10 +509,14 @@ async def update_class(ctx: RPCContext):
     try:
         omikron.datafile.update_class()
         omikron.classinfo.update_class()
-        omikron.classinfo.delete_temp()
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+    finally:
+        try:
+            omikron.classinfo.delete_temp()
+        except:
+            pass
 
 
 @server.method()
