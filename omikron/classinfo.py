@@ -49,11 +49,11 @@ def make_file():
 
     save(wb)
 
-def open(data_only:bool=True) -> xl.Workbook:
-    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
+def open(data_only:bool=True, read_only:bool=True) -> xl.Workbook:
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx", data_only=data_only, read_only=read_only)
 
-def open_temp(data_only:bool=True) -> xl.Workbook:
-    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx", data_only=data_only)
+def open_temp(data_only:bool=True, read_only:bool=True) -> xl.Workbook:
+    return xl.load_workbook(f"{omikron.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx", data_only=data_only, read_only=read_only)
 
 def open_worksheet(wb:xl.Workbook):
     try:
@@ -81,7 +81,7 @@ def isopen() -> bool:
 
 # 파일 유틸리티
 def make_backup_file():
-    wb = open()
+    wb = open(read_only=False)
     wb.save(f"{omikron.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
 
 def get_class_info(class_name:str, ws:Worksheet = None):
@@ -142,7 +142,7 @@ def make_temp_file_for_update(new_class_list:list[str]):
     """
     make_backup_file()
 
-    wb = open()
+    wb = open(read_only=False)
     ws = open_worksheet(wb)
 
     class_names = get_class_names(ws)
@@ -183,7 +183,7 @@ def change_class_info(target_class_name:str, target_teacher_name:str):
     """
     make_backup_file()
 
-    wb = open()
+    wb = open(read_only=False)
     ws = open_worksheet(wb)
 
     for row in range(2, ws.max_row + 1):
@@ -196,4 +196,4 @@ def change_class_info(target_class_name:str, target_teacher_name:str):
     save(wb)
 
 def update_class():
-    save(open_temp())
+    save(open_temp(read_only=False))
