@@ -4,7 +4,6 @@ import openpyxl as xl
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
-from openpyxl.styles import Alignment, Border, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 
 import omikron.chrome
@@ -12,6 +11,8 @@ import omikron.config
 
 from omikron.defs import ClassInfo
 from omikron.exception import NoMatchingSheetException, FileOpenException
+from omikron.progress import Progress
+from omikron.style import BORDER_ALL, ALIGN_CENTER, ALIGN_CENTER_WRAP
 
 # 파일 기본 작업
 def make_file():
@@ -42,10 +43,10 @@ def make_file():
     # 정렬 및 테두리
     for row in range(1, ws.max_row + 1):
         for col in range(1, ClassInfo.MAX + 1):
-            ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
-            ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+            ws.cell(row, col).alignment = ALIGN_CENTER
+            ws.cell(row, col).border    = BORDER_ALL
 
-    ws.cell(1, ClassInfo.MOCKTEST_CHECK_COLUMN).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
+    ws.cell(1, ClassInfo.MOCKTEST_CHECK_COLUMN).alignment = ALIGN_CENTER_WRAP
 
     save(wb)
 
@@ -131,7 +132,12 @@ def get_new_class_names():
     temp_wb = open_temp()
     temp_ws = open_worksheet(temp_wb)
 
-    return get_class_names(temp_ws, True)
+    res = get_class_names(temp_ws, True)
+
+    temp_wb.close()
+    del temp_wb
+
+    return res
 
 # 파일 작업
 def make_temp_file_for_update(new_class_list:list[str]):
@@ -145,7 +151,7 @@ def make_temp_file_for_update(new_class_list:list[str]):
     wb = open(read_only=False)
     ws = open_worksheet(wb)
 
-    class_names = get_class_names(ws)
+    class_names = set(get_class_names(ws))
 
     unregistered_class_names = sorted(list(set(new_class_list).difference(class_names)))
 
@@ -170,8 +176,8 @@ def make_temp_file_for_update(new_class_list:list[str]):
     for row in range(WRITE_RANGE, ws.max_row + 1):
         if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is None: break
         for col in range(1, ClassInfo.MAX + 1):
-            ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
-            ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+            ws.cell(row, col).alignment = ALIGN_CENTER
+            ws.cell(row, col).border    = BORDER_ALL
 
     save_to_temp(wb)
 
@@ -195,5 +201,7 @@ def change_class_info(target_class_name:str, target_teacher_name:str):
 
     save(wb)
 
-def update_class():
+def update_class(prog: Progress | None = None):
+    if prog:
+        prog.step("반 정보 업데이트 중...")
     save(open_temp(read_only=False))
