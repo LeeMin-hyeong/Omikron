@@ -7,9 +7,9 @@ class Chrome:
     INDIVIDUAL_MAKEUPTEST_TAB  =  1 # 개별 시험 결과 메시지 탭
 
 class DataFile:
-    PRE_DATA_FILE_NAME        = "지난 데이터"
+    PRE_DATA_FILE_NAME         = "지난 데이터"
     TEMP_FILE_NAME             = "9IwTEoG59MS6h2UoqveD"
-    DEFAULT_SHEET_NAME           = "테스트 데이터"
+    DEFAULT_SHEET_NAME         = "테스트 데이터"
     CLASS_NAME_COLUMN          =  1
     TEACHER_NAME_COLUMN        =  2
     STUDENT_NAME_COLUMN        =  3
