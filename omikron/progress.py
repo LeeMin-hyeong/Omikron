@@ -15,6 +15,8 @@ class Progress:
         self.emit_cb = emit
         self.step_no = 0
         self.total = total
+        self.phase_step: Optional[int] = None
+        self.phase_total: Optional[int] = None
 
     def _post(self, message: str, level: Level = "info", status: Status = "running", inc: bool = False):
         if inc:
@@ -23,6 +25,8 @@ class Progress:
             "ts": time.time(),
             "step": self.step_no,
             "total": self.total,
+            "phase_step": self.phase_step,
+            "phase_total": self.phase_total,
             "level": level,
             "status": status,
             "message": message,
@@ -33,5 +37,15 @@ class Progress:
     def success(self, msg: str, *, inc: bool = False): self._post(msg, "success", "running", inc)
     def warning(self, msg: str, *, inc: bool = False): self._post(msg, "warning", "running", inc)
     def error(self, msg: str, *, inc: bool = False):   self._post(msg, "error",   "error",   inc)
-    def step(self, msg: str):                          self._post(msg, "info",    "running", True)
-    def done(self, msg: str = "완료"):                 self._post(msg, "success", "done",    False)
+    def step(self, msg: str):
+        self.phase_step = None
+        self.phase_total = None
+        self._post(msg, "info", "running", True)
+    def phase(self, step: int, total: int, msg: str, level: Level = "info"):
+        self.phase_step = step
+        self.phase_total = total
+        self._post(msg, level, "running", False)
+    def done(self, msg: str = "완료"):
+        self.phase_step = None
+        self.phase_total = None
+        self._post(msg, "success", "done", False)
