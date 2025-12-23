@@ -11,7 +11,6 @@ import omikron.studentinfo
 
 from omikron.config import URL, TEST_RESULT_MESSAGE, MAKEUP_TEST_NO_SCHEDULE_MESSAGE, MAKEUP_TEST_SCHEDULE_MESSAGE
 from omikron.defs import Chrome, DataForm
-from omikron.errorui import chrome_driver_version_error
 from omikron.util import calculate_makeup_test_schedule, date_to_kor_date
 from omikron.progress import Progress
 
