@@ -100,24 +100,28 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
       >
         {state && (
           <DialogContent
-            className="sm:max-w-md"
-            // allowOutsideClose=false면 바깥 클릭/ESC 무시
+            className="sm:max-w-md max-h-[80vh] flex flex-col"
             onInteractOutside={(e) => !state.opts.allowOutsideClose && e.preventDefault()}
             onEscapeKeyDown={(e) => !state.opts.allowOutsideClose && e.preventDefault()}
           >
-            <DialogHeader className="flex flex-row items-center gap-2">
+            <DialogHeader className="flex flex-row items-center gap-2 flex-none">
               {tone.icon}
               <DialogTitle className={tone.headerCls}>
                 {state.opts.title || (state.kind === "warning" ? "경고" : state.kind === "error" ? "오류" : "확인")}
               </DialogTitle>
             </DialogHeader>
-            {state.opts.message && (
-              <DialogDescription className="mt-1 whitespace-pre-wrap">
-                {state.opts.message}
-              </DialogDescription>
-            )}
 
-            <DialogFooter className="mt-2">
+            {/* ✅ 본문만 스크롤 (flex-1 + min-h-0 중요) */}
+            <div className="mt-1 flex-1 min-h-0 overflow-auto pr-1">
+              {state.opts.message && (
+                <DialogDescription className="whitespace-pre-wrap">
+                  {state.opts.message}
+                </DialogDescription>
+              )}
+            </div>
+
+            {/* ✅ 푸터는 고정 */}
+            <DialogFooter className="mt-2 flex-none">
               {state.kind === "warning" ? (
                 <>
                   <Button variant="outline" className="rounded-lg" onClick={onClose}>
