@@ -3,7 +3,6 @@ import openpyxl as xl
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
-from openpyxl.styles import Alignment, Border, Color, PatternFill, Side
 
 import omikron.classinfo
 import omikron.dataform
@@ -14,7 +13,7 @@ from omikron.defs import MakeupTestList, DataForm
 from omikron.exception import NoMatchingSheetException, FileOpenException
 from omikron.util import calculate_makeup_test_schedule
 from omikron.progress import Progress
-from omikron.style import ALIGN_CENTER, FILL_NEW_STUDENT, BORDER_ALL
+from omikron.style import ALIGN_CENTER, ALIGN_CENTER_WRAP, FILL_NEW_STUDENT, BORDER_ALL
 
 
 # 파일 기본 작업
@@ -36,8 +35,8 @@ def make_file():
     ws.freeze_panes    = "A2"
 
     for col in range(1, DataForm.MAX+1):
-        ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ws.cell(1, col).border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        ws.cell(1, col).alignment = ALIGN_CENTER_WRAP
+        ws.cell(1, col).border    = BORDER_ALL
 
     wb.save(f"{omikron.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx")
 
@@ -272,7 +271,7 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
     # ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value   = test_score
 
     if new_student:
-        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = PatternFill(fill_type="solid", fgColor=Color("FFFF00"))
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = FILL_NEW_STUDENT
 
     if makeup_test_weekday is not None:
         # ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
@@ -288,7 +287,7 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
             # ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
 
     for col in range(1, MakeupTestList.MAX + 1):
-        ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
-        ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = ALIGN_CENTER
+        ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = BORDER_ALL
 
     save(wb)

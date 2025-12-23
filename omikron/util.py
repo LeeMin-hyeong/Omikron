@@ -1,7 +1,7 @@
 from copy import copy
 from datetime import datetime
 from openpyxl.cell import Cell
-from openpyxl.styles import PatternFill, Color
+from openpyxl.styles import PatternFill
 from omikron.style import FILL_BELOW_60, FILL_BELOW_70, FILL_BELOW_80, FILL_CLASS_AVG, FILL_STUDENT_AVG, FILL_NONE
 
 def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dict[str:datetime]):
@@ -35,11 +35,11 @@ def date_to_kor_date(date:datetime) -> str:
 
 def copy_cell(dst:Cell, src:Cell):
     dst.value         = src.value
-    dst.font          = src.font
-    dst.fill          = src.fill
-    dst.border        = src.border
-    dst.alignment     = src.alignment
-    dst.number_format = src.number_format
+    dst.font          = copy(src.font)
+    dst.fill          = copy(src.fill)
+    dst.border        = copy(src.border)
+    dst.alignment     = copy(src.alignment)
+    dst.number_format = copy(src.number_format)
 
 def class_average_color(score:int|float) -> PatternFill:
     """
