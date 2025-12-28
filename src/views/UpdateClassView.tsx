@@ -1,5 +1,5 @@
 // src/views/UpdateClassView.tsx
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,11 +11,13 @@ import { rpc } from "pyloid-js";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ProgressStatus, startJob, useProgressPoller, type ProgressPayload } from "@/lib/progress";
 
 export type ClassItem = {
   id: string;
@@ -231,7 +233,10 @@ export default function UpdateClassView({ meta }: ViewProps) {
   const [tempClasses, setTempClasses] = useState<string[]>([]);
 
   const [progressOpen, setProgressOpen] = useState(false);
-  const [progressMsg, setProgressMsg] = useState<string>("");
+  const [jobId, setJobId] = useState<string>();
+  const prog: ProgressPayload = useProgressPoller(jobId);
+  const running = prog.status === "running";
+  const lastStatusRef = useRef<ProgressStatus>("unknown");
 
   useEffect(() => {
     loadData();
@@ -241,6 +246,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
   const loadData = async () => {
     try {
       setLoading(true);
+      setQuery("");
       const [dfRes, aisosicRes] = await Promise.all([
         rpc.call("get_datafile_data", {}),
         rpc.call("get_aisosic_data", {}), // ★ 아이소식 전체 목록(string[])
@@ -300,6 +306,41 @@ export default function UpdateClassView({ meta }: ViewProps) {
     }
   };
 
+  useEffect(() => {
+    if (!jobId) {
+      lastStatusRef.current = "unknown";
+      return;
+    }
+
+    if (prog.status === "running") {
+      lastStatusRef.current = "running";
+      return;
+    }
+
+    if (prog.status === "error" && lastStatusRef.current !== "error") {
+      lastStatusRef.current = "error";
+      setProgressOpen(false);
+      void dialog
+        .error({ title: "에러", message: prog.message || "반 업데이트 중 오류가 발생했습니다." })
+        .then(() => {
+          setJobId(undefined);
+          loadData();
+        });
+      return;
+    }
+
+    if (prog.status === "done" && lastStatusRef.current !== "done") {
+      lastStatusRef.current = "done";
+      setProgressOpen(false);
+      void dialog
+        .confirm({ title: "완료", message: prog.message || "반 업데이트가 완료되었습니다." })
+        .then(() => {
+          setJobId(undefined);
+          loadData();
+        });
+    }
+  }, [jobId, prog.status, prog.message, dialog]);
+
   // 버튼 → 1단계 다이얼로그 오픈 & 임시파일 생성
   const openStep1File = async (path?: string) => {
     const targetPath = path ?? step1Path;
@@ -307,12 +348,12 @@ export default function UpdateClassView({ meta }: ViewProps) {
     try {
       const openRes = await rpc.call("open_path", { path: targetPath });
       if (!openRes?.ok) {
-        const errorMessage = openRes?.error ?? "??? ? ? ????.";
+        const errorMessage = openRes?.error ?? "알 수 없는 에러가 발생하였습니다.";
         throw new Error(errorMessage);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await dialog.error({ title: "??", message: `??? ? ? ????: ${message}` });
+      await dialog.error({ title: "에러", message: `파일 열기 중 오류가 발생하였습니다: ${message}` });
     }
   };
 
@@ -372,26 +413,19 @@ export default function UpdateClassView({ meta }: ViewProps) {
 
   // 2단계 최종 적용
   const applyUpdate = async () => {
-    if (!step2Checked) return;
+    if (!step2Checked || running) return;
 
     setStep2Open(false);
-    setProgressMsg("반 업데이트를 적용하는 중입니다…");
     setProgressOpen(true);
 
     try {
-      const res = await rpc.call("update_class", {});
-      if (res?.ok) {
-        setProgressOpen(false);
-        await dialog.confirm({title: "성공", message: "반 업데이트가 완료되었습니다."})
-      } else {
-        await dialog.error({ title: "반 업데이트 실패", message: res?.error || "" });
-      }
+      const id = await startJob("start_update_class", {});
+      setJobId(id);
+      lastStatusRef.current = "running";
     } catch (e) {
+      setProgressOpen(false);
       console.error(e);
       await dialog.error({ title: "에러", message: `반 업데이트 적용 중 오류가 발생했습니다: ${e}` });
-    } finally {
-      setProgressOpen(false);
-      loadData();
     }
   };
 
@@ -404,6 +438,16 @@ export default function UpdateClassView({ meta }: ViewProps) {
       loadData();
     }
   }
+
+  const hasPhase = (prog.phase_total ?? 0) > 0;
+  const progressPercent = prog.total > 0
+      ? Math.min(100, Math.max(0, (prog.step / prog.total) * 100))
+      : 0;
+  // const progressPercent = hasPhase
+  //   ? Math.min(100, Math.max(0, ((prog.phase_step ?? 0) / (prog.phase_total ?? 1)) * 100))
+  //   : prog.total > 0
+  //     ? Math.min(100, Math.max(0, (prog.step / prog.total) * 100))
+  //     : 0;
 
   return (
     <Card className="h-full rounded-2xl border-border/80 shadow-sm">
@@ -556,12 +600,12 @@ export default function UpdateClassView({ meta }: ViewProps) {
               className="rounded-xl"
               variant="outline"
               onClick={loadData}
-              disabled={loading}
+              disabled={loading || running}
               title="반 목록을 다시 불러옵니다."
             >
               {loading ? "불러오는 중…" : "새로고침"}
             </Button>
-            <Button className="rounded-xl bg-black text-white" onClick={handleOpenStep1} disabled={loading}>
+            <Button className="rounded-xl bg-black text-white" onClick={handleOpenStep1} disabled={loading || running}>
               반 업데이트
             </Button>
           </div>
@@ -648,14 +692,14 @@ export default function UpdateClassView({ meta }: ViewProps) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => {handleCancle(); setStep2Open(false)}}>취소</Button>
-            <Button onClick={applyUpdate} disabled={!step2Checked || step2Loading}>
+            <Button onClick={applyUpdate} disabled={!step2Checked || step2Loading || running}>
               반 업데이트 적용
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       {/* 3단계: 반 업데이트 진행중 */}
-      <Dialog open={progressOpen} onOpenChange={(o) => setProgressOpen(o)}>
+      <Dialog open={progressOpen} onOpenChange={(o) => { if (!running) setProgressOpen(o); }}>
         <DialogContent
           className="sm:max-w-[440px]"
           onInteractOutside={(e) => { e.preventDefault(); }} // 진행중엔 바깥 클릭으로 닫히지 않게
@@ -666,9 +710,22 @@ export default function UpdateClassView({ meta }: ViewProps) {
             <DialogDescription>데이터 파일을 갱신하고 있습니다. 이 작업은 오래 걸립니다.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-            <Spinner />
-            <span className="ml-2">{progressMsg || "작업 중…"}</span>
+          <div className="space-y-3 py-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner />
+              <span>{prog.message || "작업 중…"}</span>
+            </div>
+            <Progress value={progressPercent} />
+            {hasPhase ? (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>세부 {prog.phase_step}/{prog.phase_total}</span>
+                {prog.total > 0 && <span>전체 {prog.step}/{prog.total}</span>}
+              </div>
+            ) : prog.total > 0 ? (
+              <div className="text-right text-xs text-muted-foreground">
+                {prog.step}/{prog.total}
+              </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

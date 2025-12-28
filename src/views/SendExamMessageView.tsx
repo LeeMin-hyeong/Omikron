@@ -124,18 +124,11 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
     setDoneCount(clamped)
   }, [prog.step, meta.steps.length])
 
-  // 경고 수집
   useEffect(() => {
-    if (!running) return
-    if (prog.level !== "warning") return
-    if (!prog.message) return
-
-    setWarnings((prev) => {
-      // 같은 메시지가 연속으로 들어올 때 중복 방지
-      if (prev.length > 0 && prev[prev.length - 1] === prog.message) return prev
-      return [...prev, prog.message ]
-    })
-  }, [running, prog.level, prog.message, prog.ts])
+    if (!jobId) return
+    if (!Array.isArray(prog.warnings)) return
+    setWarnings(prog.warnings)
+  }, [jobId, prog.warnings, prog.ts])
 
   // 상태 전이 처리
   useEffect(() => {

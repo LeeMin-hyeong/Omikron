@@ -2,7 +2,7 @@ import os
 import openpyxl as xl
 
 from datetime import datetime
-from openpyxl.styles import Alignment, Border, Side, Protection
+from openpyxl.styles import Protection
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.datavalidation import DataValidation
 
@@ -12,6 +12,7 @@ import omikron.config
 
 from omikron.defs import DataForm
 from omikron.exception import NoMatchingSheetException
+from omikron.style import BORDER_ALL, ALIGN_CENTER, ALIGN_CENTER_WRAP
 
 class DataValidationException(Exception):
     pass
@@ -40,8 +41,8 @@ def make_file() -> bool:
     ws.freeze_panes    = "A2"
     
     for col in range(1, DataForm.MAX+1):
-        ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ws.cell(1, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        ws.cell(1, col).alignment = ALIGN_CENTER_WRAP
+        ws.cell(1, col).border    = BORDER_ALL
 
     class_wb = omikron.classinfo.open(True)
     class_ws = omikron.classinfo.open_worksheet(class_wb)
@@ -79,8 +80,8 @@ def make_file() -> bool:
         # 정렬 및 테두리
         for row in range(start, end + 1):
             for col in range(1, DataForm.MAX+1):
-                ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+                ws.cell(row, col).alignment = ALIGN_CENTER
+                ws.cell(row, col).border    = BORDER_ALL
         
         # 셀 병합
         if start < end:
@@ -95,9 +96,9 @@ def make_file() -> bool:
     ws.protection.autoFilter    = False
     ws.protection.formatColumns = False
     for row in range(2, ws.max_row + 1):
-        ws.cell(row, DataForm.CLASS_NAME_COLUMN).alignment         = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).alignment     = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).alignment      = Alignment(horizontal="center", vertical="center", wrapText=True)
+        ws.cell(row, DataForm.CLASS_NAME_COLUMN).alignment         = ALIGN_CENTER_WRAP
+        ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).alignment     = ALIGN_CENTER_WRAP
+        ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).alignment      = ALIGN_CENTER_WRAP
         ws.cell(row, DataForm.DAILYTEST_NAME_COLUMN).protection    = Protection(locked=False)
         ws.cell(row, DataForm.DAILYTEST_SCORE_COLUMN).protection   = Protection(locked=False)
         ws.cell(row, DataForm.MOCKTEST_NAME_COLUMN).protection     = Protection(locked=False)

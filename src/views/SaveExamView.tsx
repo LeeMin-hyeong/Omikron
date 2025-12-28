@@ -29,7 +29,8 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   const prog: ProgressPayload = useProgressPoller(jobId)
   const running = prog.status === "running"
 
-  const [doneCount, setDoneCount] = useState(0)
+  const [jobDoneCount, setJobDoneCount] = useState(0)
+  const [precheckStatus, setPrecheckStatus] = useState<"idle" | "running" | "done">("idle")
   const lastStatusRef = useRef<ProgressStatus>("unknown")
 
   // ✅ 경고 메시지 누적 리스트
@@ -44,6 +45,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       return
     }
     setFile(candidate)
+    setPrecheckStatus("idle")
   }
 
   const handleFiles = (list: FileList | null) => {
@@ -88,7 +90,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   }
 
   const start = async () => {
-    if (running || !file) return
+    if (running || precheckStatus === "running" || !file) return
 
     const ok = await enforcePrereq()
     if (!ok) return
@@ -99,6 +101,27 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       if(!sel) return
     }
     try {
+      setPrecheckStatus("running")
+      const checked = await rpc.call("check_aisosic_difference", {});
+      if (!checked?.ok) {
+        setPrecheckStatus("idle")
+        await dialog.error({ title: "오류", message: checked?.error || "비교 중 오류가 발생했습니다." })
+        return
+      }
+      setPrecheckStatus("done")
+      if (!checked?.data){
+        const ok = await dialog.warning({
+          title: "아이소식 데이터 불일치",
+          message: "아이소식의 학생 목록과 데이터 파일의 학생 목록이 일치하지 않습니다.\n계속 진행하면 데이터 손실이 발생할 수 있습니다.\n계속 진행하시겠습니까?\n\n(일치하지 않는 학생은 '학생 관리' 기능을 이용하여 수정할 수 있습니다)",
+          confirmText: "취소",
+          cancelText: "계속 진행"
+        });
+        if(ok){
+          setFile(null);
+          setPrecheckStatus("idle")
+          return;
+        }
+      }
       onAction?.("save-exam")
       const b64 = await fileToBase64(file)
       // filename: str, b64: str, makeup_test_date: Dict[str, Any]
@@ -109,10 +132,11 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       })
       setJobId(id)
       lastStatusRef.current = "running"
-      setDoneCount(0)
+      setJobDoneCount(0)
       setWarnings([]) // 새 작업 시작 시 경고 초기화
     } catch (err: any) {
       setJobId(undefined)
+      setPrecheckStatus("idle")
       await dialog.error({
         title: "작업 실패",
         message: String(err?.message || err),
@@ -122,23 +146,16 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
 
   // 단계 카운트 갱신(왼쪽 리스트는 meta.steps 그대로 사용)
   useEffect(() => {
-    const max = meta.steps.length
+    const max = Math.max(0, meta.steps.length - 1)
     const clamped = Math.max(0, Math.min(max, Number(prog.step ?? 0)))
-    setDoneCount(clamped)
+    setJobDoneCount(clamped)
   }, [prog.step, meta.steps.length])
 
-  // ✅ 경고 수집: running 중 prog.level === "warning"이면 누적(중복 방지)
   useEffect(() => {
-    if (!running) return
-    if (prog.level !== "warning") return
-    if (!prog.message) return
-
-    setWarnings((prev) => {
-      // 같은 메시지가 연속으로 들어올 때 중복 방지
-      if (prev.length > 0 && prev[prev.length - 1] === prog.message) return prev
-      return [...prev, prog.message ]
-    })
-  }, [running, prog.level, prog.message, prog.ts])
+    if (!jobId) return
+    if (!Array.isArray(prog.warnings)) return
+    setWarnings(prog.warnings)
+  }, [jobId, prog.warnings, prog.ts])
 
   useEffect(() => {
     if (!jobId) {
@@ -161,6 +178,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
         .then(() => {
           setJobId(undefined)
           setFile(null)
+          setPrecheckStatus("idle")
         })
     } else if (prog.status === "done" && lastStatusRef.current !== "done") {
       lastStatusRef.current = "done"
@@ -172,6 +190,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
         .then(() => {
           setJobId(undefined)
           setFile(null)
+          setPrecheckStatus("idle")
         })
     }
   }, [jobId, prog.status, prog.message, dialog])
@@ -223,7 +242,10 @@ return (
                                 rounded-md hover:bg-accent/60"
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (!running) setFile(null)
+                        if (!running) {
+                          setFile(null)
+                          setPrecheckStatus("idle")
+                        }
                       }}
                       aria-label="파일 제거"
                     >
@@ -264,8 +286,16 @@ return (
                   <Separator className="mb-1" />
                   <ol className="space-y-1">
                     {meta.steps.map((stepLabel: string, idx: number) => {
-                      const complete = idx < doneCount
-                      const current = idx === doneCount && running
+                      let complete = false
+                      let current = false
+                      if (idx === 0) {
+                        complete = precheckStatus === "done"
+                        current = precheckStatus === "running"
+                      } else if (precheckStatus === "done") {
+                        const stepIndex = idx - 1
+                        complete = stepIndex < jobDoneCount
+                        current = stepIndex === jobDoneCount && running
+                      }
                       return (
                         <li key={idx} className="flex items-start gap-2 rounded-md border border-black-500/40 bg-white-50 px-2 py-1 text-sm text-amber-900">
                           <div className="flex items-center gap-2 text-sm">
@@ -323,11 +353,13 @@ return (
               <Button
                 className="rounded-xl bg-black text-white"
                 onClick={start}
-                disabled={!file || running || picking}
-                title={!file ? "파일을 먼저 선택해주세요" : running ? "진행 중입니다" : "실행"}
+                disabled={!file || running || precheckStatus === "running" || picking}
+                title={!file ? "파일을 먼저 선택해주세요" : running || precheckStatus === "running" ? "진행 중입니다" : "실행"}
               >
-                {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                {running ? "진행 중" : "실행"}
+                {running || precheckStatus === "running"
+                  ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  : <Play className="mr-2 h-4 w-4" />}
+                {running || precheckStatus === "running" ? "진행 중" : "실행"}
               </Button>
             </div>
           </div>

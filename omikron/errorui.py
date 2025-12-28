@@ -50,29 +50,3 @@ def corrupted_config_file_error():
     button.pack()
 
     ui.mainloop()
-
-def chrome_driver_version_error():
-    """
-    Chrome 버전과 `Omikron.exe`의 Chrome Driver 버전이 일치하지 않을 경우
-    """
-    ui = tk.Tk()
-
-    width  = 300
-    height = 140
-    x = int((ui.winfo_screenwidth()/2) - (width/2))
-    y = int((ui.winfo_screenheight()/2) - (height/2))
-    ui.geometry(f"{width}x{height}+{x}+{y}")
-
-    ui.title("Omikron")
-    ui.resizable(False, False)
-
-    tk.Label(ui).pack()
-    tk.Label(ui, text=r"'ChromeDriver' 업데이트가 필요합니다.").pack()
-    tk.Label(ui, text=r"'Omikron_installer.bat'을 실행하여").pack()
-    tk.Label(ui, text=r"업데이트를 진행할 수 있습니다.").pack()
-    tk.Label(ui).pack()
-
-    button = tk.Button(ui, cursor="hand2", text="확인", width=15, command=sys.exit)
-    button.pack()
-
-    ui.mainloop()

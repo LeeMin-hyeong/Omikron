@@ -1,7 +1,8 @@
 from copy import copy
 from datetime import datetime
 from openpyxl.cell import Cell
-from openpyxl.styles import PatternFill, Color
+from openpyxl.styles import PatternFill
+from omikron.style import FILL_BELOW_60, FILL_BELOW_70, FILL_BELOW_80, FILL_CLASS_AVG, FILL_STUDENT_AVG, FILL_NONE
 
 def calculate_makeup_test_schedule(makeup_test_weekday:str, makeup_test_date:dict[str:datetime]):
     """
@@ -45,36 +46,36 @@ def class_average_color(score:int|float) -> PatternFill:
     반 전체 평균에 대한 점수 기반 색 채우기 (`시험 평균` 행)
     """
     if score < 60:
-        return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+        return FILL_BELOW_60
     elif score < 70:
-        return PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+        return FILL_BELOW_70
     elif score < 80:
-        return PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+        return FILL_BELOW_80
     else:
-        return PatternFill(fill_type="solid", fgColor=Color("DDEBF7"))
+        return FILL_CLASS_AVG
 
 def student_average_color(score:int|float) -> PatternFill:
     """
     학생 평균에 대한 점수 기반 색 채우기 (`학생 평균` 열 중 `시험 평균` 행 제외)
     """
     if score < 60:
-        return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+        return FILL_BELOW_60
     elif score < 70:
-        return PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+        return FILL_BELOW_70
     elif score < 80:
-        return PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+        return FILL_BELOW_80
     else:
-        return PatternFill(fill_type="solid", fgColor=Color("E2EFDA"))
+        return FILL_STUDENT_AVG
 
 def test_score_color(score:int|float) -> PatternFill:
     """
     각 시험 결과에 대한 점수 기반 색 채우기
     """
     if score < 60:
-        return PatternFill(fill_type="solid", fgColor=Color("EC7E31"))
+        return FILL_BELOW_60
     elif score < 70:
-        return PatternFill(fill_type="solid", fgColor=Color("F5AF85"))
+        return FILL_BELOW_70
     elif score < 80:
-        return PatternFill(fill_type="solid", fgColor=Color("FCE4D6"))
+        return FILL_BELOW_80
     else:
-        return PatternFill(fill_type=None)
+        return FILL_NONE

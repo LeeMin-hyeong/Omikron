@@ -5,15 +5,13 @@ import SaveExamView from "./SaveExamView";
 import GenerateDailyFormView from "./GenerateDailyFromView";
 import SendExamMessageView from "./SendExamMessageView";
 import ReapplyConditionalFormatView from "./ReapplyConditionalFromatView";
-import MoveStudentView from "./MoveStudentView";
-import AddStudentView from "./AddStudentView";
 import SaveIndividualExamView from "./SaveIndividualExamView";
 import SaveRetestView from "./SaveRetestView";
-import RemoveStudentView from "./RemoveStudentView";
 import UpdateClassView from "./UpdateClassView";
 import UpdateStudentView from "./UpdateStudentView";
 import UpdateTeacherView from "./UpdateTeacherView";
 import WelcomeView from "./WelcomeView";
+import ManageStudentView from "./ManageStudentView";
 
 const viewMap: Partial<Record<OmikronActionKey, FC<ViewProps>>> = {
   "welcome": WelcomeView,
@@ -22,14 +20,12 @@ const viewMap: Partial<Record<OmikronActionKey, FC<ViewProps>>> = {
   "generate-daily-form": GenerateDailyFormView,
   "send-exam-message": SendExamMessageView,
   "reapply-conditional-format": ReapplyConditionalFormatView,
-  "move-student": MoveStudentView,
-  "add-student": AddStudentView,
   "save-individual-exam": SaveIndividualExamView,
   "save-retest": SaveRetestView,
-  "remove-student": RemoveStudentView,
   "update-class": UpdateClassView,
   "update-students": UpdateStudentView,
   "update-teacher": UpdateTeacherView,
+  "manage-student": ManageStudentView
 };
 
 export function getActionView(action: OmikronActionKey): FC<ViewProps> {

@@ -10,9 +10,7 @@ export type OmikronActionKey =
   | "save-individual-exam"
   | "save-retest"
   | "reapply-conditional-format"
-  | "add-student"
-  | "remove-student"
-  | "move-student";
+  | "manage-student";
 
 export interface ActionMeta {
   title: string;

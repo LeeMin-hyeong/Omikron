@@ -12,9 +12,6 @@ import {
   Save,
   FileEdit,
   FlaskConical,
-  UserPlus,
-  UserMinus,
-  Shuffle,
   GraduationCap,
   CalendarDays,
   FolderOpen,
@@ -102,9 +99,7 @@ const groups: {
     title: "학생 관리",
     icon: Users,
     items: [
-      { key: "add-student", label: "신규생 추가", icon: UserPlus },
-      { key: "remove-student", label: "퇴원 처리", icon: UserMinus },
-      { key: "move-student", label: "학생 반 이동", icon: Shuffle },
+      { key: "manage-student", label: "학생 관리", icon: Users },
     ],
   },
 ]

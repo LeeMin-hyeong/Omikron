@@ -1,7 +1,6 @@
 import os.path
 import openpyxl as xl
 
-from openpyxl.styles import Alignment, Border, Side
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -11,6 +10,7 @@ import omikron.config
 
 from omikron.defs import StudentInfo
 from omikron.exception import NoMatchingSheetException, FileOpenException
+from omikron.style import ALIGN_CENTER, ALIGN_CENTER_WRAP, BORDER_ALL
 
 # 파일 기본 작업
 def make_file() -> bool:
@@ -30,8 +30,8 @@ def make_file() -> bool:
 
     # 첫 행 정렬 및 자동 줄 바꿈
     for col in range(1, StudentInfo.MAX+1):
-        ws.cell(1, col).alignment = Alignment(horizontal="center", vertical="center", wrapText=True)
-        ws.cell(1, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        ws.cell(1, col).alignment = ALIGN_CENTER_WRAP
+        ws.cell(1, col).border    = BORDER_ALL
 
     return update_student(wb)
 
@@ -85,8 +85,8 @@ def add_student(target_student_name:str):
             # ws.cell(row, StudentInfo.CLASS_NAME_COLUMN).value      = target_class_name
             ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value = "N"
             for col in range(1, StudentInfo.MAX+1):
-                ws.cell(row, col).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+                ws.cell(row, col).alignment = ALIGN_CENTER
+                ws.cell(row, col).border    = BORDER_ALL
             break
 
     save(wb)
@@ -114,7 +114,7 @@ def update_student(wb:xl.Workbook=None):
 
     student_names = [ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value for row in range(2, ws.max_row+1)]
     
-    deleted_student_names      = list(set(student_names).difference(latest_student_names))
+    deleted_student_names      = set(student_names).difference(latest_student_names)
     unregistered_student_names = list(set(latest_student_names).difference(student_names))
     
     for row in range(ws.max_row+1, 1, -1):
@@ -131,13 +131,13 @@ def update_student(wb:xl.Workbook=None):
         dv.add(ws.cell(WRITE_ROW, StudentInfo.NEW_STUDENT_CHECK_COLUMN))
 
         for col in range(1, StudentInfo.MAX+1):
-            ws.cell(WRITE_ROW, col).alignment = Alignment(horizontal="center", vertical="center")
-            ws.cell(WRITE_ROW, col).border    = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+            ws.cell(WRITE_ROW, col).alignment = ALIGN_CENTER
+            ws.cell(WRITE_ROW, col).border    = BORDER_ALL
 
         WRITE_ROW += 1
 
-    for row in range(2, ws.max_row+1):
-        while ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value in deleted_student_names:
+    for row in range(ws.max_row, 1, -1):
+        if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value in deleted_student_names:
             ws.delete_rows(row)
 
     save(wb)

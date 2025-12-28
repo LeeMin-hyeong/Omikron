@@ -7,6 +7,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -33,10 +34,20 @@ server = PyloidRPC()
 
 # 진행상태 저장소: job_id -> {step, status, message}
 progress: dict[str, dict] = {}
+job_threads: dict[str, threading.Thread] = {}
 
 
 def make_emit(job_id: str):
     def _emit(payload: dict):
+        prev = progress.get(job_id, {})
+        warnings = list(prev.get("warnings", []))
+        if payload.get("level") == "warning":
+            msg = payload.get("message")
+            if msg:
+                msg_str = str(msg)
+                if not warnings or warnings[-1] != msg_str:
+                    warnings.append(msg_str)
+        payload = {**payload, "warnings": warnings}
         progress[job_id] = payload
         # (옵션) 추후 실시간 브로드캐스트가 필요하면 이 지점에서 처리
 
@@ -52,9 +63,24 @@ async def get_progress(ctx: RPCContext, job_id: str) -> Dict[str, Any]:
         "level": "info",
         "status": "unknown",
         "message": "",
+        "warnings": [],
         "ts": time.time(),
     }
-    return progress.get(job_id, default_payload)
+    payload = progress.get(job_id, default_payload)
+    thread = job_threads.get(job_id)
+    if thread and not thread.is_alive():
+        status = payload.get("status")
+        if status in ("running", "unknown"):
+            payload = {
+                **payload,
+                "status": "done",
+                "level": "success",
+                "message": payload.get("message") or "작업이 완료되었습니다.",
+                "ts": time.time(),
+            }
+            progress[job_id] = payload
+        job_threads.pop(job_id, None)
+    return payload
 
 
 ####################################### 파일 열기 #######################################
@@ -129,7 +155,6 @@ def _send_exam_message_job(job_id: str, *, filename: str, b64: str, makeup_test_
         if not ok:
             prog.error("메시지 작성 중 오류가 발생했습니다.")
             return
-        prog.step("Chrome 자동화를 실행하여 메시지를 작성합니다.")
 
         prog.step("작업 완료")
 
@@ -180,13 +205,32 @@ def _save_exam_job(job_id: str, *, filename: str, b64: str, makeup_test_date: Di
         prog.step("파일 저장 완료")
 
         prog.done("데이터 저장을 완료하였습니다.")
-        omikron.datafile.delete_temp()
     except Exception as exc:
-        prog.error(f"예상치 못한 오류가 발생했습니다:\n {exc}")
+        prog.error(f"예상치 못한 오류가 발생했습니다:\n {traceback.format_exc()}")
         return
     finally:
+        omikron.datafile.delete_temp()
         if tmp_file:
             _cleanup_temp(tmp_file)
+
+
+def _update_class_job(job_id: str) -> None:
+    emit = make_emit(job_id)
+    prog = Progress(emit, total=5)
+
+    prog.info("반 업데이트 준비중...")
+    try:
+        omikron.datafile.update_class(prog)
+        prog.step("반 정보 파일 최신화 중...")
+        omikron.classinfo.update_class(prog)
+        prog.done("반 업데이트가 완료되었습니다.")
+    except Exception:   
+        prog.error(f"예상치 못한 오류가 발생했습니다:\n {traceback.format_exc()}")
+    finally:
+        # try:
+        omikron.classinfo.delete_temp()
+        # except Exception:
+        #     pass
 
 
 ####################################### 데이터 요청 API #######################################
@@ -234,48 +278,78 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
 async def get_datafile_data(ctx: RPCContext, mocktest = False) -> Dict[Any, Any]:
     try:
         return {"ok": True, "data": omikron.datafile.get_data_sorted_dict(mocktest)}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
 async def get_aisosic_data(ctx: RPCContext):
     try:
         return {"ok": True, "data": omikron.chrome.get_class_names()}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
+
+
+@server.method()
+async def get_aisosic_student_data(ctx: RPCContext):
+    try:
+        return {"ok": True, "data": omikron.chrome.get_class_student_dict()}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
+
+
+@server.method()
+async def check_aisosic_difference(ctx: RPCContext):
+    try:
+        aisosic = omikron.chrome.get_class_student_dict()
+        datafile_raw = omikron.datafile.get_data_sorted_dict()
+        if isinstance(datafile_raw, (list, tuple)) and len(datafile_raw) >= 1:
+            datafile = datafile_raw[0]
+        else:
+            datafile = datafile_raw
+
+        aisosic = aisosic or {}
+        datafile = datafile or {}
+
+        aisosic_items = {(class_name, student_name) for class_name, students in aisosic.items() for student_name in students or []}
+        datafile_items = {(class_name, student_name) for class_name, student_dict in datafile.items() for student_name in (student_dict or {}).keys()}
+
+        same = aisosic_items == datafile_items
+        return {"ok": True, "data": same}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
 async def get_makeuptest_data(ctx: RPCContext):
     try:
         return {"ok": True, "data": omikron.makeuptest.get_studnet_test_index_dict()}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
 async def get_class_list(ctx: RPCContext):
     try:
         return {"ok": True, "data": omikron.classinfo.get_class_names()}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
 async def get_class_info(ctx: RPCContext, class_name:str):
     try:
         return {"ok": True, "data": omikron.classinfo.get_class_info(class_name)}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
 async def get_new_class_list(ctx: RPCContext):
     try:
         return {"ok": True, "data": omikron.classinfo.get_new_class_names()}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -283,8 +357,8 @@ async def is_cell_empty(ctx: RPCContext, row:int, col:int):
     try:
         empty, value = omikron.datafile.is_cell_empty(row, col)
         return {"ok": True, "empty": empty, "value": value}
-    except Exception as e:
-            return {"ok": False, "error": str(e)}
+    except Exception:
+            return {"ok": False, "error": traceback.format_exc()}
 
 
 ####################################### 작업 API #######################################
@@ -298,7 +372,7 @@ async def change_data_dir(ctx:RPCContext):
         omikron.config.change_data_path(abspath)
         return {"ok": True}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -307,9 +381,9 @@ async def change_data_file_name(ctx:RPCContext, new_filename:str) -> Dict[str, A
         omikron.config.change_data_file_name(new_filename)
         return {"ok": True}
     except FileOpenException as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": traceback.format_exc()}
     except Exception as e:
-        return {"ok": False, "error": f"알 수 없는 에러가 발생하였습니다: {str(e)}"}
+        return {"ok": False, "error": f"알 수 없는 에러가 발생하였습니다: {traceback.format_exc()}"}
 
 
 @server.method()
@@ -318,7 +392,7 @@ async def open_path(ctx: RPCContext, path: str) -> Dict[str, Any]:
         _open_path_cross_platform(path)
         return {"ok": True}
     except Exception as e:
-        return {"ok": False, "error": f"알 수 없는 에러가 발생하였습니다: {str(e)}"}
+        return {"ok": False, "error": f"알 수 없는 에러가 발생하였습니다: {traceback.format_exc()}"}
 
 
 @server.method()
@@ -333,7 +407,7 @@ async def open_url(ctx: RPCContext, url: str) -> Dict[str, Any]:
             raise RuntimeError("브라우저를 열 수 없습니다.")
         return {"ok": True}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -347,6 +421,7 @@ async def start_send_exam_message(ctx: RPCContext, filename: str, b64: str, make
         "level": "info",
         "status": "running",
         "message": "작업 대기 중...",
+        "warnings": [],
     })
 
     thread = threading.Thread(
@@ -354,6 +429,7 @@ async def start_send_exam_message(ctx: RPCContext, filename: str, b64: str, make
         kwargs={"job_id": job_id, "filename": filename, "b64": b64, "makeup_test_date": makeup_test_date},
         daemon=True,
     )
+    job_threads[job_id] = thread
     thread.start()
 
     return {"job_id": job_id}
@@ -370,6 +446,7 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str, makeup_test_
         "level": "info",
         "status": "running",
         "message": "작업 대기 중...",
+        "warnings": [],
     })
 
     thread = threading.Thread(
@@ -377,6 +454,32 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str, makeup_test_
         kwargs={"job_id": job_id, "filename": filename, "b64": b64, "makeup_test_date": makeup_test_date},
         daemon=True,
     )
+    job_threads[job_id] = thread
+    thread.start()
+
+    return {"job_id": job_id}
+
+
+@server.method()
+async def start_update_class(ctx: RPCContext) -> Dict[str, Any]:
+    job_id = str(uuid.uuid4())
+
+    make_emit(job_id)({
+        "ts": time.time(),
+        "step": 0,
+        "total": 6,
+        "level": "info",
+        "status": "running",
+        "message": "반 업데이트 준비중...",
+        "warnings": [],
+    })
+
+    thread = threading.Thread(
+        target=_update_class_job,
+        kwargs={"job_id": job_id},
+        daemon=True,
+    )
+    job_threads[job_id] = thread
     thread.start()
 
     return {"job_id": job_id}
@@ -387,8 +490,8 @@ async def make_class_info(ctx: RPCContext):
     try:
         omikron.classinfo.make_file()
         return {"ok": True, "path": str(Path(omikron.config.DATA_DIR) / '반 정보.xlsx')}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -404,8 +507,8 @@ async def make_data_file(ctx: RPCContext):
 
         omikron.datafile.make_file()
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -413,8 +516,8 @@ async def make_student_info(ctx: RPCContext):
     try:
         omikron.studentinfo.make_file()
         return {"ok": True, "path": str(Path(omikron.config.DATA_DIR) / '학생 정보.xlsx')}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -422,8 +525,8 @@ async def make_data_form(ctx: RPCContext):
     try:
         omikron.dataform.make_file()
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -431,8 +534,8 @@ async def reapply_conditional_format(ctx: RPCContext):
     try:
         warnings = omikron.datafile.conditional_formatting()
         return {"ok": True, "warnings": warnings}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -440,8 +543,8 @@ async def update_student_info(ctx: RPCContext):
     try:
         omikron.studentinfo.update_student()
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -455,8 +558,8 @@ async def add_student(ctx: RPCContext, target_student_name, target_class_name):
         omikron.studentinfo.add_student(target_student_name)
 
         return {"ok": True, "warnings": warnings}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -467,8 +570,8 @@ async def remove_student(ctx: RPCContext, target_student_name):
         omikron.studentinfo.delete_student(target_student_name)
 
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -480,8 +583,8 @@ async def move_student(ctx: RPCContext, target_student_name, target_class_name, 
         omikron.datafile.move_student(target_student_name, target_class_name, current_class_name)
 
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -492,8 +595,8 @@ async def change_class_info(ctx: RPCContext, target_class_name, target_teacher_n
         omikron.datafile.change_class_info(target_class_name, target_teacher_name)
 
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -501,8 +604,8 @@ async def make_temp_class_info(ctx: RPCContext, new_class_list):
     try:
         filepath = omikron.classinfo.make_temp_file_for_update(new_class_list)
         return {"ok": True, "path": filepath}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -511,8 +614,13 @@ async def update_class(ctx: RPCContext):
         omikron.datafile.update_class()
         omikron.classinfo.update_class()
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
+    finally:
+        try:
+            omikron.classinfo.delete_temp()
+        except:
+            pass
 
 
 @server.method()
@@ -520,8 +628,8 @@ async def delete_class_info_temp(ctx: RPCContext):
     try:
         omikron.classinfo.delete_temp()
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -554,8 +662,8 @@ async def save_individual_result(ctx: RPCContext, student_name:str, class_name:s
         omikron.chrome.send_individual_test_message(student_name, class_name, test_name, test_score, test_average, makeup_test_check, makeup_test_date, prog)
 
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -563,8 +671,8 @@ async def save_retest_result(ctx: RPCContext, target_row:int, makeup_test_score:
     try:
         omikron.makeuptest.save_makeup_test_result(target_row, makeup_test_score)
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -578,8 +686,8 @@ async def change_data_file_name_by_select(ctx: RPCContext):
 
         omikron.config.change_data_file_name_by_select(new_filename)
         return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
 
 
 @server.method()
@@ -593,5 +701,5 @@ async def open_file_picker(ctx: RPCContext):
         file_b64 = base64.b64encode(path_obj.read_bytes()).decode()
 
         return {"ok": True, "path": str(path_obj), "name": path_obj.name, "b64": file_b64}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
