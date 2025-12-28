@@ -27,20 +27,17 @@ export default function RenameDataFileView() {
     data_file_name: undefined,
   });
   const fetchState = async () => {
-      try {
-        setLoading(true);
-        const res = await rpc.call("check_data_files", {});
-        setState(res);
-      } catch {
-        // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
-        setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
-      } finally {
-        setLoading(false);
-        setTimeout(() => {
-          handleRefresh()
-        }, 5000);
-      }
-    };
+    try {
+      setLoading(true);
+      const res = await rpc.call("check_data_files", {});
+      setState(res);
+    } catch {
+      // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
+      setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -48,11 +45,9 @@ export default function RenameDataFileView() {
   const [loading, setLoading] = useState(false);
 
   const handleRefresh = async () => {
-    setLoading(true);
     fetchState();
     setDataName("")
     setDone(false);
-    setLoading(false);
   };
 
   const start = async (dataName: string) => {
