@@ -34,10 +34,20 @@ server = PyloidRPC()
 
 # 진행상태 저장소: job_id -> {step, status, message}
 progress: dict[str, dict] = {}
+job_threads: dict[str, threading.Thread] = {}
 
 
 def make_emit(job_id: str):
     def _emit(payload: dict):
+        prev = progress.get(job_id, {})
+        warnings = list(prev.get("warnings", []))
+        if payload.get("level") == "warning":
+            msg = payload.get("message")
+            if msg:
+                msg_str = str(msg)
+                if not warnings or warnings[-1] != msg_str:
+                    warnings.append(msg_str)
+        payload = {**payload, "warnings": warnings}
         progress[job_id] = payload
         # (옵션) 추후 실시간 브로드캐스트가 필요하면 이 지점에서 처리
 
@@ -53,9 +63,24 @@ async def get_progress(ctx: RPCContext, job_id: str) -> Dict[str, Any]:
         "level": "info",
         "status": "unknown",
         "message": "",
+        "warnings": [],
         "ts": time.time(),
     }
-    return progress.get(job_id, default_payload)
+    payload = progress.get(job_id, default_payload)
+    thread = job_threads.get(job_id)
+    if thread and not thread.is_alive():
+        status = payload.get("status")
+        if status in ("running", "unknown"):
+            payload = {
+                **payload,
+                "status": "done",
+                "level": "success",
+                "message": payload.get("message") or "작업이 완료되었습니다.",
+                "ts": time.time(),
+            }
+            progress[job_id] = payload
+        job_threads.pop(job_id, None)
+    return payload
 
 
 ####################################### 파일 열기 #######################################
@@ -366,6 +391,7 @@ async def start_send_exam_message(ctx: RPCContext, filename: str, b64: str, make
         "level": "info",
         "status": "running",
         "message": "작업 대기 중...",
+        "warnings": [],
     })
 
     thread = threading.Thread(
@@ -373,6 +399,7 @@ async def start_send_exam_message(ctx: RPCContext, filename: str, b64: str, make
         kwargs={"job_id": job_id, "filename": filename, "b64": b64, "makeup_test_date": makeup_test_date},
         daemon=True,
     )
+    job_threads[job_id] = thread
     thread.start()
 
     return {"job_id": job_id}
@@ -389,6 +416,7 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str, makeup_test_
         "level": "info",
         "status": "running",
         "message": "작업 대기 중...",
+        "warnings": [],
     })
 
     thread = threading.Thread(
@@ -396,6 +424,7 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str, makeup_test_
         kwargs={"job_id": job_id, "filename": filename, "b64": b64, "makeup_test_date": makeup_test_date},
         daemon=True,
     )
+    job_threads[job_id] = thread
     thread.start()
 
     return {"job_id": job_id}
@@ -412,6 +441,7 @@ async def start_update_class(ctx: RPCContext) -> Dict[str, Any]:
         "level": "info",
         "status": "running",
         "message": "반 업데이트 준비중...",
+        "warnings": [],
     })
 
     thread = threading.Thread(
@@ -419,6 +449,7 @@ async def start_update_class(ctx: RPCContext) -> Dict[str, Any]:
         kwargs={"job_id": job_id},
         daemon=True,
     )
+    job_threads[job_id] = thread
     thread.start()
 
     return {"job_id": job_id}

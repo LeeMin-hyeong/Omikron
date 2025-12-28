@@ -13,6 +13,7 @@ export type ProgressPayload = {
   level: ProgressLevel;
   status: ProgressStatus;
   message: string;
+  warnings: string[];
   ts: number;
 };
 
@@ -24,6 +25,7 @@ export const initialProgress: ProgressPayload = {
   level: "info",
   status: "unknown",
   message: "",
+  warnings: [],
   ts: 0,
 };
 
@@ -86,6 +88,7 @@ export function useProgressPoller(jobId?: string, interval = 500) {
         delayRef.current = interval;
 
         const status = (p?.status ?? "unknown") as ProgressStatus;
+        const warnings = Array.isArray(p?.warnings) ? p.warnings.map((w: any) => String(w)) : [];
         setProg({
           step: Number(p?.step ?? 0),
           total: Number(p?.total ?? 0),
@@ -94,6 +97,7 @@ export function useProgressPoller(jobId?: string, interval = 500) {
           level: (p?.level ?? "info") as ProgressLevel,
           status,
           message: String(p?.message ?? ""),
+          warnings,
           ts: Number(p?.ts ?? Date.now()),
         });
 

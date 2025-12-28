@@ -310,6 +310,8 @@ def send_test_result_message(filepath:str, makeup_test_date:dict, prog:Progress)
                             s = f"{s} {mt}시"
                     sched_ops.append((class_index, student_name, test_name, s))
                     continue
+            elif not info_exists:
+                prog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
             nosched_ops.append((class_index, student_name, test_name))
 
@@ -324,7 +326,7 @@ def send_test_result_message(filepath:str, makeup_test_date:dict, prog:Progress)
 
             inputs = daily_cache[class_index].get(student_name)
             if not inputs:
-                prog.warning(f"아이소식의 {student_name} 학생이 존재하지 않습니다.")
+                prog.warning(f"아이소식에 {student_name} 학생이 존재하지 않습니다.")
                 continue
 
             in0, in1, in2 = inputs
