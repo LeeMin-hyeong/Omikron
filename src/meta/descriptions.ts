@@ -56,19 +56,9 @@ export const descriptions: Record<OmikronActionKey, ActionMeta> = {
     guide: "데이터 파일의 조건부 서식을 재지정합니다.",
     steps: ["시트 탐색", "서식 규칙 로드", "규칙 재적용", "검증/완료"],
   },
-  "add-student": {
-    title: "신규생 추가",
-    guide: "신규 학생을 등록하고 초기 반/시험 설정을 적용합니다.",
-    steps: ["기본 정보 입력", "반 배정", "초기 시트 생성", "확인/저장"],
-  },
-  "remove-student": {
-    title: "퇴원 처리",
-    guide: "퇴원 학생의 기록을 보관 폴더로 이동하고 현행 명부에서 제외합니다.",
-    steps: ["학생 선택", "보관 이관", "명부 업데이트", "보고서 생성"],
-  },
-  "move-student": {
-    title: "학생 반 이동",
-    guide: "선택한 학생의 반을 이동하고 관련 기록을 업데이트합니다.",
-    steps: ["학생/대상반 선택", "기록 이동", "참조 갱신", "완료 알림"],
-  },
+  "manage-student": {
+    title: "학생 관리",
+    guide: "아이소식의 반 편성과 데이터 파일을 비교하여 반 편성 정보를 동기화합니다.",
+    steps: [],
+  }
 };

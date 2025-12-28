@@ -291,6 +291,14 @@ async def get_aisosic_data(ctx: RPCContext):
 
 
 @server.method()
+async def get_aisosic_student_data(ctx: RPCContext):
+    try:
+        return {"ok": True, "data": omikron.chrome.get_class_student_dict()}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
+
+
+@server.method()
 async def check_aisosic_difference(ctx: RPCContext):
     try:
         aisosic = omikron.chrome.get_class_student_dict()
