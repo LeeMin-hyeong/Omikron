@@ -291,6 +291,28 @@ async def get_aisosic_data(ctx: RPCContext):
 
 
 @server.method()
+async def check_aisosic_difference(ctx: RPCContext):
+    try:
+        aisosic = omikron.chrome.get_class_student_dict()
+        datafile_raw = omikron.datafile.get_data_sorted_dict()
+        if isinstance(datafile_raw, (list, tuple)) and len(datafile_raw) >= 1:
+            datafile = datafile_raw[0]
+        else:
+            datafile = datafile_raw
+
+        aisosic = aisosic or {}
+        datafile = datafile or {}
+
+        aisosic_items = {(class_name, student_name) for class_name, students in aisosic.items() for student_name in students or []}
+        datafile_items = {(class_name, student_name) for class_name, student_dict in datafile.items() for student_name in (student_dict or {}).keys()}
+
+        same = aisosic_items == datafile_items
+        return {"ok": True, "data": same}
+    except Exception:
+        return {"ok": False, "error": traceback.format_exc()}
+
+
+@server.method()
 async def get_makeuptest_data(ctx: RPCContext):
     try:
         return {"ok": True, "data": omikron.makeuptest.get_studnet_test_index_dict()}
