@@ -308,6 +308,9 @@ def save_test_data(filepath:str, prog: Progress):
 
                 no_class = False
 
+                if test_name is None:
+                    continue
+
                 #반 시작 찾기
                 for row in range(2, ws.max_row+1):
                     if ws.cell(row, CLASS_NAME_COLUMN).value == class_name:
@@ -360,6 +363,8 @@ def save_test_data(filepath:str, prog: Progress):
             if test_score is None:
                 continue
             if no_class:
+                continue
+            if test_name is None:
                 continue
 
             # 학생 찾기
@@ -734,7 +739,7 @@ def update_class(prog: Progress | None = None):
         prog.step("신규 반 추가 중...")
 
     old_class_names = set(get_class_names(ws))
-    unregistered_class_names = list(new_class_names.difference(old_class_names))
+    unregistered_class_names = sorted(list(new_class_names.difference(old_class_names)))
 
     if len(unregistered_class_names) > 0:
         class_wb = omikron.classinfo.open_temp()
