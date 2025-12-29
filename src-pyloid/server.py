@@ -311,10 +311,13 @@ async def check_aisosic_difference(ctx: RPCContext):
         aisosic = aisosic or {}
         datafile = datafile or {}
 
-        aisosic_items = {(class_name, student_name) for class_name, students in aisosic.items() for student_name in students or []}
-        datafile_items = {(class_name, student_name) for class_name, student_dict in datafile.items() for student_name in (student_dict or {}).keys()}
-
-        same = aisosic_items == datafile_items
+        same = True
+        for class_name, student_dict in datafile.items():
+            datafile_students = set((student_dict or {}).keys())
+            aisosic_students = set(aisosic.get(class_name) or [])
+            if datafile_students != aisosic_students:
+                same = False
+                break
         return {"ok": True, "data": same}
     except Exception:
         return {"ok": False, "error": traceback.format_exc()}
@@ -380,8 +383,10 @@ async def change_data_file_name(ctx:RPCContext, new_filename:str) -> Dict[str, A
     try:
         omikron.config.change_data_file_name(new_filename)
         return {"ok": True}
+    except FileExistsError as e:
+        return {"ok": False, "error": str(e)}
     except FileOpenException as e:
-        return {"ok": False, "error": traceback.format_exc()}
+        return {"ok": False, "error": str(e)}
     except Exception as e:
         return {"ok": False, "error": f"알 수 없는 에러가 발생하였습니다: {traceback.format_exc()}"}
 
