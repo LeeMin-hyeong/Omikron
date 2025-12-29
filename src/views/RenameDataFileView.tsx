@@ -67,6 +67,7 @@ export default function RenameDataFileView() {
       await dialog.error({ title: "오류", message: String(e?.message || e) });
     } finally {
       setRunning(false);
+      handleRefresh();
     }
   };
 
