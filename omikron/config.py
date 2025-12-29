@@ -35,10 +35,12 @@ def change_data_file_name(new_filename: str):
     global config, DATA_FILE_NAME, DATA_DIR
     try:
         os.rename(f"{DATA_DIR}/data/{DATA_FILE_NAME}.xlsx", f"{DATA_DIR}/data/{new_filename}.xlsx")
-    except Exception:
+        DATA_FILE_NAME = config["dataFileName"] = new_filename
+        _save_config(config)
+    except FileExistsError:
+        raise FileExistsError(f"이미 존재하는 이름입니다")
+    except PermissionError:
         raise FileOpenException(f"{DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
-    DATA_FILE_NAME = config["dataFileName"] = new_filename
-    _save_config(config)
 
 def change_data_path(dir_path:str):
     global config, DATA_DIR

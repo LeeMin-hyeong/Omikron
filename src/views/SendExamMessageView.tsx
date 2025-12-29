@@ -37,7 +37,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
   const setAcceptedFile = (candidate: File | null) => {
     if (!candidate || running) return
     if (!acceptExt.test(candidate.name)) {
-      void dialog.error({ title: "?? ?? ??", message: "???? ?? ??????. (.xlsx, .xlsm, .xls, .csv)" })
+      void dialog.error({ title: "잘못된 파일", message: "지원되는 형식이 아닙니다. (.xlsx, .xlsm, .xls, .csv)" })
       return
     }
     setFile(candidate)
