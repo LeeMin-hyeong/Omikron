@@ -73,14 +73,16 @@ def get_studnet_test_index_dict():
     student_test_index_dict:dict[str, dict[str, int]] = {}
     for row in range(2, ws.max_row+1):
         if ws.cell(row, MakeupTestList.MAKEUPTEST_SCORE_COLUMN).value is None:
+            class_name       = ws.cell(row, MakeupTestList.CLASS_NAME_COLUMN).value
             student_name     = ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value
             makeup_test_name = ws.cell(row, MakeupTestList.TEST_NAME_COLUMN).value
             try:
                 student_test_index_dict[student_name]
             except:
                 student_test_index_dict[student_name] = {}
-            
-            student_test_index_dict[student_name][makeup_test_name] = row
+
+            test_name = f"({class_name}) {makeup_test_name}"
+            student_test_index_dict[student_name][test_name] = row
 
     return student_test_index_dict
 
