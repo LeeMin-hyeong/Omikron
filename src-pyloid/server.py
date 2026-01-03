@@ -6,6 +6,8 @@ import subprocess
 import sys
 import tempfile
 import threading
+import multiprocessing
+from queue import Empty
 import time
 import traceback
 import uuid
@@ -35,6 +37,11 @@ server = PyloidRPC()
 # 진행상태 저장소: job_id -> {step, status, message}
 progress: dict[str, dict] = {}
 job_threads: dict[str, threading.Thread] = {}
+job_processes: dict[str, multiprocessing.Process] = {}
+progress_queues: dict[str, multiprocessing.Queue] = {}
+progress_listeners: dict[str, threading.Thread] = {}
+job_process_started_at: dict[str, float] = {}
+job_process_seen_payload: dict[str, bool] = {}
 
 
 def make_emit(job_id: str):
@@ -52,6 +59,24 @@ def make_emit(job_id: str):
         # (옵션) 추후 실시간 브로드캐스트가 필요하면 이 지점에서 처리
 
     return _emit
+
+
+def _queue_listener(job_id: str, q: multiprocessing.Queue, proc: multiprocessing.Process) -> None:
+    while True:
+        try:
+            payload = q.get(timeout=0.5)
+        except Empty:
+            if not proc.is_alive():
+                break
+            continue
+        if payload is None:
+            break
+        job_process_seen_payload[job_id] = True
+        make_emit(job_id)(payload)
+    progress_queues.pop(job_id, None)
+    progress_listeners.pop(job_id, None)
+    job_process_seen_payload.pop(job_id, None)
+    job_process_started_at.pop(job_id, None)
 
 
 @server.method()
@@ -80,6 +105,35 @@ async def get_progress(ctx: RPCContext, job_id: str) -> Dict[str, Any]:
             }
             progress[job_id] = payload
         job_threads.pop(job_id, None)
+    proc = job_processes.get(job_id)
+    if proc and not proc.is_alive():
+        status = payload.get("status")
+        if status in ("running", "unknown"):
+            started_at = job_process_started_at.get(job_id, 0)
+            seen_payload = job_process_seen_payload.get(job_id, False)
+            if not seen_payload and (time.time() - started_at) < 2.0:
+                return payload
+            if proc.exitcode not in (0, None):
+                payload = {
+                    **payload,
+                    "status": "error",
+                    "level": "error",
+                    "message": payload.get("message") or "update_class process failed.",
+                    "ts": time.time(),
+                }
+                progress[job_id] = payload
+                job_processes.pop(job_id, None)
+                return payload
+            payload = {
+                **payload,
+                "status": "done",
+                "level": "success",
+                "message": payload.get("message") or "작업이 완료되었습니다.",
+                "ts": time.time(),
+            }
+            progress[job_id] = payload
+        job_processes.pop(job_id, None)
+
     return payload
 
 
@@ -214,9 +268,11 @@ def _save_exam_job(job_id: str, *, filename: str, b64: str, makeup_test_date: Di
             _cleanup_temp(tmp_file)
 
 
-def _update_class_job(job_id: str) -> None:
-    emit = make_emit(job_id)
-    prog = Progress(emit, total=5)
+def _update_class_job_process(job_id: str, q: multiprocessing.Queue) -> None:
+    def _emit(payload: dict):
+        q.put(payload)
+
+    prog = Progress(_emit, total=5)
 
     prog.info("반 업데이트 준비중...")
     try:
@@ -224,13 +280,10 @@ def _update_class_job(job_id: str) -> None:
         prog.step("반 정보 파일 최신화 중...")
         omikron.classinfo.update_class(prog)
         prog.done("반 업데이트가 완료되었습니다.")
-    except Exception:   
+    except Exception:
         prog.error(f"예상치 못한 오류가 발생했습니다:\n {traceback.format_exc()}")
     finally:
-        # try:
         omikron.classinfo.delete_temp()
-        # except Exception:
-        #     pass
 
 
 ####################################### 데이터 요청 API #######################################
@@ -250,8 +303,11 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
     has_class = class_info.is_file()
     has_student = student_info.is_file()
     has_data = bool(data_file_name) and data_file and data_file.is_file()
+    data_dir_valid = omikron.config.DATA_DIR_VALID
 
     missing = []
+    if not data_dir_valid:
+        missing.append("데이터 저장 위치가 유효하지 않습니다.")
     if not has_class:
         missing.append("반 정보.xlsx")
     if not has_data:
@@ -261,12 +317,13 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
     if not data_file_name:
         missing.append("config.json: dataFileName 설정 필요")
 
-    ok = has_class and has_data and has_student
+    ok = has_class and has_data and has_student and data_dir_valid
     return {
         "ok": ok,
         "has_class": has_class,
         "has_data": has_data,
         "has_student": has_student,
+        "data_dir_valid": data_dir_valid,
         "data_file_name": data_file_name,
         "cwd": str(cwd),
         "data_dir": omikron.config.DATA_DIR,
@@ -479,13 +536,36 @@ async def start_update_class(ctx: RPCContext) -> Dict[str, Any]:
         "warnings": [],
     })
 
-    thread = threading.Thread(
-        target=_update_class_job,
-        kwargs={"job_id": job_id},
+    ctx_mp = multiprocessing.get_context("spawn")
+    q = ctx_mp.Queue()
+    proc = ctx_mp.Process(
+        target=_update_class_job_process,
+        kwargs={"job_id": job_id, "q": q},
         daemon=True,
     )
-    job_threads[job_id] = thread
-    thread.start()
+    progress_queues[job_id] = q
+    job_processes[job_id] = proc
+    job_process_started_at[job_id] = time.time()
+    job_process_seen_payload[job_id] = False
+    listener = threading.Thread(
+        target=_queue_listener,
+        args=(job_id, q, proc),
+        daemon=True,
+    )
+    progress_listeners[job_id] = listener
+    listener.start()
+    try:
+        proc.start()
+    except Exception:
+        make_emit(job_id)({
+            "ts": time.time(),
+            "step": 0,
+            "total": 0,
+            "level": "error",
+            "status": "error",
+            "message": "update_class process failed to start.",
+            "warnings": [],
+        })
 
     return {"job_id": job_id}
 

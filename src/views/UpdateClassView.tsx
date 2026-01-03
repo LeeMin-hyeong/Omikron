@@ -1,5 +1,5 @@
 // src/views/UpdateClassView.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,27 +32,30 @@ function useSelectableList(initial: ClassItem[]) {
   const [items, setItems] = useState<ClassItem[]>(initial);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  const toggle = (id: string) =>
+  const toggle = useCallback((id: string) => {
     setSelected((p) => {
       const n = new Set(p);
       n.has(id) ? n.delete(id) : n.add(id);
       return n;
     });
+  }, []);
 
-  const clearSelection = () => setSelected(new Set());
-  const selectAll = () => setSelected(new Set(items.map((i) => i.id)));
-  const selectSome = (ids: string[]) =>
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
+  const selectAll = useCallback(() => setSelected(new Set(items.map((i) => i.id))), [items]);
+  const selectSome = useCallback((ids: string[]) => {
     setSelected((p) => {
       const n = new Set(p);
       ids.forEach((id) => n.add(id));
       return n;
     });
-  const clearSome = (ids: string[]) =>
+  }, []);
+  const clearSome = useCallback((ids: string[]) => {
     setSelected((p) => {
       const n = new Set(p);
       ids.forEach((id) => n.delete(id));
       return n;
     });
+  }, []);
 
   return { items, setItems, selected, setSelected, toggle, clearSelection, selectAll, selectSome, clearSome } as const;
 }
@@ -96,7 +99,7 @@ function guardedMove(
   src.setSelected(newSel);
 }
 
-function ListBox({
+const ListBox = memo(function ListBox({
   title,
   list,
   selected,
@@ -188,7 +191,7 @@ function ListBox({
       </CardContent>
     </Card>
   );
-}
+});
 
 export default function UpdateClassView({ meta }: ViewProps) {
   const dialog = useAppDialog();
@@ -379,7 +382,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
     } catch (e) {
       setStep1Open(false);
       const message = e instanceof Error ? e.message : String(e);
-      await dialog.error({ title: "??", message: `임시 반 정보 생성 중 에러가 발생했습니다: ${message}` })
+      await dialog.error({ title: "에러", message: `임시 반 정보 생성 중 에러가 발생했습니다: ${message}` })
     } finally {
       setStep1Creating(false);
     }
@@ -502,8 +505,8 @@ export default function UpdateClassView({ meta }: ViewProps) {
               list={filteredLeft}
               selected={left.selected}
               onToggle={left.toggle}
-              onSelectVisible={(ids) => left.selectSome(ids)}
-              onClearVisible={(ids) => left.clearSome(ids)}
+              onSelectVisible={left.selectSome}
+              onClearVisible={left.clearSome}
               loading={loading}
             />
           </div>
@@ -540,8 +543,8 @@ export default function UpdateClassView({ meta }: ViewProps) {
               list={filteredCenter}
               selected={center.selected}
               onToggle={center.toggle}
-              onSelectVisible={(ids) => center.selectSome(ids)}
-              onClearVisible={(ids) => center.clearSome(ids)}
+              onSelectVisible={center.selectSome}
+              onClearVisible={center.clearSome}
               loading={loading}
             />
           </div>
@@ -578,8 +581,8 @@ export default function UpdateClassView({ meta }: ViewProps) {
               list={filteredRight}
               selected={right.selected}
               onToggle={right.toggle}
-              onSelectVisible={(ids) => right.selectSome(ids)}
-              onClearVisible={(ids) => right.clearSome(ids)}
+              onSelectVisible={right.selectSome}
+              onClearVisible={right.clearSome}
               loading={loading}
             />
           </div>
@@ -629,11 +632,12 @@ export default function UpdateClassView({ meta }: ViewProps) {
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs text-muted-foreground">
-                  <div className="min-w-0 flex flex-row items-center">
-                    <FileSpreadsheet className="text-green-600 mr-2"/> <span className="font-mono break-all">{step1Path}</span>
+                <div className="flex items-start justify-between gap-2 rounded-xl border px-3 py-2 text-xs text-muted-foreground">
+                  <div className="min-w-0 flex flex-1 items-start gap-2">
+                    <FileSpreadsheet className="text-green-600 shrink-0 mt-0.5" />
+                    <span className="flex font-mono break-all whitespace-normal">{step1Path}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => void openStep1File()}>
+                  <Button className="shrink-0" size="sm" variant="outline" onClick={() => void openStep1File()}>
                     파일 열기
                   </Button>
                 </div>

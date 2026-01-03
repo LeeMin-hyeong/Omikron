@@ -1,6 +1,6 @@
 // src/lib/progress.ts
 import { useEffect, useRef, useState } from "react";
-import { rpc } from "pyloid-js";
+import { baseAPI, rpc } from "pyloid-js";
 
 export type ProgressLevel = "info" | "success" | "warning" | "error";
 export type ProgressStatus = "running" | "done" | "error" | "unknown";
@@ -29,6 +29,82 @@ export const initialProgress: ProgressPayload = {
   ts: 0,
 };
 
+let rpcEndpoint: string | null = null;
+let rpcWindowId: string | null = null;
+
+
+async function rpcCallWithTimeout<T>(
+  method: string,
+  params: Record<string, any>,
+  timeoutMs: number,
+): Promise<T> {
+  if (!rpcEndpoint) rpcEndpoint = await baseAPI.getServerUrl();
+  if (!rpcWindowId) rpcWindowId = await baseAPI.getWindowId();
+
+  const controller = new AbortController();
+  let timeoutId: number | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      try {
+        controller.abort();
+      } finally {
+        reject(new Error("progress poll timeout"));
+      }
+    }, timeoutMs);
+  });
+  try {
+    const fetchPromise = fetch(rpcEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method,
+        params,
+        id: rpcWindowId,
+      }),
+      signal: controller.signal,
+    }).then(async (response) => {
+      const text = await response.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (e) {
+        throw new Error(`RPC non-json response (status ${response.status})`);
+      }
+      if (!response.ok) {
+        throw new Error(`RPC HTTP ${response.status}`);
+      }
+      if (data?.error) {
+        throw new Error(`RPC Error: ${data.error.message} (Code: ${data.error.code})`);
+      }
+      return data?.result as T;
+    });
+    return await Promise.race([fetchPromise, timeoutPromise]);
+  } catch (e) {
+    throw new Error(`RPC unknown error: ${String(e)}`);
+  } finally {
+    if (timeoutId != null) window.clearTimeout(timeoutId);
+  }
+}
+
+function isSameProgress(a: ProgressPayload, b: ProgressPayload) {
+  if (a === b) return true;
+  const aLastWarn = a.warnings[a.warnings.length - 1];
+  const bLastWarn = b.warnings[b.warnings.length - 1];
+  return (
+    a.step === b.step &&
+    a.total === b.total &&
+    a.phase_step === b.phase_step &&
+    a.phase_total === b.phase_total &&
+    a.level === b.level &&
+    a.status === b.status &&
+    a.message === b.message &&
+    a.ts === b.ts &&
+    a.warnings.length === b.warnings.length &&
+    aLastWarn === bLastWarn
+  );
+}
+
 export function useProgressPoller(jobId?: string, interval = 500) {
   const [prog, setProg] = useState<ProgressPayload>(initialProgress);
   const timer = useRef<number | null>(null);
@@ -36,6 +112,10 @@ export function useProgressPoller(jobId?: string, interval = 500) {
   const lastSuccess = useRef(0);
   const delayRef = useRef(interval);
   const inFlight = useRef(false);
+  const inFlightStartedAt = useRef(0);
+  const requestSeq = useRef(0);
+  const activeRequestId = useRef(0);
+  const lastPayloadRef = useRef<ProgressPayload>(initialProgress);
 
   useEffect(() => {
     if (!jobId){
@@ -43,6 +123,10 @@ export function useProgressPoller(jobId?: string, interval = 500) {
       failCount.current = 0;
       lastSuccess.current = 0;
       delayRef.current = interval;
+      lastPayloadRef.current = initialProgress;
+      inFlight.current = false;
+      inFlightStartedAt.current = 0;
+      activeRequestId.current = 0;
       if (timer.current) {
         clearTimeout(timer.current);
         timer.current = null;
@@ -58,38 +142,36 @@ export function useProgressPoller(jobId?: string, interval = 500) {
       timer.current = window.setTimeout(tick, delayMs);
     };
 
-    const withTimeout = async <T,>(promise: Promise<T>, ms: number) => new Promise<T>((resolve, reject) => {
-      const timeoutId = window.setTimeout(() => reject(new Error("progress poll timeout")), ms);
-      promise
-        .then((value) => {
-          clearTimeout(timeoutId);
-          resolve(value);
-        })
-        .catch((err) => {
-          clearTimeout(timeoutId);
-          reject(err);
-        });
-    });
-
     const tick = async () => {
       if (cancelled) return;
       if (inFlight.current) {
-        schedule(delayRef.current);
-        return;
+        const age = Date.now() - inFlightStartedAt.current;
+        if (age < Math.max(4_000, interval * 8)) {
+          schedule(delayRef.current);
+          return;
+        }
+        inFlight.current = false;
       }
       inFlight.current = true;
+      inFlightStartedAt.current = Date.now();
+      const requestId = ++requestSeq.current;
+      activeRequestId.current = requestId;
       try {
-        const p = await withTimeout(
-          rpc.call("get_progress", { job_id: jobId }),
+        const p = await rpcCallWithTimeout<Record<string, any>>(
+          "get_progress",
+          { job_id: jobId },
           Math.max(3000, interval * 4),
         );
+        if (activeRequestId.current !== requestId) {
+          return;
+        }
         failCount.current = 0;
         lastSuccess.current = Date.now();
         delayRef.current = interval;
 
         const status = (p?.status ?? "unknown") as ProgressStatus;
         const warnings = Array.isArray(p?.warnings) ? p.warnings.map((w: any) => String(w)) : [];
-        setProg({
+        const nextProg = {
           step: Number(p?.step ?? 0),
           total: Number(p?.total ?? 0),
           phase_step: p?.phase_step == null ? null : Number(p?.phase_step),
@@ -99,13 +181,20 @@ export function useProgressPoller(jobId?: string, interval = 500) {
           message: String(p?.message ?? ""),
           warnings,
           ts: Number(p?.ts ?? Date.now()),
-        });
+        } as ProgressPayload;
+        if (!isSameProgress(lastPayloadRef.current, nextProg)) {
+          lastPayloadRef.current = nextProg;
+          setProg(nextProg);
+        }
 
         if (status === "done" || status === "error") {
           return;
         }
         schedule(delayRef.current);
       } catch (e) {
+        if (activeRequestId.current !== requestId) {
+          return;
+        }
         failCount.current += 1;
         const now = Date.now();
         if (!lastSuccess.current) lastSuccess.current = now;
@@ -117,7 +206,10 @@ export function useProgressPoller(jobId?: string, interval = 500) {
         }));
         schedule(delayRef.current);
       } finally {
-        inFlight.current = false;
+        if (activeRequestId.current === requestId) {
+          inFlight.current = false;
+          inFlightStartedAt.current = 0;
+        }
       }
     };
 
