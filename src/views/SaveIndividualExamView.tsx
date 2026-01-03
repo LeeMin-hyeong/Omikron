@@ -7,10 +7,8 @@ import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { User, BookCheck, Play, Loader2 } from "lucide-react";
 import useHolidayDialog from "@/components/holiday-dialog/useHolidayDialog";
@@ -35,6 +33,10 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const [students, setStudents] = useState<StudentInfo[]>([]);
   const [tests, setTests]       = useState<TestInfo[]>([]);
 
+  const [classQuery, setClassQuery] = useState("");
+  const [studentQuery, setStudentQuery] = useState("");
+  const [testQuery, setTestQuery] = useState("");
+
   // 선택값
   const [klass, setKlass]         = useState<string>("");
   const [studentId, setStudentId] = useState<string>("");
@@ -45,6 +47,24 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
 
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+
+  const filteredClasses = useMemo(() => {
+    const q = classQuery.trim().toLowerCase();
+    if (!q) return classes;
+    return classes.filter((c) => c.name.toLowerCase().includes(q));
+  }, [classes, classQuery]);
+
+  const filteredStudents = useMemo(() => {
+    const q = studentQuery.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter((s) => s.name.toLowerCase().includes(q));
+  }, [students, studentQuery]);
+
+  const filteredTests = useMemo(() => {
+    const q = testQuery.trim().toLowerCase();
+    if (!q) return tests;
+    return tests.filter((t) => t.name.toLowerCase().includes(q));
+  }, [tests, testQuery]);
 
   const scoreNum = Number(score);
   const scoreValid = score.trim() !== "" && !Number.isNaN(scoreNum);
@@ -103,6 +123,8 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   useEffect(() => {
     setStudents([]); setStudentId("");
     setTests([]); setTestId("");
+    setStudentQuery("");
+    setTestQuery("");
 
     if (!klass) return;
 
@@ -203,81 +225,129 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
         <Separator className="mb-4" />
 
         {/* 한 장의 카드 내부 레이아웃 */}
-        <div className="flex-1 h-full justify-center items-center">
-          <div className="grid grid-cols-2 h-full gap-6 place-items-center">
+        <div className="flex-1 h-full">
+          <div className="grid grid-cols-2 h-full gap-6 items-stretch">
             {/* 좌측: 학생 쪽 */}
-            <div className="h-[260px] w-full rounded-2xl border bg-card p-4 pt-18">
+            <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
               <div className="mb-4 flex flex-col items-center gap-2 text-center">
                 <User className="h-8 w-8 text-black" />
                 <div className="text-sm font-medium">학생</div>
               </div>
-              <div className="grid gap-3 w-full">
-                {/* 반 선택 */}
-                <Select
-                  value={klass}
-                  onValueChange={setKlass}
+              <div className="grid gap-2 w-full">
+                <Input
+                  type="search"
+                  value={classQuery}
+                  onChange={(e) => setClassQuery(e.target.value)}
+                  placeholder="반 검색"
+                  className="h-9 w-full rounded-lg"
                   disabled={loading || running}
-                >
-                  <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder={loading ? "불러오는 중..." : "반 선택"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.map((c) => {
-                      const value = c.id ?? c.name;
-                      return (
-                        <SelectItem key={value} value={value}>
-                          {c.name}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {/* 학생 선택: classStudentMap에서 계산 */}
-                <Select
-                  value={studentId}
-                  onValueChange={setStudentId}
-                  disabled={!klass || students.length === 0 || loading || running}
-                >
-                  <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder="학생 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
+                <div className="rounded-lg border">
+                  <ScrollArea className="h-[140px] w-full p-1">
+                    {filteredClasses.length === 0 ? (
+                      <div className="p-2 text-xs text-muted-foreground">반이 없습니다</div>
+                    ) : (
+                      <ul className="space-y-1">
+                        {filteredClasses.map((c) => {
+                          const value = c.id ?? c.name;
+                          const isSel = klass === value;
+                          return (
+                            <li key={value}>
+                              <button
+                                type="button"
+                                onClick={() => setKlass(value)}
+                                disabled={loading || running}
+                                className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
+                                  isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
+                                } ${loading || running ? "opacity-60 cursor-not-allowed" : ""}`}
+                              >
+                                <span className="flex-1 min-w-0 break-all">{c.name}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </ScrollArea>
+                </div>
+
+                <Input
+                  type="search"
+                  value={studentQuery}
+                  onChange={(e) => setStudentQuery(e.target.value)}
+                  placeholder="학생 검색"
+                  className="h-9 w-full rounded-lg"
+                  disabled={!klass || loading || running}
+                />
+                <div className="rounded-lg border">
+                  <ScrollArea className="h-[140px] w-full p-1">
+                    {filteredStudents.length === 0 ? (
+                      klass ? 
+                        <div className="p-2 text-xs text-muted-foreground">학생이 없습니다</div> :
+                        <div className="p-2 text-xs text-muted-foreground">반을 선택하세요</div>
+                    ) : (
+                      <ul className="space-y-1">
+                        {filteredStudents.map((s) => {
+                          const isSel = studentId === s.id;
+                          return (
+                            <li key={s.id}>
+                              <button
+                                type="button"
+                                onClick={() => setStudentId(s.id)}
+                                disabled={!klass || loading || running}
+                                className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
+                                  isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
+                                } ${!klass || loading || running ? "opacity-60 cursor-not-allowed" : ""}`}
+                              >
+                                <span className="flex-1 min-w-0 break-all">{s.name}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </ScrollArea>
+                </div>
               </div>
             </div>
 
             {/* 우측: 시험/점수 쪽 */}
-            <div className="h-[260px] w-full rounded-2xl border bg-card p-4 pt-18">
+            <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
               <div className="mb-4 flex flex-col items-center gap-2 text-center">
                 <BookCheck className="h-8 w-8 text-black" />
                 <div className="text-sm font-medium">시험</div>
               </div>
-              <div className="grid gap-3">
-                {/* 시험 선택: classTestMap에서 계산 */}
-                <Select
-                  value={testId}
-                  onValueChange={setTestId}
-                  disabled={!klass || tests.length === 0 || loading || running}
-                >
-                  <SelectTrigger className="rounded-xl w-full">
-                    <SelectValue placeholder={klass && tests.length === 0 ? "시험이 없습니다" : "시험 선택"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tests.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-2">
+                <div className="rounded-lg border">
+                  <ScrollArea className="h-[335px] w-full p-1">
+                    {filteredTests.length === 0 ? (
+                      studentId ?
+                        <div className="p-2 text-xs text-muted-foreground">시험이 없습니다</div> :
+                        <div className="p-2 text-xs text-muted-foreground">학생을 선택하세요</div>
+                    ) : (
+                      <ul className="space-y-1">
+                        {filteredTests.map((t) => {
+                          const isSel = testId === t.id;
+                          return (
+                            <li key={t.id}>
+                              <button
+                                type="button"
+                                onClick={() => setTestId(t.id)}
+                                disabled={!klass || loading || running}
+                                className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
+                                  isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
+                                } ${!klass || loading || running ? "opacity-60 cursor-not-allowed" : ""}`}
+                              >
+                                <span className="flex-1 min-w-0 break-all">{t.name}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </ScrollArea>
+                </div>
 
-                {/* 점수 입력 */}
                 <Input
                   className="rounded-xl"
                   type="number"
