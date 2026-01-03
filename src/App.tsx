@@ -118,6 +118,7 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
   // ✅ 프리체크 상태 + 지속 폴링
   const [state, setState] = useState<any>(null);
   const pollRef = useRef<number | null>(null);
+  const dataDirPromptingRef = useRef(false);
 
   const handleOpenHelp = async () => {
     try {
@@ -135,6 +136,12 @@ export default function OmikronPanel({ onAction, width = 1400, height = 830, sid
       const res = await rpc.call("check_data_files", {});
       setState(res);
       setMissing(!res.ok);
+      if (res?.data_dir_valid === false && !dataDirPromptingRef.current) {
+        dataDirPromptingRef.current = true;
+        await dialog.error({title: "데이터 저장 위치가 유효하지 않습니다", message: "데이터 저장 위치를 변경해주세요.", confirmText: "변경"});
+        await changeDataDir();
+        dataDirPromptingRef.current = false;
+      }
     } catch {
       // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
       setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
