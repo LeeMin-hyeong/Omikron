@@ -12,6 +12,7 @@ type State = {
   has_class: boolean;
   has_data: boolean;
   has_student: boolean;
+  data_dir_valid?: boolean;
   data_file_name?: string;
   cwd: string;
   data_dir: string;
@@ -171,6 +172,9 @@ export default function PrereqSetupView({
               </span>
             )}
           </p>
+          {state.data_dir_valid === false && (
+            <p className="mt-2 text-sm text-amber-600">데이터 저장 위치가 유효하지 않습니다. 데이터 저장 위치를 변경해주세요.</p>
+          )}
         </div>
         <Separator className="mb-4" />
 
