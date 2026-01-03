@@ -24,11 +24,13 @@ try:
     MAKEUP_TEST_NO_SCHEDULE_MESSAGE = config["makeupTest"]
     MAKEUP_TEST_SCHEDULE_MESSAGE    = config["makeupTestDate"]
     DATA_DIR                        = config["dataDir"]
+    DATA_DIR_VALID                  = True
 except Exception:
     corrupted_config_file_error()
 
 if not os.path.isdir(DATA_DIR):
-    DATA_DIR = config["dataDir"] = "."
+    DATA_DIR_VALID = False
+    DATA_DIR = config["dataDir"] = "/***INVALID PATH***/"
     _save_config(config)
 
 def change_data_file_name(new_filename: str):
@@ -40,19 +42,20 @@ def change_data_file_name(new_filename: str):
     except FileExistsError:
         raise FileExistsError(f"이미 존재하는 이름입니다")
     except PermissionError:
-        raise FileOpenException(f"{DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
+        raise FileOpenException(f"{DATA_FILE_NAME} 파일이 열려있거나 접근할 수 없습니다.")
 
 def change_data_path(dir_path:str):
-    global config, DATA_DIR
+    global config, DATA_DIR, DATA_DIR_VALID
     
     DATA_DIR = config["dataDir"] = dir_path
+    DATA_DIR_VALID = True
 
     _save_config(config)
 
     if not os.path.exists(f"{DATA_DIR}/data"):
-        os.makedirs(f"{DATA_DIR}/data")
+        os.makedirs(f"{DATA_DIR}/data", exist_ok=True)
     if not os.path.exists(f"{DATA_DIR}/data/backup"):
-        os.makedirs(f"{DATA_DIR}/data/backup")
+        os.makedirs(f"{DATA_DIR}/data/backup", exist_ok=True)
 
 def change_data_file_name_by_select(new_filename:str):
     global config, DATA_FILE_NAME

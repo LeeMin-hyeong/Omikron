@@ -165,8 +165,8 @@ function StudentList({
   loading: boolean;
 }) {
   return (
-    <Card className="flex h-full flex-col pt-2 gap-1">
-      <CardHeader className="space-y-0 py-1 p-0 justify-center">
+    <Card className="flex h-full flex-col pt-2 gap-1 pb-1">
+      <CardHeader className="space-y-0 py-1 p-0 justify-center my-0">
         <CardTitle className="text-base font-semibold p-0">{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col px-1">
@@ -272,7 +272,10 @@ export default function ManageStudentView({ meta }: ViewProps) {
     const q = query.trim().toLowerCase();
     classes.forEach((className) => {
       const items = studentsByClass[className] || [];
-      const byQuery = !q ? items : items.filter((item) => item.name.toLowerCase().includes(q));
+      const classMatch = q && className.toLowerCase().includes(q);
+      const byQuery = !q || classMatch
+        ? items
+        : items.filter((item) => item.name.toLowerCase().includes(q));
       if (colorFilters.length === 0) {
         result[className] = byQuery;
         return;
@@ -466,7 +469,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="학생 검색"
+            placeholder="반 검색 / 학생 검색"
             className="h-9 w-full rounded-xl"
             disabled={loading}
           />
@@ -502,7 +505,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
           </ToggleGroup>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-[2fr_1fr] flex-1 min-h-0">
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-[2fr_1fr] flex-1 pb-2">
           <StudentList
             title="학생 목록"
             classes={visibleClasses}
@@ -593,7 +596,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
           </div>
 
           <Button
-            className="rounded-xl mt-auto"
+            className="rounded-xl"
             variant="outline"
             onClick={handleRefresh}
             disabled={busy}

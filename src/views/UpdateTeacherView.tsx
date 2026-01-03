@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ViewProps } from "@/types/omikron";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { School, User, Check, Play } from "lucide-react";
+import { Check, Play } from "lucide-react";
 import { rpc } from "pyloid-js";
 import { useAppDialog } from "@/components/app-dialog/AppDialogProvider";
 import { Spinner } from "@/components/ui/spinner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function UpdateTeacherView({ meta }: ViewProps) {
   const dialog = useAppDialog();
@@ -22,24 +22,29 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedTeacher, setSelectedTeacher] = useState<string>("");
   const [teacherName, setTeacherName] = useState<string>("");
+  const [classQuery, setClassQuery] = useState<string>("");
 
   const canSubmit = !!selectedClass && teacherName.trim().length > 0;
 
-  // 반 목록 로드
   const loadClasses = async () => {
     try {
       setLoading(true);
       const res = await rpc.call("get_class_list", {});
-      if(res?.ok){
-        setClassList(Array.isArray(res.data) ? (res.data as string[]) : []);
-        if (selectedClass && !res.data?.includes(selectedClass)) {
+      if (res?.ok) {
+        const next = Array.isArray(res.data) ? (res.data as string[]) : [];
+        setClassList(next);
+        if (selectedClass && !next.includes(selectedClass)) {
           setSelectedClass("");
+          setSelectedTeacher("");
         }
       } else {
         await dialog.error({ title: "반 정보 파일 데이터 수집 실패", message: res?.error || "" });
       }
     } catch (e: any) {
-      await dialog.error({title: "에러", message: `반 목록을 가져오는데 실패했습니다: ${e?.message || e}`});
+      await dialog.error({
+        title: "에러",
+        message: `반 목록 불러오기 실패: ${e?.message || e}`,
+      });
       setClassList([]);
     } finally {
       setLoading(false);
@@ -47,28 +52,27 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
   };
 
   useEffect(() => {
-  if (!selectedClass) {
-    setSelectedTeacher("");
-    return;
-  }
-  (async () => {
-    try {
-      setInfoLoading(true);
-      const res = await rpc.call("get_class_info", { class_name: selectedClass });
-      // 서버가 [exists, teacher, day, time] 형태라고 가정 → 두 번째가 담당 교사명
-      setSelectedTeacher(res?.[1] ?? "");
-    } catch (e: any) {
-      await dialog.error({
-        title: "에러",
-        message: `${e?.message || e}\n반 정보를 가져오는데 실패했습니다.`,
-      });
+    if (!selectedClass) {
       setSelectedTeacher("");
-    } finally {
-      setInfoLoading(false);
+      return;
     }
-  })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [selectedClass]);
+    (async () => {
+      try {
+        setInfoLoading(true);
+        const res = await rpc.call("get_class_info", { class_name: selectedClass });
+        setSelectedTeacher(res?.[1] ?? "");
+      } catch (e: any) {
+        await dialog.error({
+          title: "에러",
+          message: `반 정보 불러오기 실패: ${e?.message || e}`,
+        });
+        setSelectedTeacher("");
+      } finally {
+        setInfoLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass]);
 
   useEffect(() => {
     loadClasses();
@@ -88,13 +92,11 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
 
     try {
       setRunning(true);
-      
-      // target_class_name, target_teacher_name
       const res = await rpc.call("change_class_info", {
-        target_class_name:   selectedClass,
+        target_class_name: selectedClass,
         target_teacher_name: teacherName.trim(),
       });
-      
+
       if (res?.ok) {
         await dialog.confirm({ title: "성공", message: "담당 선생님이 변경되었습니다." });
         setDone(true);
@@ -106,7 +108,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
     } finally {
       setRunning(false);
       setTimeout(async () => {
-        await handleRefresh()
+        await handleRefresh();
       }, 5000);
     }
   };
@@ -114,10 +116,17 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
   const handleRefresh = async () => {
     setDone(false);
     setSelectedClass("");
-    setSelectedTeacher("")
+    setSelectedTeacher("");
     setTeacherName("");
+    setClassQuery("");
     loadClasses();
-  }
+  };
+
+  const filteredClasses = useMemo(() => {
+    const q = classQuery.trim().toLowerCase();
+    if (!q) return classList;
+    return classList.filter((name) => name.toLowerCase().includes(q));
+  }, [classList, classQuery]);
 
   return (
     <Card className="h-full rounded-2xl border-border/80 shadow-sm">
@@ -127,71 +136,90 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
         </div>
         <Separator className="mb-4" />
 
-        {/* 본문: 좌(반 선택) → 우(새 교사명 입력) */}
-        <div className="h-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-          {/* 좌측: 반 선택 */}
-          <Card className="rounded-2xl shadow-sm">
-            <CardContent className="flex h-60 flex-col justify-between p-4">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <School className="h-8 w-8 text-black" />
-                <div className="text-sm font-medium">
-                  {selectedClass || "반 미선택"}
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Select value={selectedClass} onValueChange={setSelectedClass}>
-                  <SelectTrigger className="w-full rounded-xl" disabled={loading}>
-                    <SelectValue placeholder={loading ? "불러오는 중…" : "반 선택"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classList.map((name) => (
-                      <SelectItem key={name} value={name}>
-                        {name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* ✅ 현재 선생님 표시 바 (우측 버튼과 동일한 크기: h-10, w-full, rounded-xl) */}
-                <div
-                  className="h-9 w-full rounded-xl border bg-muted/50 px-3 flex items-center justify-between"
-                  aria-live="polite"
-                >
-                  <span className="text-sm text-muted-foreground">현재 선생님</span>
-                  <span className="text-sm font-medium flex items-center gap-2">
-                    {infoLoading ? <Spinner className="h-4 w-4" /> : null}
-                    {selectedTeacher || (selectedClass ? "지정되지 않았습니다" : "반을 선택하세요")}
-                  </span>
-                </div>
+        <div className="grid flex grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+          {/* Left: search + list */}
+          <Card className="flex h-full flex-col rounded-2xl shadow-sm">
+            <CardHeader className="space-y-0 pb-0 pt-2 gap-0 py-0">
+              <CardTitle className="text-base font-semibold">반 목록</CardTitle>
+            </CardHeader>
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
+              <Input
+                type="search"
+                value={classQuery}
+                onChange={(e) => setClassQuery(e.target.value)}
+                placeholder="반 검색"
+                className="h-9 w-full rounded-xl"
+                disabled={loading}
+              />
+              <div className="relative min-h-0 flex-1 rounded-lg border">
+                {loading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Spinner />
+                      불러오는 중...
+                    </div>
+                  </div>
+                )}
+                <ScrollArea className="h-[375px] w-full p-2">
+                  {filteredClasses.length === 0 ? (
+                    <div className="p-2 text-xs text-muted-foreground">반이 없습니다</div>
+                  ) : (
+                    <ul className="space-y-1">
+                      {filteredClasses.map((name) => {
+                        const isSel = selectedClass === name;
+                        return (
+                          <li key={name}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedClass(name)}
+                              disabled={loading}
+                              className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
+                                isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
+                              } ${loading ? "opacity-60 cursor-not-allowed" : ""}`}
+                            >
+                              <span className="flex-1 min-w-0 break-all">{name}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </ScrollArea>
               </div>
             </CardContent>
           </Card>
 
-
-          {/* 가운데 아이콘(장식) */}
-          <div className="flex h-60 items-center justify-center">
-            {/* 비워두거나 화살표/아이콘을 넣어도 됨 */}
-          </div>
-
-          {/* 우측: 새 교사명 + 실행 버튼 */}
-          <Card className="rounded-2xl shadow-sm">
-            <CardContent className="flex h-60 flex-col justify-between p-4">
-              <div className="flex flex-col items-center gap-2 text-center">
-                <User className="h-8 w-8 text-black" />
-                <div className="text-sm font-medium">변경할 담당 선생님</div>
+          {/* Right: details */}
+          <Card className="flex h-full flex-col rounded-2xl shadow-sm">
+            <CardHeader className="space-y-0 pb-0 pt-2">
+              <CardTitle className="text-base font-semibold">선택된 반</CardTitle>
+            </CardHeader>
+            <CardContent className="flex min-h-0 flex-1 flex-col justify-between">
+              <div className="space-y-3">
+                <div className="rounded-lg border p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">반명</div>
+                  <div className="font-medium">{selectedClass || "-"}</div>
+                </div>
+                <div className="rounded-lg border p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">현재 선생님</div>
+                  <div className="flex items-center gap-2 font-medium">
+                    {infoLoading ? <Spinner className="h-4 w-4" /> : null}
+                    {selectedClass ? (selectedTeacher || "지정되지 않음") : "-"}
+                  </div>
+                </div>
+                <div className="rounded-lg border p-3 text-sm">
+                  <div className="text-xs text-muted-foreground">변경할 선생님</div>
+                  <Input
+                    className="mt-2 rounded-lg"
+                    value={teacherName}
+                    onChange={(e) => setTeacherName(e.target.value)}
+                    placeholder="선생님 이름 입력"
+                    disabled={loading}
+                  />
+                </div>
               </div>
 
-              <div className="grid gap-2">
-                <Input
-                  className="rounded-xl"
-                  value={teacherName}
-                  onChange={(e) => setTeacherName(e.target.value)}
-                  placeholder="교사명 입력"
-                  disabled={loading}
-                />
-
-                {/* 실행 버튼 */}
+              <div className="mt-4 grid gap-2">
                 <Button
                   className={`w-full rounded-xl text-white transition-colors ${
                     done ? "bg-green-600 hover:bg-green-600/90" : "bg-black hover:bg-black/90"
@@ -220,8 +248,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
           </Card>
         </div>
 
-        {/* 우하단: 새로고침 */}
-        <div className="mt-auto flex items-center justify-end">
+        <div className="mt-auto pt-4 flex items-center justify-end">
           <Button
             className="rounded-xl"
             variant="outline"

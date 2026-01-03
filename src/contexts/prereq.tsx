@@ -9,6 +9,7 @@ type State = {
   has_class: boolean;
   has_data: boolean;
   has_student: boolean;
+  data_dir_valid?: boolean;
   data_file_name?: string;
   cwd: string;
   data_dir: string;
@@ -60,7 +61,7 @@ export function PrereqProvider({ children }: { children: React.ReactNode }) {
 
   const enforcePrereq = useCallback(async () => {
     const res = await fetchState();
-    if (res?.ok) return true;
+    if (res?.ok && res?.data_dir_valid !== false) return true;
     setOpen(true);
     return false;
     // 모달에서 설치 완료 후 "다시 확인" 누르면 자동 갱신/닫힘
