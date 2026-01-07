@@ -60,7 +60,15 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       try {
         setInfoLoading(true);
         const res = await rpc.call("get_class_info", { class_name: selectedClass });
-        setSelectedTeacher(res?.[1] ?? "");
+        if (res?.ok){
+          setSelectedTeacher(res?.data[1] ?? "");
+        }
+        else {
+          await dialog.error({
+            title: "에러",
+            message: `반 정보가 존재하지 않습니다.`,
+          });
+        }
       } catch (e: any) {
         await dialog.error({
           title: "에러",
