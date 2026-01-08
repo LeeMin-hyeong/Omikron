@@ -211,8 +211,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
                 <div className="rounded-lg border p-3 text-sm">
                   <div className="text-xs text-muted-foreground">현재 선생님</div>
                   <div className="flex items-center gap-2 font-medium">
-                    {infoLoading ? <Spinner className="h-4 w-4" /> : null}
-                    {selectedClass ? (selectedTeacher || "지정되지 않음") : "-"}
+                    {infoLoading ? <Spinner className="h-4 w-4" /> : selectedClass ? (selectedTeacher || "지정되지 않음") : "-"}
                   </div>
                 </div>
                 <div className="rounded-lg border p-3 text-sm">
