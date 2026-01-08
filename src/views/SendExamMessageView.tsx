@@ -158,7 +158,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
       void dialog
         .confirm({
           title: "메시지 작성 성공",
-          message: prog.message || "메시지 작성을 완료했습니다.",
+          message: "메시지 작성이 완료되었습니다. 전송 전 내용을 확인하세요.",
         })
         .then(() => {
           setJobId(undefined)

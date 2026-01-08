@@ -185,7 +185,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       void dialog
         .confirm({
           title: "데이터 저장 성공",
-          message: prog.message || "데이터 저장을 완료했습니다.",
+          message: "데이터 저장을 완료하였습니다",
         })
         .then(() => {
           setJobId(undefined)

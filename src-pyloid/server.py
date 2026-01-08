@@ -67,6 +67,10 @@ def _queue_listener(job_id: str, q: multiprocessing.Queue, proc: multiprocessing
             payload = q.get(timeout=0.5)
         except Empty:
             if not proc.is_alive():
+                if proc.pid is None:
+                    started_at = job_process_started_at.get(job_id, 0)
+                    if started_at and (time.time() - started_at) < 5.0:
+                        continue
                 break
             continue
         if payload is None:

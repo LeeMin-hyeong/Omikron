@@ -558,21 +558,21 @@ export default function ManageStudentView({ meta }: ViewProps) {
                   disabled={!canAdd || busy}
                   onClick={handleAdd}
                 >
-                  학생 추가
+                  {actionRunning === "add" ? <><Spinner className="h-4 w-4" />작업 중...</> : "학생 추가"}
                 </Button>
                 <Button
                   className="rounded-xl bg-amber-500 text-white disabled:bg-black disabled:text-white"
                   disabled={!canMove || busy}
                   onClick={handleMove}
                 >
-                  반 이동
+                  {actionRunning === "move" ? <><Spinner className="h-4 w-4" />작업 중...</> : "반 이동"}
                 </Button>
                 <Button
                   className="rounded-xl bg-red-600 text-white disabled:bg-black disabled:text-white"
                   disabled={!canRemove || busy}
                   onClick={handleRemove}
                 >
-                  학생 삭제
+                  {actionRunning === "remove" ? <><Spinner className="h-4 w-4" />작업 중...</> : "학생 삭제"}
                 </Button>
               </div>
             </CardContent>
