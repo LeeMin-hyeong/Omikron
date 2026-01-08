@@ -286,6 +286,125 @@ def _update_class_job_process(job_id: str, q: multiprocessing.Queue) -> None:
         omikron.classinfo.delete_temp()
 
 
+def _send_exam_message_job_process(
+    job_id: str,
+    q: multiprocessing.Queue,
+    *,
+    filename: str,
+    b64: str,
+    makeup_test_date: Dict[str, Any],
+) -> None:
+    def _emit(payload: dict):
+        q.put(payload)
+
+    prog = Progress(_emit, total=3)
+
+    _emit({
+        "ts": time.time(),
+        "step": 0,
+        "total": 3,
+        "level": "info",
+        "status": "running",
+        "message": "?‘ì—…??ì¤€ë¹„í•˜ê³??ˆìŠµ?ˆë‹¤.",
+        "warnings": [],
+    })
+
+    tmp_file: Optional[Path] = None
+    try:
+        tmp_file = _decode_upload_to_temp(filename, b64)
+
+        try:
+            omikron.dataform.data_validation(str(tmp_file))
+        except omikron.dataform.DataValidationException as exc:
+            prog.error(f"데이터 검증 오류가 발생하였습니다:\n {exc}")
+            return
+        prog.step("데이터 입력 양식 검증 완료")
+
+        for k, v in makeup_test_date.items():
+            makeup_test_date[k] = datetime.strptime(v, "%Y-%m-%d")
+
+        ok = omikron.chrome.send_test_result_message(str(tmp_file), makeup_test_date, prog)
+        if not ok:
+            prog.error("메시지 작성 중 오류가 발생했습니다.")
+            return
+
+        prog.step("작업 완료")
+
+        prog.done("메시지 작성이 완료되었습니다. 전송 전 내용을 확인하세요.")
+    except Exception as exc:
+        prog.error(f"예상치 못한 오류가 발생했습니다: {exc}")
+    finally:
+        if tmp_file:
+            _cleanup_temp(tmp_file)
+
+
+def _save_exam_job_process(
+    job_id: str,
+    q: multiprocessing.Queue,
+    *,
+    filename: str,
+    b64: str,
+    makeup_test_date: Dict[str, Any],
+) -> None:
+    def _emit(payload: dict):
+        q.put(payload)
+
+    prog = Progress(_emit, total=3)
+
+    _emit({
+        "ts": time.time(),
+        "step": 0,
+        "total": 4,
+        "level": "info",
+        "status": "running",
+        "message": "?‘ì—… ?€ê¸?ì¤?..",
+        "warnings": [],
+    })
+
+    tmp_file: Optional[Path] = None
+    try:
+        tmp_file = _decode_upload_to_temp(filename, b64)
+
+        try:
+            omikron.dataform.data_validation(str(tmp_file))
+        except omikron.dataform.DataValidationException as exc:
+            prog.error(f"데이터 검증 오류가 발생하였습니다:\n {exc}")
+            return
+        prog.step("데이터 입력 양식 검증 완료")
+
+        for k, v in makeup_test_date.items():
+            makeup_test_date[k] = datetime.strptime(v, "%Y-%m-%d")
+
+        try:
+            datafile_wb = omikron.datafile.save_test_data(str(tmp_file), prog)
+            makeuptest_wb = omikron.makeuptest.save_makeup_test_list(str(tmp_file), makeup_test_date, prog)
+            prog.step("재시험 명단 입력 완료")
+        except NoMatchingSheetException as e:
+            prog.error(f"파일에서 목표 시트를 찾을 수 없습니다:\n {e}")
+            return
+        except omikron.datafile.NoReservedColumnError as e:
+            prog.error(f"파일에 필수 열이 없습니다:\n {e}")
+            return
+
+        try:
+            omikron.datafile.save(datafile_wb)
+            omikron.makeuptest.save(makeuptest_wb)
+        except FileOpenException as e:
+            prog.error(f"파일이 열려 있습니다:\n {e}")
+            return
+
+        prog.step("파일 저장 완료")
+
+        prog.done("데이터 저장을 완료하였습니다.")
+    except Exception as exc:
+        prog.error(f"예상치 못한 오류가 발생했습니다:\n {traceback.format_exc()}")
+        return
+    finally:
+        omikron.datafile.delete_temp()
+        if tmp_file:
+            _cleanup_temp(tmp_file)
+
+
 ####################################### 데이터 요청 API #######################################
 
 @server.method()
@@ -486,13 +605,42 @@ async def start_send_exam_message(ctx: RPCContext, filename: str, b64: str, make
         "warnings": [],
     })
 
-    thread = threading.Thread(
-        target=_send_exam_message_job,
-        kwargs={"job_id": job_id, "filename": filename, "b64": b64, "makeup_test_date": makeup_test_date},
+    ctx_mp = multiprocessing.get_context("spawn")
+    q = ctx_mp.Queue()
+    proc = ctx_mp.Process(
+        target=_send_exam_message_job_process,
+        kwargs={
+            "job_id": job_id,
+            "q": q,
+            "filename": filename,
+            "b64": b64,
+            "makeup_test_date": makeup_test_date,
+        },
         daemon=True,
     )
-    job_threads[job_id] = thread
-    thread.start()
+    progress_queues[job_id] = q
+    job_processes[job_id] = proc
+    job_process_started_at[job_id] = time.time()
+    job_process_seen_payload[job_id] = False
+    listener = threading.Thread(
+        target=_queue_listener,
+        args=(job_id, q, proc),
+        daemon=True,
+    )
+    progress_listeners[job_id] = listener
+    listener.start()
+    try:
+        proc.start()
+    except Exception:
+        make_emit(job_id)({
+            "ts": time.time(),
+            "step": 0,
+            "total": 0,
+            "level": "error",
+            "status": "error",
+            "message": "send_exam_message process failed to start.",
+            "warnings": [],
+        })
 
     return {"job_id": job_id}
 
@@ -511,13 +659,42 @@ async def start_save_exam(ctx: RPCContext, filename: str, b64: str, makeup_test_
         "warnings": [],
     })
 
-    thread = threading.Thread(
-        target=_save_exam_job,
-        kwargs={"job_id": job_id, "filename": filename, "b64": b64, "makeup_test_date": makeup_test_date},
+    ctx_mp = multiprocessing.get_context("spawn")
+    q = ctx_mp.Queue()
+    proc = ctx_mp.Process(
+        target=_save_exam_job_process,
+        kwargs={
+            "job_id": job_id,
+            "q": q,
+            "filename": filename,
+            "b64": b64,
+            "makeup_test_date": makeup_test_date,
+        },
         daemon=True,
     )
-    job_threads[job_id] = thread
-    thread.start()
+    progress_queues[job_id] = q
+    job_processes[job_id] = proc
+    job_process_started_at[job_id] = time.time()
+    job_process_seen_payload[job_id] = False
+    listener = threading.Thread(
+        target=_queue_listener,
+        args=(job_id, q, proc),
+        daemon=True,
+    )
+    progress_listeners[job_id] = listener
+    listener.start()
+    try:
+        proc.start()
+    except Exception:
+        make_emit(job_id)({
+            "ts": time.time(),
+            "step": 0,
+            "total": 0,
+            "level": "error",
+            "status": "error",
+            "message": "save_exam process failed to start.",
+            "warnings": [],
+        })
 
     return {"job_id": job_id}
 
