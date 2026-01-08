@@ -13,7 +13,7 @@ import { BookCheck, Loader2, Play, User } from "lucide-react";
 
 // 화면에서 쓰는 타입
 type ClassInfo = { id: string; name: string };
-type StudentInfo = { id: string; name: string }; // id = (class 시트) 학생 행 인덱스(문자열)
+type StudentItem = { id: string; name: string; className: string }; // id = (class 시트) 학생 행 인덱스(문자열)
 type TestInfo = { id: string; name: string };    // id = (재시험 시트) 시험 행 인덱스(문자열)
 
 // 서버 맵 타입
@@ -28,12 +28,10 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
   const [makeupMap, setMakeupMap] = useState<MakeUpMap>({});
 
   // 목록
-  const [classes, setClasses]   = useState<ClassInfo[]>([]);
-  const [students, setStudents] = useState<StudentInfo[]>([]);
-  const [tests, setTests]       = useState<TestInfo[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [tests, setTests] = useState<TestInfo[]>([]);
 
-  const [classQuery, setClassQuery] = useState("");
-  const [studentQuery, setStudentQuery] = useState("");
+  const [query, setQuery] = useState("");
   const [testQuery, setTestQuery] = useState("");
 
   // 선택값
@@ -75,7 +73,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         // 선택값 보정
         // if (klass && !csd[klass]) {
         setKlass("");
-        setStudents([]); setStudentId("");
+        setStudentId("");
         setTests([]); setTestId("");
         setScore("")
         // }
@@ -88,7 +86,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
       setClassStudentMap({});
       setMakeupMap({});
       setClasses([]);
-      setStudents([]); setTests([]);
+      setTests([]);
       setKlass(""); setStudentId(""); setTestId("");
       setScore("")
     } finally {
@@ -103,26 +101,60 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
   }, []);
 
   // 반 선택 → 학생 목록 계산
-  useEffect(() => {
-    setStudents([]); setStudentId("");
-    setTests([]); setTestId("");
-    setStudentQuery("");
-    setTestQuery("");
-
-    if (!klass) return;
-
-    const sDict = classStudentMap[klass] || {};
-    const sList: StudentInfo[] = Object.entries(sDict).map(([name, row]) => ({
-      id: String(row), // (클래스 시트) 학생 행 인덱스
-      name,
-    }));
-    setStudents(sList);
-  }, [klass, classStudentMap]);
+  
 
   // 선택된 학생 이름 (재시험 맵 조회에 필요)
+  const classItems = useMemo(
+    () => classes.map((c) => ({ key: c.id ?? c.name, label: c.name })),
+    [classes]
+  );
+
+  const classLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    classItems.forEach((item) => {
+      map[item.key] = item.label;
+    });
+    return map;
+  }, [classItems]);
+
+  const studentsByClass = useMemo(() => {
+    const result: Record<string, StudentItem[]> = {};
+    classItems.forEach(({ key }) => {
+      const sDict = classStudentMap[key] || {};
+      const items = Object.entries(sDict).map(([name, row]) => ({
+        id: String(row),
+        name,
+        className: key,
+      }));
+      items.sort((a, b) => a.name.localeCompare(b.name));
+      result[key] = items;
+    });
+    return result;
+  }, [classItems, classStudentMap]);
+
+  const filteredStudentsByClass = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const result: Record<string, StudentItem[]> = {};
+    classItems.forEach(({ key }) => {
+      const items = studentsByClass[key] || [];
+      const classMatch = q && key.toLowerCase().includes(q);
+      result[key] = !q || classMatch
+        ? items
+        : items.filter((item) => item.name.toLowerCase().includes(q));
+    });
+    return result;
+  }, [classItems, studentsByClass, query]);
+
+  const visibleClasses = useMemo(() => {
+    if (!query.trim()) return classItems.map((item) => item.key);
+    return classItems
+      .map((item) => item.key)
+      .filter((key) => (filteredStudentsByClass[key]?.length ?? 0) > 0);
+  }, [classItems, filteredStudentsByClass, query]);
+
   const studentName = useMemo(
-    () => students.find((s) => s.id === studentId)?.name ?? "",
-    [students, studentId]
+    () => studentsByClass[klass]?.find((s) => s.id === studentId)?.name ?? "",
+    [studentsByClass, klass, studentId]
   );
 
   // 학생 선택 → 재시험 대상 시험 목록 계산
@@ -144,18 +176,6 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
     () => tests.find((t) => t.id === testId)?.name ?? "",
     [tests, testId]
   );
-
-  const filteredClasses = useMemo(() => {
-    const q = classQuery.trim().toLowerCase();
-    if (!q) return classes;
-    return classes.filter((c) => c.name.toLowerCase().includes(q));
-  }, [classes, classQuery]);
-
-  const filteredStudents = useMemo(() => {
-    const q = studentQuery.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter((s) => s.name.toLowerCase().includes(q));
-  }, [students, studentQuery]);
 
   const filteredTests = useMemo(() => {
     const q = testQuery.trim().toLowerCase();
@@ -220,78 +240,61 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
               <div className="grid gap-2 w-full">
                 <Input
                   type="search"
-                  value={classQuery}
-                  onChange={(e) => setClassQuery(e.target.value)}
-                  placeholder="반 검색"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="반 검색 / 학생 검색"
                   className="h-9 w-full rounded-lg"
                   disabled={loading || running}
                 />
                 <div className="rounded-lg border">
-                  <ScrollArea className="h-[140px] w-full p-1">
-                    {filteredClasses.length === 0 ? (
-                      <div className="p-2 text-xs text-muted-foreground">반이 없습니다</div>
-                    ) : (
-                      <ul className="space-y-1">
-                        {filteredClasses.map((c) => {
-                          const isSel = klass === c.id;
+                  <ScrollArea className="h-[305px] w-full p-1">
+                    <div className="space-y-1">
+                      {!loading && visibleClasses.length === 0 && (
+                        <div className="p-2 text-xs text-muted-foreground">반 / 학생이 없습니다</div>
+                      )}
+                      {!loading &&
+                        visibleClasses.map((className) => {
+                          const items = filteredStudentsByClass[className] ?? [];
+                          const label = classLabelMap[className] ?? className;
                           return (
-                            <li key={c.id}>
-                              <button
-                                type="button"
-                                onClick={() => setKlass(c.id)}
-                                disabled={loading || running}
-                                className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
-                                  isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
-                                } ${loading || running ? "opacity-60 cursor-not-allowed" : ""}`}
-                              >
-                                <span className="flex-1 min-w-0 break-all">{c.name}</span>
-                              </button>
-                            </li>
+                            <div key={className} className="rounded-md border border-transparent">
+                              <div className="px-2 py-2 text-xs font-semibold text-muted-foreground">
+                                {label}
+                              </div>
+                              {items.length === 0 ? (
+                                <div className="px-4 pb-2 text-xs text-muted-foreground">학생이 없습니다</div>
+                              ) : (
+                                <ul className="space-y-1 pb-2">
+                                  {items.map((s) => {
+                                    const isSel = klass === s.className && studentId === s.id;
+                                    return (
+                                      <li className="px-2" key={`${s.className}::${s.id}`}>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setKlass(s.className);
+                                            setStudentId(s.id);
+                                          }}
+                                          disabled={loading || running}
+                                          className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
+                                            isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
+                                          } ${loading || running ? "opacity-60 cursor-not-allowed" : ""}`}
+                                        >
+                                          <span className="flex-1 min-w-0 break-all text-xs leading-5">{s.name}</span>
+                                        </button>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </div>
                           );
                         })}
-                      </ul>
-                    )}
+                    </div>
                   </ScrollArea>
                 </div>
-
-                <Input
-                  type="search"
-                  value={studentQuery}
-                  onChange={(e) => setStudentQuery(e.target.value)}
-                  placeholder="학생 검색"
-                  className="h-9 w-full rounded-lg"
-                  disabled={!klass || loading || running}
-                />
-                <div className="rounded-lg border">
-                  <ScrollArea className="h-[140px] w-full p-1">
-                    {filteredStudents.length === 0 ? (
-                      klass ? 
-                        <div className="p-2 text-xs text-muted-foreground">학생이 없습니다</div> :
-                        <div className="p-2 text-xs text-muted-foreground">반을 선택하세요</div>
-                    ) : (
-                      <ul className="space-y-1">
-                        {filteredStudents.map((s) => {
-                          const isSel = studentId === s.id;
-                          return (
-                            <li key={s.id}>
-                              <button
-                                type="button"
-                                onClick={() => setStudentId(s.id)}
-                                disabled={!klass || loading || running}
-                                className={`group flex w-full items-start gap-2 rounded-md border px-2 py-1 text-left text-xs transition ${
-                                  isSel ? "bg-blue-50 border-blue-200" : "hover:bg-accent border-transparent"
-                                } ${!klass || loading || running ? "opacity-60 cursor-not-allowed" : ""}`}
-                              >
-                                <span className="flex-1 min-w-0 break-all">{s.name}</span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </ScrollArea>
-                </div>
-              </div>            </div>
+              </div>
+            </div>
 
             {/* 우측: 재시험/점수 쪽 */}
             <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
