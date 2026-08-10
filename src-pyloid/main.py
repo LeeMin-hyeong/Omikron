@@ -9,7 +9,7 @@ from pyloid.utils import (
 )
 from pyloid.serve import pyloid_serve
 from pyloid import Pyloid
-from server import server
+from tdm_host.rpc.server import server
 from license import verify_license_or_exit
 
 WIDTH, HEIGHT = 1400, 830

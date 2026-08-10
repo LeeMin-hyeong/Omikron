@@ -26,5 +26,5 @@ dev = [
     "ruff",
 ]
 
-[tool.setuptools]
-packages = ["tdm"]
+[tool.setuptools.packages.find]
+include = ["tdm*"]

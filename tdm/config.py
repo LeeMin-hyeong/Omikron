@@ -1,8 +1,8 @@
-import json
+﻿import json
 import os
 from pathlib import Path
 
-from tdm.exception import FileOpenException
+from tdm.domain.errors import FileOpenException
 
 
 CONFIG_PATH = Path("./config.json")
