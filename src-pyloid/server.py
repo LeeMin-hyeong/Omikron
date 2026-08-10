@@ -166,8 +166,11 @@ def _open_path_cross_platform(path: str):
 
 def _decode_upload_to_temp(filename: str, b64: str) -> Path:
     """업로드된 base64 데이터를 임시 파일로 저장"""
-    tmp_root = Path(tempfile.mkdtemp(prefix="tdm_job_"))
     safe_name = Path(filename or "upload.bin").name
+    if Path(safe_name).suffix.lower() != ".xlsx":
+        raise ValueError("지원하지 않는 파일 형식입니다. .xlsx 파일만 사용할 수 있습니다.")
+
+    tmp_root = Path(tempfile.mkdtemp(prefix="tdm_job_"))
     tmp_path = tmp_root / safe_name
     try:
         data = base64.b64decode(b64)
@@ -1105,7 +1108,7 @@ async def remove_student(ctx: RPCContext, target_class_name, target_student_name
     try:
         tdm.datafile.delete_student(target_class_name, target_student_name)
 
-        if not tdm.datafile.check_student_exist:
+        if not tdm.datafile.check_student_exist(target_student_name):
             tdm.studentinfo.delete_student(target_student_name)
 
         return {"ok": True}
@@ -1237,6 +1240,9 @@ async def open_file_picker(ctx: RPCContext):
             return {"ok": False}
 
         path_obj = Path(selected_file)
+        if path_obj.suffix.lower() != ".xlsx":
+            return {"ok": False, "error": "지원하지 않는 파일 형식입니다. .xlsx 파일만 선택해 주세요."}
+
         file_b64 = base64.b64encode(path_obj.read_bytes()).decode()
 
         return {"ok": True, "path": str(path_obj), "name": path_obj.name, "b64": file_b64}

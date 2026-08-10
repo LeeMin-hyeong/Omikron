@@ -85,6 +85,11 @@ def add_student(target_student_name:str):
     wb = open()
     ws = open_worksheet(wb)
 
+    for row in range(2, ws.max_row + 1):
+        if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == target_student_name:
+            wb.close()
+            return
+
     for row in range(ws.max_row+1, 1, -1):
         if ws.cell(row-1, StudentInfo.STUDENT_NAME_COLUMN).value is not None:
             ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value      = target_student_name

@@ -36,12 +36,12 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   // ✅ 경고 메시지 누적 리스트
   const [warnings, setWarnings] = useState<string[]>([])
 
-  const acceptExt = /\.(xlsx|xlsm|xls|csv)$/i
+  const acceptExt = /\.xlsx$/i
 
   const setAcceptedFile = (candidate: File | null) => {
     if (!candidate || running) return
     if (!acceptExt.test(candidate.name)) {
-      void dialog.error({ title: "파일 선택 실패", message: "지원하지 않는 확장자입니다. (.xlsx, .xlsm, .xls, .csv)" })
+      void dialog.error({ title: "파일 선택 실패", message: "지원하지 않는 확장자입니다. (.xlsx 파일만 지원)" })
       return
     }
     setFile(candidate)
@@ -263,7 +263,7 @@ return (
                       <div className="text-sm">
                         {picking ? "데이터 폴더에서 불러오는 중..." : "파일을 끌어오거나 클릭해서 선택"}
                       </div>
-                      <div className="text-xs text-muted-foreground">지원 형식: .xlsx .xlsm .xls .csv</div>
+                      <div className="text-xs text-muted-foreground">지원 형식: .xlsx</div>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center px-3 py-2 text-center">

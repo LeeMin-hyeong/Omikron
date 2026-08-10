@@ -211,7 +211,7 @@ def get_data_sorted_dict(mocktest = False):
             if ws.cell(row, CLASS_NAME_COLUMN).value != class_name:
                 continue
             if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
-                for col in range(AVERAGE_SCORE_COLUMN+1, ws.max_row+1):
+                for col in range(AVERAGE_SCORE_COLUMN+1, ws.max_column+1):
                     test_date = ws.cell(row, col).value
                     test_name = ws.cell(row+1, col).value
                     if test_date is None and test_name is None:
@@ -305,20 +305,25 @@ def get_class_names(ws:Worksheet):
 
     return class_names
 
-def check_student_exist(studnet_name):
-    exist = False
-
+def check_student_exist(student_name: str) -> bool:
+    """데이터 파일의 어느 반에든 활성 상태인 학생이 있는지 확인."""
     wb = open(data_only=True, read_only=True)
-    ws = wb[DataFile.DEFAULT_SHEET_NAME]
+    try:
+        ws = wb[DataFile.DEFAULT_SHEET_NAME]
+        _, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
 
-    _, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
-
-    for row in range(ws.max_row+1):
-        if ws.cell(row, STUDENT_NAME_COLUMN).value == studnet_name:
-            exist = True
-            break
-
-    return exist
+        for row in range(2, ws.max_row + 1):
+            student_cell = ws.cell(row, STUDENT_NAME_COLUMN)
+            if student_cell.value != student_name:
+                continue
+            if student_cell.font.strike:
+                continue
+            if student_cell.font.color is not None and student_cell.font.color.rgb == "FFFF0000":
+                continue
+            return True
+        return False
+    finally:
+        wb.close()
 
 # 파일 작업
 def save_test_data(filepath:str, prog: Progress):
@@ -536,7 +541,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     # 반 평균 조건부 서식 반영
     class_average = data_only_ws.cell(test_average_row, AVERAGE_SCORE_COLUMN).value
     if type(class_average) in (int, float):
-        ws.cell(test_average_row, AVERAGE_SCORE_COLUMN).fill = class_average_color(test_average)
+        ws.cell(test_average_row, AVERAGE_SCORE_COLUMN).fill = class_average_color(class_average)
 
     save(wb)
     delete_temp()
@@ -846,6 +851,7 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
         else:
             continue
 
+        already_exists = False
         while ws.cell(class_index, STUDENT_NAME_COLUMN).value != "시험 평균":
             if ws.cell(class_index, STUDENT_NAME_COLUMN).value > student_name:
                 break
@@ -854,10 +860,16 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
             elif ws.cell(class_index, STUDENT_NAME_COLUMN).font.color is not None and ws.cell(class_index, STUDENT_NAME_COLUMN).font.color.rgb == "FFFF0000":
                 class_index += 1
             elif ws.cell(class_index, STUDENT_NAME_COLUMN).value == student_name:
-                warnings.append(f"{student_name} 학생이 이미 존재합니다.")
+                warning = f"{student_name} 학생이 이미 존재합니다."
+                if warning not in warnings:
+                    warnings.append(warning)
+                already_exists = True
                 break
             else:
                 class_index += 1
+
+        if already_exists:
+            continue
 
         ws.insert_rows(class_index)
         ws.cell(class_index, CLASS_NAME_COLUMN).value        = ws.cell(class_index-1, CLASS_NAME_COLUMN).value
@@ -889,7 +901,7 @@ def delete_student(class_name:str, student_name:str):
     CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
     for row in range(2, ws.max_row+1):
-        if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name and ws.cell(row, CLASS_NAME_COLUMN).value == class_name:
+        if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name and ws.cell(row, CLASS_NAME_COLUMN).value in (class_name, class_name + " (모의고사)"):
             for col in range(1, ws.max_column+1):
                 if ws.cell(row, col).font.bold:
                     ws.cell(row, col).font = FONT_BOLD_STRIKE

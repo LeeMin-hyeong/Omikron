@@ -16,6 +16,7 @@ MCowBQYDK2VwAyEAxU+Q4YXt2w4xyfp7k6VSmI9IsnpallsGw6Hfrr4tpjo=
 -----END PUBLIC KEY-----"""
 
 LICENSE_FILENAME = "license.json"
+ALLOWED_PRODUCTS = {"tdm", "TestDataManagement"}
 
 
 @dataclass
@@ -101,7 +102,7 @@ def verify_license() -> tuple[bool, str]:
         _verify_signature(data)
         license_data = _parse_license(data)
         _check_expiry(license_data)
-        if license_data.product and license_data.product != "tdm":
+        if license_data.product and license_data.product not in ALLOWED_PRODUCTS:
             raise ValueError("Product mismatch.")
         return True, "OK"
     except Exception as exc:  # noqa: BLE001
