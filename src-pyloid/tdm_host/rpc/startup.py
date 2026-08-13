@@ -3,7 +3,6 @@
 import hashlib
 import json
 import os
-import traceback
 from pathlib import Path
 from typing import Any, Dict
 from urllib.error import HTTPError, URLError
@@ -12,6 +11,14 @@ from urllib.request import Request, urlopen
 from pyloid.rpc import RPCContext
 
 import tdm.config
+from tdm.excel.paths import WorkbookPaths
+from tdm.excel.storage_health import verify_directory_writable
+from tdm.excel.transaction import (
+    cleanup_stale_staging_files,
+    recover_pending_transactions,
+)
+from tdm_host.rpc.error_codes import RpcErrorCode
+from tdm_host.rpc.responses import error_response, failure_response, success_response
 from tdm_host.rpc.transport import server
 from tdm_host.runtime.validation import validate_script_page_url as _validate_script_page_url
 
@@ -22,10 +29,11 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
     config.json의 dataFileName으로 './data/<name>.xlsx' 존재 여부 확인
     """
     cwd = Path(tdm.config.DATA_DIR)
-    class_info = cwd / "반 정보.xlsx"
-    student_info = cwd / "학생 정보.xlsx"
+    paths = WorkbookPaths.current()
+    class_info = paths.class_info
+    student_info = paths.student_info
     data_file_name = tdm.config.DATA_FILE_NAME
-    data_file = cwd / "data" / f"{data_file_name}.xlsx" if data_file_name else None
+    data_file = paths.data_file if data_file_name else None
 
     has_class = class_info.is_file()
     has_student = student_info.is_file()
@@ -55,13 +63,32 @@ async def check_data_files(ctx: RPCContext) -> Dict[str, Any]:
         "cwd": str(cwd),
         "data_dir": tdm.config.DATA_DIR,
         "missing": missing,
+        "recovery_actions": [],
+        "storage_error": "",
     }
 
 
 @server.method()
+async def verify_storage_health(ctx: RPCContext) -> Dict[str, Any]:
+    """Run write verification and transaction recovery once during startup."""
+    if not tdm.config.DATA_DIR_VALID:
+        return error_response(RpcErrorCode.DATA_DIR_INVALID, "데이터 저장 위치가 유효하지 않습니다.")
+    try:
+        paths = WorkbookPaths.current()
+        verify_directory_writable(paths.data_dir)
+        recovery_actions = [
+            {"transactionId": result.transaction_id, "action": result.action}
+            for result in recover_pending_transactions(paths)
+        ]
+        cleanup_stale_staging_files(paths.root)
+        return success_response(recovery_actions=recovery_actions)
+    except Exception as exc:
+        return failure_response(exc, context="verify_storage_health")
+
+
+@server.method()
 async def get_config_status(ctx: RPCContext) -> Dict[str, Any]:
-    return {
-        "ok": True,
+    return success_response(data={
         "exists": tdm.config.CONFIG_EXISTS,
         "ready": tdm.config.is_initialized(),
         "termsAccepted": tdm.config.is_terms_accepted(),
@@ -73,7 +100,7 @@ async def get_config_status(ctx: RPCContext) -> Dict[str, Any]:
             "makeupTest": tdm.config.MAKEUP_TEST_NO_SCHEDULE_MESSAGE,
             "makeupTestDate": tdm.config.MAKEUP_TEST_SCHEDULE_MESSAGE,
         },
-    }
+    })
 
 
 @server.method()
@@ -81,10 +108,10 @@ async def select_data_dir(ctx: RPCContext) -> Dict[str, Any]:
     try:
         selected = ctx.pyloid.select_directory_dialog(tdm.config.DATA_DIR or str(Path.cwd()))
         if not selected:
-            return {"ok": False}
-        return {"ok": True, "path": os.path.abspath(selected)}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+            return error_response(RpcErrorCode.CANCELLED, "폴더 선택을 취소했습니다.")
+        return success_response(path=os.path.abspath(selected))
+    except Exception as exc:
+        return failure_response(exc, context="select_data_dir")
 
 
 @server.method()
@@ -106,19 +133,21 @@ async def save_initial_config(
         makeup_test_date_message = makeup_test_date_message or ""
 
         if not url:
-            return {"ok": False, "error": "아이소식 URL이 작성되지 않았습니다."}
+            return error_response(RpcErrorCode.URL_REQUIRED, "아이소식 URL이 작성되지 않았습니다.")
         if not url.startswith(("http://", "https://")):
-            return {"ok": False, "error": "URL이 유효하지 않습니다."}
+            return error_response(RpcErrorCode.URL_INVALID, "URL이 유효하지 않습니다.")
         if not data_dir:
-            return {"ok": False, "error": "데이터 저장 위치가 "}
+            return error_response(RpcErrorCode.DATA_DIR_REQUIRED, "데이터 저장 위치를 선택해 주세요.")
         if not data_file_name:
-            return {"ok": False, "error": "데이터 파일 이름이 지정되지 않았습니다."}
+            return error_response(RpcErrorCode.DATA_FILE_NAME_REQUIRED, "데이터 파일 이름이 지정되지 않았습니다.")
         if not daily_test_message.strip():
-            return {"ok": False, "error": "테스트 결과 메시지 템플릿이 작성되지 않았습니다."}
+            return error_response(RpcErrorCode.DAILY_MESSAGE_REQUIRED, "테스트 결과 메시지 템플릿이 작성되지 않았습니다.")
         if not makeup_test_message.strip():
-            return {"ok": False, "error": "재시험 안내 문구를 입력해 주세요."}
+            return error_response(RpcErrorCode.MAKEUP_MESSAGE_REQUIRED, "재시험 안내 문구를 입력해 주세요.")
         if not makeup_test_date_message.strip():
-            return {"ok": False, "error": "재시험 일정 안내 문구를 입력해 주세요.?"}
+            return error_response(RpcErrorCode.MAKEUP_DATE_MESSAGE_REQUIRED, "재시험 일정 안내 문구를 입력해 주세요.")
+
+        verify_directory_writable(Path(data_dir))
 
         tdm.config.initialize_config(
             url=url,
@@ -129,9 +158,9 @@ async def save_initial_config(
             makeup_test_date_message=makeup_test_date_message,
         )
 
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        return success_response()
+    except Exception as exc:
+        return failure_response(exc, context="save_initial_config")
 
 
 @server.method()
@@ -149,15 +178,15 @@ async def update_message_templates(
         makeup_test_date_message = makeup_test_date_message or ""
 
         if not url:
-            return {"ok": False, "error": "아이소식 URL이 작성되지 않았습니다."}
+            return error_response(RpcErrorCode.URL_REQUIRED, "아이소식 URL이 작성되지 않았습니다.")
         if not url.startswith(("http://", "https://")):
-            return {"ok": False, "error": "URL이 유효하지 않습니다."}
+            return error_response(RpcErrorCode.URL_INVALID, "URL이 유효하지 않습니다.")
         if not daily_test_message.strip():
-            return {"ok": False, "error": "테스트 결과 메시지 템플릿이 작성되지 않았습니다."}
+            return error_response(RpcErrorCode.DAILY_MESSAGE_REQUIRED, "테스트 결과 메시지 템플릿이 작성되지 않았습니다.")
         if not makeup_test_message.strip():
-            return {"ok": False, "error": "재시험 안내 문구를 입력해 주세요."}
+            return error_response(RpcErrorCode.MAKEUP_MESSAGE_REQUIRED, "재시험 안내 문구를 입력해 주세요.")
         if not makeup_test_date_message.strip():
-            return {"ok": False, "error": "재시험 일정 안내 문구를 입력해 주세요."}
+            return error_response(RpcErrorCode.MAKEUP_DATE_MESSAGE_REQUIRED, "재시험 일정 안내 문구를 입력해 주세요.")
 
         tdm.config.update_message_templates(
             url=url,
@@ -165,9 +194,9 @@ async def update_message_templates(
             makeup_test_message=makeup_test_message,
             makeup_test_date_message=makeup_test_date_message,
         )
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        return success_response()
+    except Exception as exc:
+        return failure_response(exc, context="update_message_templates")
 
 
 @server.method()
@@ -175,14 +204,14 @@ async def validate_script_url(ctx: RPCContext, url: str) -> Dict[str, Any]:
     try:
         url = (url or "").strip()
         if not url:
-            return {"ok": False, "error": "아이소식 URL이 작성되지 않았습니다."}
+            return error_response(RpcErrorCode.URL_REQUIRED, "아이소식 URL이 작성되지 않았습니다.")
         if not url.startswith(("http://", "https://")):
-            return {"ok": False, "error": "URL이 유효하지 않습니다."}
+            return error_response(RpcErrorCode.URL_INVALID, "URL이 유효하지 않습니다.")
 
         warning = _validate_script_page_url(url) is not None
-        return {"ok": True, "warning": warning}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        return success_response(warning=warning)
+    except Exception as exc:
+        return failure_response(exc, context="validate_script_url")
 
 
 @server.method()
@@ -199,7 +228,7 @@ async def get_terms_text(ctx: RPCContext) -> Dict[str, Any]:
 
         license_path = Path("./LICENSE")
         if not license_path.exists():
-            return {"ok": True, "title": "이용약관", "text": fallback_text}
+            return success_response(data={"title": "이용약관", "text": fallback_text})
 
         raw = license_path.read_bytes()
         text = None
@@ -212,18 +241,18 @@ async def get_terms_text(ctx: RPCContext) -> Dict[str, Any]:
         if text is None:
             text = raw.decode("latin-1", errors="replace")
 
-        return {"ok": True, "title": "이용약관", "text": text}
-    except Exception as e:
-        return {"ok": True, "title": "이용약관", "text": fallback_text}
+        return success_response(data={"title": "이용약관", "text": text})
+    except OSError:
+        return success_response(data={"title": "이용약관", "text": fallback_text})
 
 
 @server.method()
 async def accept_terms(ctx: RPCContext) -> Dict[str, Any]:
     try:
         tdm.config.accept_terms()
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        return success_response()
+    except Exception as exc:
+        return failure_response(exc, context="accept_terms")
 
 
 @server.method()
@@ -244,13 +273,13 @@ async def get_startup_notice(ctx: RPCContext) -> Dict[str, Any]:
                 loaded = json.loads(notice_path.read_text(encoding="utf-8"))
                 if isinstance(loaded, dict):
                     raw.update(loaded)
-            except Exception:
+            except (OSError, ValueError, UnicodeError):
                 # Ignore invalid local override and keep defaults.
                 pass
 
         enabled = bool(raw.get("enabled", True))
         if not enabled:
-            return {"ok": True, "enabled": False, "title": "공지사항", "message": ""}
+            return success_response(data={"enabled": False, "title": "공지사항", "message": ""})
 
         source = str(raw.get("source", "static")).strip().lower()
         if source != "github_release":
@@ -259,18 +288,20 @@ async def get_startup_notice(ctx: RPCContext) -> Dict[str, Any]:
             notice_id = hashlib.sha256(f"{title}\n{message}".encode("utf-8")).hexdigest()
             seen_id = tdm.config.get_notice_seen_id()
             should_show = bool(message) and (notice_id != seen_id)
-            return {
-                "ok": True,
+            return success_response(data={
                 "enabled": should_show,
                 "title": title,
                 "message": message,
                 "noticeId": notice_id,
-            }
+            })
 
         repo = str(raw.get("repo", "LeeMin-hyeong/TestDataManagement")).strip()
         include_prerelease = bool(raw.get("include_prerelease", False))
         if "/" not in repo:
-            return {"ok": False, "error": "repo must be 'owner/repo' format."}
+            return error_response(
+                RpcErrorCode.NOTICE_REPOSITORY_INVALID,
+                "공지사항 저장소 설정이 올바르지 않습니다.",
+            )
 
         if include_prerelease:
             api_url = f"https://api.github.com/repos/{repo}/releases?per_page=5"
@@ -287,8 +318,8 @@ async def get_startup_notice(ctx: RPCContext) -> Dict[str, Any]:
         try:
             with urlopen(req, timeout=8) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
-        except (HTTPError, URLError) as e:
-            return {"ok": False, "error": f"GitHub releases fetch failed: {e}"}
+        except (HTTPError, URLError) as exc:
+            return failure_response(exc, context="get_startup_notice.fetch")
 
         release = None
         if isinstance(payload, dict):
@@ -305,7 +336,7 @@ async def get_startup_notice(ctx: RPCContext) -> Dict[str, Any]:
                 break
 
         if not isinstance(release, dict):
-            return {"ok": True, "enabled": False, "title": "공지사항", "message": ""}
+            return success_response(data={"enabled": False, "title": "공지사항", "message": ""})
 
         name = str(release.get("name") or release.get("tag_name") or "Latest Release")
         body = str(release.get("body") or "").strip()
@@ -327,15 +358,14 @@ async def get_startup_notice(ctx: RPCContext) -> Dict[str, Any]:
 
         seen_id = tdm.config.get_notice_seen_id()
         should_show = bool(message) and bool(notice_id) and (notice_id != seen_id)
-        return {
-            "ok": True,
+        return success_response(data={
             "enabled": should_show,
             "title": title,
             "message": message,
             "noticeId": notice_id,
-        }
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        })
+    except Exception as exc:
+        return failure_response(exc, context="get_startup_notice")
 
 
 @server.method()
@@ -343,32 +373,43 @@ async def mark_notice_seen(ctx: RPCContext, notice_id: str) -> Dict[str, Any]:
     try:
         notice_id = (notice_id or "").strip()
         if not notice_id:
-            return {"ok": False, "error": "notice_id is required."}
+            return error_response(RpcErrorCode.NOTICE_ID_REQUIRED, "공지사항 식별자가 필요합니다.")
         tdm.config.set_notice_seen_id(notice_id)
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        return success_response()
+    except Exception as exc:
+        return failure_response(exc, context="mark_notice_seen")
 
 
 @server.method()
 async def quit_app(ctx: RPCContext) -> Dict[str, Any]:
     try:
         ctx.pyloid.quit()
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": str(e), "detail": traceback.format_exc()}
+        return success_response()
+    except Exception as exc:
+        return failure_response(exc, context="quit_app")
+
+
+@server.method()
+async def confirm_app_exit(ctx: RPCContext) -> Dict[str, Any]:
+    try:
+        from tdm_host.jobs.registry import registry
+
+        registry.confirm_shutdown()
+        ctx.pyloid.quit()
+        return success_response()
+    except Exception as exc:
+        return failure_response(exc, context="confirm_app_exit")
 
 
 @server.method()
 async def get_startup_messages(ctx: RPCContext) -> Dict[str, Any]:
-    return {
-        "ok": True,
-        "termsTitle": "?댁슜?쎄?",
+    return success_response(data={
+        "termsTitle": "이용약관",
         "termsMessage": (
-            "蹂??꾨줈洹몃옩? ?깅줉???쇱씠?좎뒪 ?ъ슜?먮쭔 ?댁슜?????덉뒿?덈떎.\n"
-            "?꾨줈洹몃옩 ?ъ슜?쇰줈 ?명븳 ?곗씠???먯떎??諛⑹??섍린 ?꾪빐 ?ъ슜 ??諛깆뾽??沅뚯옣?⑸땲??\n"
-            "?숈썝 ?댁쁺 ?뺤콉 諛?愿??踰뺣졊??以?섑븯???ъ슜??二쇱꽭??"
+            "본 프로그램은 등록된 라이선스 사용자만 이용할 수 있습니다.\n"
+            "데이터 손실을 방지하기 위해 사용 전 백업을 권장합니다.\n"
+            "학원 운영 정책 및 관련 법령을 준수하여 사용해 주세요."
         ),
-        "noticeTitle": "怨듭??ы빆",
-        "noticeMessage": "?꾩옱 ?깅줉??怨듭??ы빆???놁뒿?덈떎.",
-    }
+        "noticeTitle": "공지사항",
+        "noticeMessage": "현재 등록된 공지사항이 없습니다.",
+    })

@@ -1,0 +1,36 @@
+{
+  "generalMethods": [
+    "check_data_files", "verify_storage_health", "get_config_status", "select_data_dir",
+    "save_initial_config", "update_message_templates", "validate_script_url", "get_terms_text",
+    "accept_terms", "get_startup_notice", "mark_notice_seen", "quit_app", "confirm_app_exit",
+    "get_startup_messages", "change_data_dir", "change_data_file_name", "open_path", "open_url",
+    "make_class_info", "make_data_file", "make_student_info", "make_data_form",
+    "reapply_conditional_format", "update_student_info", "add_student", "remove_student",
+    "move_student", "change_class_info", "make_temp_class_info", "update_class",
+    "delete_class_info_temp", "save_individual_result", "save_retest_result",
+    "change_data_file_name_by_select", "open_file_picker", "get_datafile_data",
+    "get_aisosik_data", "get_aisosik_student_data", "check_aisosik_difference",
+    "get_makeuptest_data", "get_class_list", "get_class_info", "get_new_class_list",
+    "is_cell_empty"
+  ],
+  "jobMethods": [
+    "get_progress", "get_job_progress_batch", "get_job",
+    "acknowledge_job_completion", "cancel_job", "start_send_exam_message",
+    "start_save_exam", "start_update_class"
+  ],
+  "errorCodes": [
+    "AISOSIK_STUDENT_NOT_FOUND", "CANCELLED", "CLASS_INFO_MISSING",
+    "CHROME_DRIVER_MISMATCH", "DAILY_MESSAGE_REQUIRED", "DATA_DIR_INVALID", "DATA_DIR_REQUIRED",
+    "DATA_FORM_INVALID",
+    "DATA_FILE_NAME_MISSING", "DATA_FILE_NAME_REQUIRED", "ENVIRONMENT_IO",
+    "EXCEL_REQUIRED", "FILE_ALREADY_EXISTS", "FILE_NOT_FOUND", "FILE_OPEN",
+    "INVALID_REQUEST", "INVALID_INPUT", "INVALID_OPERATION", "JOB_ALREADY_RUNNING",
+    "JOB_NOT_FOUND", "JOB_NOT_CANCELLABLE", "MAKEUP_DATE_MESSAGE_REQUIRED",
+    "MAKEUP_MESSAGE_REQUIRED", "NOTICE_ID_REQUIRED", "NOTICE_REPOSITORY_INVALID",
+    "STORAGE_PERMISSION_DENIED", "STORAGE_UNAVAILABLE", "UNSUPPORTED_FILE_TYPE",
+    "URL_INVALID", "URL_REQUIRED", "TDM_ERROR", "WORKBOOK_BUSY",
+    "WORKBOOK_COLUMN_MISSING", "WORKBOOK_CONFLICT", "WORKBOOK_INVALID",
+    "WORKBOOK_RECOVERY_REQUIRED", "WORKBOOK_SHEET_MISSING", "WORKBOOK_TRANSACTION",
+    "INTERNAL_ERROR"
+  ]
+}
