@@ -1,5 +1,6 @@
 import multiprocessing
 import ctypes
+from PySide6.QtCore import QEvent, QObject
 from pyloid.tray import (
     TrayEvent,
 )
@@ -10,9 +11,33 @@ from pyloid.utils import (
 from pyloid.serve import pyloid_serve
 from pyloid import Pyloid
 from tdm_host.rpc.server import server
+from tdm_host.jobs.manager import job_manager
+from tdm_host.jobs.registry import registry
+from tdm_host.update.client import maybe_install_available_update
+from tdm_host.update.legacy_migration import maybe_start_legacy_migration
+from tdm_host.update.state import (
+    application_root,
+    mark_startup_healthy,
+    post_update_transaction_id,
+)
 from license import verify_license_or_exit
 
-WIDTH, HEIGHT = 1400, 830
+WIDTH, HEIGHT = 1280, 760
+
+
+class _ExitGuard(QObject):
+    def __init__(self, request_confirmation, parent=None):
+        super().__init__(parent)
+        self.request_confirmation = request_confirmation
+
+    def eventFilter(self, watched, event):
+        if event.type() != QEvent.Type.Close:
+            return False
+        if registry.is_shutdown_confirmed():
+            return False
+        event.ignore()
+        self.request_confirmation()
+        return True
 
 
 def _enable_dpi_awareness():
@@ -68,6 +93,18 @@ def _get_screen_size():
 
 def _get_work_area():
     try:
+        from PySide6.QtGui import QCursor, QGuiApplication
+
+        screen = QGuiApplication.screenAt(QCursor.pos())
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        if screen is not None:
+            area = screen.availableGeometry()
+            return area.left(), area.top(), area.right() + 1, area.bottom() + 1
+    except Exception:
+        pass
+
+    try:
         class RECT(ctypes.Structure):
             _fields_ = [
                 ("left", ctypes.c_long),
@@ -99,7 +136,7 @@ def _get_window_geometry():
     avail_w = max(1, int(work_w * 0.9))
     avail_h = max(1, int(work_h * 0.9))
 
-    # Preserve the original 1400:830 aspect ratio exactly (integer-rounded).
+    # Preserve the base 1280:760 aspect ratio exactly (integer-rounded).
     if avail_w >= WIDTH and avail_h >= HEIGHT:
         window_w, window_h = WIDTH, HEIGHT
     elif avail_w * HEIGHT <= avail_h * WIDTH:
@@ -142,6 +179,15 @@ def _recenter_window_to_work_area(window, fallback_w, fallback_h):
 
 
 def main():
+    if maybe_start_legacy_migration():
+        return
+    if maybe_install_available_update():
+        return
+    post_update_id = post_update_transaction_id()
+    if post_update_id:
+        # Module loading succeeded. Mark this before the interactive license check so a
+        # missing/expired license is not mistaken for a broken application update.
+        mark_startup_healthy(application_root(), post_update_id)
     verify_license_or_exit()
     _enable_dpi_awareness()
     app = Pyloid(app_name="tdm", single_instance=True, server=server)
@@ -151,8 +197,16 @@ def main():
     app.set_tray_icon(get_production_path("src-pyloid/icons/tdm_icon.ico"))
 
     ############################## Tray ################################
+    exit_guard = None
+
     def on_double_click():
         app.show_and_focus_main_window()
+
+    def request_quit():
+        if registry.is_shutdown_confirmed():
+            app.quit()
+        else:
+            window.invoke("app_exit_requested", {})
 
     app.set_tray_actions(
         {
@@ -162,7 +216,7 @@ def main():
     app.set_tray_menu_items(
         [
             {"label": "Show Window", "callback": app.show_and_focus_main_window},
-            {"label": "Exit", "callback": app.quit},
+            {"label": "Exit", "callback": request_quit},
         ]
     )
     ####################################################################
@@ -190,11 +244,37 @@ def main():
         )
         window.load_url("http://localhost:5173")
 
-    _recenter_window_to_work_area(window, window_width, window_height)
     window.set_resizable(False)
     window.show_and_focus()
+    _recenter_window_to_work_area(window, window_width, window_height)
 
-    app.run()
+    exit_guard = _ExitGuard(
+        lambda: window.invoke("app_exit_requested", {}),
+        window._window._window,
+    )
+    window._window._window.installEventFilter(exit_guard)
+
+    # WebView가 표시된 뒤 프레임 크기가 확정되므로 이벤트 루프 진입 후
+    # 실제 창 크기를 기준으로 한 번 더 중앙에 배치합니다.
+    try:
+        from PySide6.QtCore import QTimer
+
+        QTimer.singleShot(
+            100,
+            lambda: _recenter_window_to_work_area(
+                window,
+                window_width,
+                window_height,
+            ),
+        )
+    except Exception:
+        pass
+
+    app.app.aboutToQuit.connect(job_manager.shutdown)
+    try:
+        app.run()
+    finally:
+        job_manager.shutdown()
 
 
 if __name__ == "__main__":

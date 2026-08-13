@@ -2,12 +2,13 @@ from pyloid_builder.pyinstaller import pyinstaller
 from pyloid_builder.optimize import optimize
 from pyloid.utils import get_platform
 from pathlib import Path
+import shutil
 
 
 main_script = './src-pyloid/main.py'
 name = 'main'
-updater_script = './src-pyloid/updater.py'
-entry_name = 'tdm'
+helper_script = './src-pyloid/update_helper.py'
+helper_name = 'update-helper'
 dist_path = './dist'
 work_path = './build'
 
@@ -54,20 +55,21 @@ if __name__ == '__main__':
 		],
 	)
 	pyinstaller(
-		updater_script,
+		helper_script,
 		[
-			f'--name={entry_name}',
+			f'--name={helper_name}',
 			f'--distpath={dist_path}',
 			f'--workpath={work_path}',
 			'--clean',
 			'--noconfirm',
 			'--onefile',
 			'--windowed',
-			'--add-data=./src-pyloid/icons/:./src-pyloid/icons/',
-			'--add-data=./src/assets/tdm.png:./src/assets',
 			f'--icon={icon}',
 		]
 	)
+	# The transition archive needs both names. They intentionally contain the
+	# same merged application; main.exe remains the legacy updater entry point.
+	shutil.copy2(f'{dist_path}/{name}/{name}.exe', f'{dist_path}/tdm.exe')
 
 	if get_platform() == 'windows':
 		optimize(f'{dist_path}/{name}/_internal', optimize_spec)

@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install deps (JS)
@@ -84,8 +84,37 @@ jobs:
           Copy-Item -Recurse -Force "dist/main/_internal" -Destination "$zipRoot/_internal"
           Copy-Item -Force "dist/main/main.exe" -Destination "$zipRoot/main.exe"
           Copy-Item -Force "dist/tdm.exe" -Destination "$zipRoot/tdm.exe"
+          Copy-Item -Force "dist/update-helper.exe" -Destination "$zipRoot/update-helper.exe"
           Copy-Item -Force "dist/main/version.txt" -Destination "$zipRoot/version.txt"
           Copy-Item -Force "LICENSE" -Destination "$zipRoot/LICENSE"
+
+          $manifestFiles = [ordered]@{}
+          $resolvedZipRoot = (Resolve-Path $zipRoot).Path
+          Get-ChildItem -Path $zipRoot -Recurse -File | ForEach-Object {
+            $relativePath = [IO.Path]::GetRelativePath($resolvedZipRoot, $_.FullName).Replace('\', '/')
+            $manifestFiles[$relativePath] = [ordered]@{
+              sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              size = $_.Length
+            }
+          }
+          $manifest = [ordered]@{
+            schemaVersion = 1
+            version = $version -replace '^[vV]', ''
+            files = $manifestFiles
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content -Path "$zipRoot/update-manifest.json" -Encoding utf8
+
+          $required = @(
+            "$zipRoot/main.exe",
+            "$zipRoot/tdm.exe",
+            "$zipRoot/update-helper.exe",
+            "$zipRoot/_internal",
+            "$zipRoot/version.txt",
+            "$zipRoot/update-manifest.json"
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) { throw "Missing transition package entry: $path" }
+          }
 
           Compress-Archive -Path $zipRoot -DestinationPath "tdm-win.zip" -Force
           # (선택) SHA256 생성
