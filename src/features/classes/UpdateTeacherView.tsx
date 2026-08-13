@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui
 import { Separator } from "@/shared/components/ui/separator";
 import { Input } from "@/shared/components/ui/input";
 import { Check, Play } from "lucide-react";
-import { rpc } from "pyloid-js";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { generalRpc } from "@/api/rpc";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
+import { errorMessage } from "@/shared/utils/errors";
 
 export default function UpdateTeacherView({ meta }: ViewProps) {
   const dialog = useAppDialog();
@@ -29,7 +30,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
   const loadClasses = async () => {
     try {
       setLoading(true);
-      const res = await rpc.call("get_class_list", {});
+      const res = await generalRpc.call("get_class_list", {});
       if (res?.ok) {
         const next = Array.isArray(res.data) ? (res.data as string[]) : [];
         setClassList(next);
@@ -40,10 +41,10 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       } else {
         await dialog.error({ title: "반 정보 파일 데이터 수집 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
+    } catch (error: unknown) {
       await dialog.error({
         title: "에러",
-        message: `반 목록 불러오기 실패: ${e?.message || e}`,
+        message: `반 목록 불러오기 실패: ${errorMessage(error)}`,
       });
       setClassList([]);
     } finally {
@@ -59,7 +60,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
     (async () => {
       try {
         setInfoLoading(true);
-        const res = await rpc.call("get_class_info", { class_name: selectedClass });
+        const res = await generalRpc.call("get_class_info", { class_name: selectedClass });
         if (res?.ok){
           setSelectedTeacher(res?.data[1] ?? "");
         }
@@ -69,10 +70,10 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
             message: `반 정보가 존재하지 않습니다.`,
           });
         }
-      } catch (e: any) {
+      } catch (error: unknown) {
         await dialog.error({
           title: "에러",
-          message: `반 정보 불러오기 실패: ${e?.message || e}`,
+          message: `반 정보 불러오기 실패: ${errorMessage(error)}`,
         });
         setSelectedTeacher("");
       } finally {
@@ -92,7 +93,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
 
     const yes = await dialog.warning({
       title: "선생님을 변경할까요?",
-      message: `선택 반: ${selectedClass}\n${selectedTeacher} 선생님 → ${teacherName.trim()} 선생님`,
+      message: `선택 반: ${selectedClass}\n${selectedTeacher ? selectedTeacher+" 선생님" : "미지정"} → ${teacherName.trim()} 선생님`,
       confirmText: "변경",
       cancelText: "취소",
     });
@@ -100,7 +101,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
 
     try {
       setRunning(true);
-      const res = await rpc.call("change_class_info", {
+      const res = await generalRpc.call("change_class_info", {
         target_class_name: selectedClass,
         target_teacher_name: teacherName.trim(),
       });
@@ -111,8 +112,8 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
       } else {
         await dialog.error({ title: "담당 선생님 변경 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
       setTimeout(async () => {
@@ -137,20 +138,20 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
   }, [classList, classQuery]);
 
   return (
-    <Card className="h-full rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="flex h-full flex-col">
+    <Card className="h-full min-h-0 gap-3 overflow-hidden rounded-2xl border-border/80 py-4 shadow-sm">
+      <CardContent className="flex h-full min-h-0 flex-col px-4">
         <div className="mb-3">
           <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
         </div>
-        <Separator className="mb-4" />
+        <Separator className="mb-3" />
 
-        <div className="grid flex grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
           {/* Left: search + list */}
-          <Card className="flex h-full flex-col rounded-2xl shadow-sm">
+          <Card className="flex h-full min-h-0 gap-3 overflow-hidden rounded-2xl py-3 shadow-sm">
             <CardHeader className="space-y-0 pb-0 pt-2 gap-0 py-0">
               <CardTitle className="text-base font-semibold">반 목록</CardTitle>
             </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-2 px-4">
               <Input
                 type="search"
                 value={classQuery}
@@ -159,7 +160,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
                 className="h-9 w-full rounded-xl"
                 disabled={loading}
               />
-              <div className="relative min-h-0 flex-1 rounded-lg border">
+              <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
                 {loading && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -168,7 +169,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
                     </div>
                   </div>
                 )}
-                <ScrollArea className="h-[375px] w-full p-2">
+                <ScrollArea className="h-full w-full p-2">
                   {filteredClasses.length === 0 ? (
                     <div className="p-2 text-xs text-muted-foreground">반이 없습니다</div>
                   ) : (
@@ -198,11 +199,11 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
           </Card>
 
           {/* Right: details */}
-          <Card className="flex h-full flex-col rounded-2xl shadow-sm">
+          <Card className="flex h-full min-h-0 gap-3 overflow-hidden rounded-2xl py-3 shadow-sm">
             <CardHeader className="space-y-0 pb-0 pt-2">
               <CardTitle className="text-base font-semibold">선택된 반</CardTitle>
             </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col justify-between">
+            <CardContent className="flex min-h-0 flex-1 flex-col justify-between px-4">
               <div className="space-y-3">
                 <div className="rounded-lg border p-3 text-sm">
                   <div className="text-xs text-muted-foreground">반명</div>
@@ -255,7 +256,7 @@ export default function UpdateTeacherView({ meta }: ViewProps) {
           </Card>
         </div>
 
-        <div className="mt-auto pt-4 flex items-center justify-end">
+        <div className="flex shrink-0 items-center justify-end pt-3">
           <Button
             className="rounded-xl"
             variant="outline"

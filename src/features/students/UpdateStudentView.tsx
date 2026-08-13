@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Separator } from "@/shared/components/ui/separator"
 import { FileSpreadsheet, Play, Check } from "lucide-react";
 import { Spinner } from "@/shared/components/ui/spinner"
-import { rpc } from "pyloid-js"
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider"
+import { generalRpc } from "@/api/rpc"
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog"
+import { errorMessage } from "@/shared/utils/errors"
 
 // 헤더는 루트 레이아웃에 있으므로 이 뷰에는 포함하지 않음
 export default function UpdateStudentView({ meta }: ViewProps) {
@@ -20,15 +21,15 @@ export default function UpdateStudentView({ meta }: ViewProps) {
 
     try {
       setRunning(true);
-      const res = await rpc.call("update_student_info", {});
+      const res = await generalRpc.call("update_student_info", {});
       if(res?.ok){
         await dialog.confirm({ title: "성공", message: "학생 정보 파일 업데이트 완료\n학생 정보를 수정해주세요" });
         setDone(true);
       } else {
         await dialog.error({ title: "학생 정보 업데이트 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
       setTimeout(() => {

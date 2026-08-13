@@ -1,7 +1,7 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ViewProps } from "@/shared/types/tdm";
-import { rpc } from "pyloid-js";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { generalRpc } from "@/api/rpc";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -11,9 +11,16 @@ import { Input } from "@/shared/components/ui/input";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { Check } from "lucide-react";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 
 type ClassStudentDict = Record<string, Record<string, number>>;
-type AisosicClassStudentDict = Record<string, string[]>;
+type AisosikClassStudentDict = Record<string, string[]>;
 
 type StudentStatus = "ok" | "missing" | "other-class" | "data-only";
 
@@ -22,31 +29,21 @@ type StudentItem = {
   name: string;
   className: string;
   status: StudentStatus;
-  dataClassName?: string;
+  dataClassCandidates?: string[];
+  allowAdd?: boolean;
 };
 
 const displayClassName = (name?: string) =>
   !name || name === "undefined" || name === "null" ? "미지정" : name;
 
-const STATUS_LABELS: Record<StudentStatus, string> = {
-  ok: "OK",
-  missing: "아이소식에 추가됨",
-  "other-class": "이동됨",
-  "data-only": "퇴원 처리됨",
-};
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 const statusTextClass = (status: StudentStatus) => {
   if (status === "missing") return "text-emerald-600";
   if (status === "other-class") return "text-amber-600";
   if (status === "data-only") return "text-red-600";
   return "";
-};
-
-const statusDotClass = (status: StudentStatus) => {
-  if (status === "missing") return "bg-emerald-500";
-  if (status === "other-class") return "bg-amber-500";
-  if (status === "data-only") return "bg-red-500";
-  return "bg-slate-300";
 };
 
 const normalizeDatafile = (data: unknown): ClassStudentDict => {
@@ -62,9 +59,9 @@ const normalizeDatafile = (data: unknown): ClassStudentDict => {
   return {};
 };
 
-const normalizeAisosic = (data: unknown): AisosicClassStudentDict => {
+const normalizeAisosik = (data: unknown): AisosikClassStudentDict => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return {};
-  const dict: AisosicClassStudentDict = {};
+  const dict: AisosikClassStudentDict = {};
   Object.entries(data as Record<string, unknown>).forEach(([className, students]) => {
     if (Array.isArray(students)) {
       dict[className] = students.map((s) => String(s)).filter(Boolean);
@@ -75,17 +72,17 @@ const normalizeAisosic = (data: unknown): AisosicClassStudentDict => {
 
 const buildStudentsByClass = (
   datafileMap: ClassStudentDict,
-  aisosicMap: AisosicClassStudentDict
+  aisosikMap: AisosikClassStudentDict
 ) => {
   const dataClassNames = Object.keys(datafileMap).sort();
   const dataClassSet = new Set(dataClassNames);
-  const filteredAisosicMap: AisosicClassStudentDict = {};
-  Object.entries(aisosicMap).forEach(([className, students]) => {
+  const filteredAisosikMap: AisosikClassStudentDict = {};
+  Object.entries(aisosikMap).forEach(([className, students]) => {
     if (dataClassSet.has(className)) {
-      filteredAisosicMap[className] = students;
+      filteredAisosikMap[className] = students;
     }
   });
-  const aisosicClassNames = Object.keys(filteredAisosicMap);
+  const aisosikClassNames = Object.keys(filteredAisosikMap);
   const classNames = dataClassNames;
 
   const dataClassesByStudent = new Map<string, Set<string>>();
@@ -97,78 +94,84 @@ const buildStudentsByClass = (
     });
   });
 
-  const aisosicClassesByStudent = new Map<string, Set<string>>();
-  aisosicClassNames.forEach((className) => {
-    (filteredAisosicMap[className] || []).forEach((studentName) => {
+  const aisosikClassesByStudent = new Map<string, Set<string>>();
+  aisosikClassNames.forEach((className) => {
+    (filteredAisosikMap[className] || []).forEach((studentName) => {
       const name = String(studentName);
       if (!name) return;
-      const next = aisosicClassesByStudent.get(name) ?? new Set<string>();
+      const next = aisosikClassesByStudent.get(name) ?? new Set<string>();
       next.add(className);
-      aisosicClassesByStudent.set(name, next);
+      aisosikClassesByStudent.set(name, next);
     });
   });
 
   const allStudents = new Set<string>([
     ...dataClassesByStudent.keys(),
-    ...aisosicClassesByStudent.keys(),
+    ...aisosikClassesByStudent.keys(),
   ]);
 
-  type StatusInfo = { status: StudentStatus; dataClassName?: string };
-  type DiffInfo = { aisosicStatusByClass: Map<string, StatusInfo>; dataOnlyClasses: Set<string> };
+  type StatusInfo = {
+    status: StudentStatus;
+    dataClassCandidates?: string[];
+    allowAdd?: boolean;
+  };
+  type DiffInfo = { aisosikStatusByClass: Map<string, StatusInfo>; dataOnlyClasses: Set<string> };
   const diffByStudent = new Map<string, DiffInfo>();
 
   const toSortedArray = (set: Set<string>) => Array.from(set).sort();
 
   allStudents.forEach((studentName) => {
     const dataSet = dataClassesByStudent.get(studentName) ?? new Set<string>();
-    const aisosicSet = aisosicClassesByStudent.get(studentName) ?? new Set<string>();
+    const aisosikSet = aisosikClassesByStudent.get(studentName) ?? new Set<string>();
 
     const overlap = new Set<string>();
     dataSet.forEach((className) => {
-      if (aisosicSet.has(className)) overlap.add(className);
+      if (aisosikSet.has(className)) overlap.add(className);
     });
 
     const dataOnly = new Set<string>();
     dataSet.forEach((className) => {
-      if (!aisosicSet.has(className)) dataOnly.add(className);
+      if (!aisosikSet.has(className)) dataOnly.add(className);
     });
 
-    const aisosicOnly = new Set<string>();
-    aisosicSet.forEach((className) => {
-      if (!dataSet.has(className)) aisosicOnly.add(className);
+    const aisosikOnly = new Set<string>();
+    aisosikSet.forEach((className) => {
+      if (!dataSet.has(className)) aisosikOnly.add(className);
     });
 
-    const aisosicStatusByClass = new Map<string, StatusInfo>();
+    const aisosikStatusByClass = new Map<string, StatusInfo>();
     const dataOnlyClasses = new Set<string>();
 
-    if (aisosicSet.size === 0) {
-      dataOnly.forEach((className) => dataOnlyClasses.add(className));
-    } else if (overlap.size > 0) {
-      overlap.forEach((className) => aisosicStatusByClass.set(className, { status: "ok" }));
-      aisosicOnly.forEach((className) => aisosicStatusByClass.set(className, { status: "missing" }));
-      dataOnly.forEach((className) => dataOnlyClasses.add(className));
-    } else if (dataSet.size === 0) {
-      aisosicOnly.forEach((className) => aisosicStatusByClass.set(className, { status: "missing" }));
-    } else {
-      const dataList = toSortedArray(dataOnly);
-      const aisosicList = toSortedArray(aisosicOnly);
-      const pairCount = Math.min(dataList.length, aisosicList.length);
+    overlap.forEach((className) => aisosikStatusByClass.set(className, { status: "ok" }));
 
-      for (let i = 0; i < pairCount; i += 1) {
-        aisosicStatusByClass.set(aisosicList[i], {
+    const dataList = toSortedArray(dataOnly);
+    const aisosikList = toSortedArray(aisosikOnly);
+    if (dataList.length === 0) {
+      aisosikList.forEach((className) => {
+        aisosikStatusByClass.set(className, { status: "missing", allowAdd: true });
+      });
+    } else if (aisosikList.length === 0) {
+      dataList.forEach((className) => dataOnlyClasses.add(className));
+    } else {
+      // 어느 출발 반과 도착 반이 실제 이동 관계인지는 데이터만으로 확정할 수 없다.
+      // 모든 가능한 출발 반을 UI에 제공하고 사용자가 직접 연결한다.
+      aisosikList.forEach((className) => {
+        aisosikStatusByClass.set(className, {
           status: "other-class",
-          dataClassName: dataList[i],
+          dataClassCandidates: dataList,
+          // 아이소식 쪽 잔여 인원이 더 많으면 그 차이만큼은 신규 추가다.
+          // 어떤 도착 반이 신규인지 알 수 없으므로 해당 항목에서 추가도 선택 가능하게 한다.
+          allowAdd: aisosikList.length > dataList.length,
         });
-      }
-      for (let i = pairCount; i < aisosicList.length; i += 1) {
-        aisosicStatusByClass.set(aisosicList[i], { status: "missing" });
-      }
-      for (let i = pairCount; i < dataList.length; i += 1) {
-        dataOnlyClasses.add(dataList[i]);
+      });
+      // 데이터 쪽 잔여 인원이 더 많으면 그 차이만큼은 삭제 대상이다.
+      // 이동을 먼저 수행하면 새 비교 결과에서 실제 삭제 대상만 남는다.
+      if (dataList.length > aisosikList.length) {
+        dataList.forEach((className) => dataOnlyClasses.add(className));
       }
     }
 
-    diffByStudent.set(studentName, { aisosicStatusByClass, dataOnlyClasses });
+    diffByStudent.set(studentName, { aisosikStatusByClass, dataOnlyClasses });
   });
 
   const studentsByClass: Record<string, StudentItem[]> = {};
@@ -178,19 +181,20 @@ const buildStudentsByClass = (
   });
 
   classNames.forEach((className) => {
-    const aisosicStudents = filteredAisosicMap[className] || [];
-    aisosicStudents.forEach((name, index) => {
+    const aisosikStudents = filteredAisosikMap[className] || [];
+    aisosikStudents.forEach((name, index) => {
       const studentName = String(name);
       if (!studentName) return;
       const diff = diffByStudent.get(studentName);
-      const statusInfo = diff?.aisosicStatusByClass.get(className);
+      const statusInfo = diff?.aisosikStatusByClass.get(className);
       const status = statusInfo?.status ?? "missing";
       studentsByClass[className].push({
-        id: `${className}::${studentName}::aisosic::${index}`,
+        id: `${className}::${studentName}::aisosik::${index}`,
         name: studentName,
         className,
         status,
-        dataClassName: statusInfo?.dataClassName,
+        dataClassCandidates: statusInfo?.dataClassCandidates,
+        allowAdd: statusInfo?.allowAdd,
       });
     });
   });
@@ -232,12 +236,12 @@ function StudentList({
   loading: boolean;
 }) {
   return (
-    <Card className="flex h-full flex-col pt-2 gap-1 pb-1">
+    <Card className="flex h-full min-h-0 flex-col gap-1 overflow-hidden pb-1 pt-2">
       <CardHeader className="space-y-0 py-1 p-0 justify-center my-0">
         <CardTitle className="text-base font-semibold p-0">{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col px-1">
-        <div className="relative min-h-0 flex-1 rounded-lg border">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border">
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -246,7 +250,7 @@ function StudentList({
               </div>
             </div>
           )}
-          <ScrollArea className="h-[410px] w-full overflow-y-auto p-2">
+          <ScrollArea className="h-full w-full overflow-y-auto p-2">
             <div className="space-y-2 w-full min-w-0">
               {!loading && classes.length === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
@@ -271,8 +275,8 @@ function StudentList({
                           {items.map((item) => {
                             const isSel = selectedId === item.id;
                             const detail =
-                              item.status === "other-class" && item.dataClassName
-                                ? ` - ${displayClassName(item.dataClassName)} 반으로 이동됨`
+                              item.status === "other-class"
+                                ? " - 반 이동 확인 필요"
                                 : item.status === "missing"
                                 ? " - 추가됨"
                                 : item.status === "data-only"
@@ -327,6 +331,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
   const [query, setQuery] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [actionRunning, setActionRunning] = useState<null | "add" | "move" | "remove">(null);
+  const [moveSourceClass, setMoveSourceClass] = useState("");
 
   const allStudents = useMemo(
     () => classes.flatMap((className) => studentsByClass[className] || []),
@@ -365,17 +370,17 @@ export default function ManageStudentView({ meta }: ViewProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [dfRes, aisosicRes] = await Promise.all([
-        rpc.call("get_datafile_data", {}),
-        rpc.call("get_aisosic_student_data", {}),
+      const [dfRes, aisosikRes] = await Promise.all([
+        generalRpc.call("get_datafile_data", {}),
+        generalRpc.call("get_aisosik_student_data", {}),
       ]);
 
-      if (dfRes?.ok && aisosicRes?.ok) {
+      if (dfRes?.ok && aisosikRes?.ok) {
         const datafileMap = normalizeDatafile(dfRes.data);
-        const aisosicMap = normalizeAisosic(aisosicRes.data);
+        const aisosikMap = normalizeAisosik(aisosikRes.data);
         const { classNames, studentsByClass: nextStudents } = buildStudentsByClass(
           datafileMap,
-          aisosicMap
+          aisosikMap
         );
 
         setClasses(classNames);
@@ -383,8 +388,8 @@ export default function ManageStudentView({ meta }: ViewProps) {
         setSelectedStudentId("");
       } else if (!dfRes?.ok) {
         await dialog.error({ title: "Datafile load failed", message: dfRes?.error || "", detail: dfRes?.detail });
-      } else if (!aisosicRes?.ok) {
-        await dialog.error({ title: "Aisosic load failed", message: aisosicRes?.error || "", detail: aisosicRes?.detail });
+      } else if (!aisosikRes?.ok) {
+        await dialog.error({ title: "아이소식 데이터 수집 실패", message: aisosikRes?.error || "", detail: aisosikRes?.detail });
       }
     } catch (e) {
       setClasses([]);
@@ -410,8 +415,14 @@ export default function ManageStudentView({ meta }: ViewProps) {
     }
   }, [selectedStudentId, allStudents]);
 
-  const canAdd = selectedStudent?.status === "missing";
-  const canMove = selectedStudent?.status === "other-class";
+  useEffect(() => {
+    setMoveSourceClass("");
+  }, [selectedStudentId]);
+
+  const canAdd = selectedStudent?.status === "missing" || selectedStudent?.allowAdd === true;
+  const canMove =
+    selectedStudent?.status === "other-class" &&
+    (selectedStudent.dataClassCandidates?.includes(moveSourceClass) ?? false);
   const canRemove = selectedStudent?.status === "data-only";
   const busy = loading || actionRunning !== null;
 
@@ -429,7 +440,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
     try {
       setActionRunning("add");
       // target_student_name, target_class_name
-      const res = await rpc.call("add_student", { 
+      const res = await generalRpc.call("add_student", {
         target_student_name: selectedStudent.name,
         target_class_name: selectedStudent.className,
       }); // 서버: {ok:true}
@@ -446,8 +457,8 @@ export default function ManageStudentView({ meta }: ViewProps) {
       } else {
         await dialog.error({ title: "학생 추가 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setActionRunning(null);
       handleRefresh()
@@ -455,11 +466,11 @@ export default function ManageStudentView({ meta }: ViewProps) {
   };
 
   const handleMove = async () => {
-    if (!selectedStudent || !canMove || !selectedStudent.dataClassName) return;
+    if (!selectedStudent || !canMove || !moveSourceClass) return;
 
     const yes = await dialog.warning({
       title: "학생 반을 변경할까요?",
-      message: `${selectedStudent.name} 학생을\n‘${displayClassName(selectedStudent.dataClassName)}’ → ‘${displayClassName(selectedStudent.className)}’ 로 이동합니다.`,
+      message: `${selectedStudent.name} 학생을\n‘${displayClassName(moveSourceClass)}’ → ‘${displayClassName(selectedStudent.className)}’ 로 이동합니다.`,
       confirmText: "변경",
       cancelText: "취소",
     });
@@ -468,18 +479,26 @@ export default function ManageStudentView({ meta }: ViewProps) {
     try {
       setActionRunning("move");
       // target_student_name, target_class_name, current_class_name
-      const res = await rpc.call("move_student", {
+      const res = await generalRpc.call("move_student", {
         target_student_name: selectedStudent.name,   // row index string
-        current_class_name:  selectedStudent.dataClassName,
+        current_class_name: moveSourceClass,
         target_class_name:   selectedStudent.className,
       }); // {ok:true} 기대
       if (res?.ok) {
-        await dialog.confirm({ title: "완료", message: `${selectedStudent.name} 학생을 ${selectedStudent.className} 반으로 이동하였습니다.` });
+        const warnings: string[] = Array.isArray(res?.warnings) ? res.warnings : [];
+        if (warnings.length > 0) {
+          await dialog.warning({
+            title: `이동 완료 (경고 ${warnings.length}건)`,
+            message: warnings.join("\n"),
+          });
+        } else {
+          await dialog.confirm({ title: "완료", message: `${selectedStudent.name} 학생을 ${selectedStudent.className} 반으로 이동하였습니다.` });
+        }
       } else {
         await dialog.error({ title: "학생 반 이동 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setActionRunning(null);
       handleRefresh()
@@ -500,7 +519,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
     try {
       setActionRunning("remove");
       // target_student_name
-      const res = await rpc.call("remove_student", {
+      const res = await generalRpc.call("remove_student", {
         target_class_name: selectedStudent.className,
         target_student_name: selectedStudent.name,
       }); // { ok: true } 기대
@@ -509,8 +528,8 @@ export default function ManageStudentView({ meta }: ViewProps) {
       } else {
         await dialog.error({ title: "학생 삭제 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setActionRunning(null);
       handleRefresh()
@@ -519,14 +538,15 @@ export default function ManageStudentView({ meta }: ViewProps) {
 
   const handleRefresh = async () => {
     setSelectedStudentId("");
+    setMoveSourceClass("");
     setColorFilters(["green", "orange", "red"]);
     setQuery("");
     await loadData();
   };
 
   return (
-    <Card className="h-full rounded-2xl border-border/80 shadow-sm pb-2">
-      <CardContent className="flex h-full flex-col">
+    <Card className="h-full min-h-0 gap-3 overflow-hidden rounded-2xl border-border/80 py-4 shadow-sm">
+      <CardContent className="flex h-full min-h-0 flex-col px-4">
         <div className="mb-3">
           <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
         </div>
@@ -573,7 +593,7 @@ export default function ManageStudentView({ meta }: ViewProps) {
           </ToggleGroup>
         </div>
 
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-[2fr_1fr] flex-1 pb-2">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 pb-2 lg:grid-cols-[2fr_1fr]">
           <StudentList
             title="학생 목록"
             classes={visibleClasses}
@@ -583,11 +603,11 @@ export default function ManageStudentView({ meta }: ViewProps) {
             loading={loading}
           />
 
-          <Card className="flex h-full flex-col rounded-2xl shadow-sm">
-            <CardHeader className="space-y-0 pb-0 pt-2">
+          <Card className="flex h-full min-h-0 gap-3 overflow-hidden rounded-2xl py-3 shadow-sm">
+            {/* <CardHeader className="space-y-0 pb-0 pt-2">
               <CardTitle className="text-base font-semibold">선택된 학생</CardTitle>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col justify-between">
+            </CardHeader> */}
+            <CardContent className="flex min-h-0 flex-1 flex-col justify-between px-4">
               <div className="space-y-3">
                 <div className="rounded-lg border p-3 text-sm">
                   <div className="text-xs text-muted-foreground">학생</div>
@@ -601,23 +621,34 @@ export default function ManageStudentView({ meta }: ViewProps) {
                     {selectedStudent ? displayClassName(selectedStudent.className) : "-"}
                   </div>
                 </div>
-                <div className="rounded-lg border p-3 text-sm">
-                  <div className="text-xs text-muted-foreground">학생 상태</div>
-
-                  {selectedStudent ? (
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${statusDotClass(selectedStudent.status)}`} />
-                      <div className="flex flex-row">
-                        <span>{STATUS_LABELS[selectedStudent.status]}</span>
-                        {selectedStudent?.status === "other-class" && selectedStudent.dataClassName ? (
-                          <span>: {displayClassName(selectedStudent.dataClassName)}</span>
-                        ) : null}
-                      </div>
+                {selectedStudent?.status === "other-class" ? (
+                  <div className="rounded-lg border p-3 text-sm">
+                    <div className="text-xs text-muted-foreground">
+                      이동할 반 선택
                     </div>
-                  ) : (
-                    <div>-</div>
-                  )}
-                </div>
+                    <Select
+                      value={moveSourceClass}
+                      onValueChange={setMoveSourceClass}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="이동할 반 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(selectedStudent.dataClassCandidates ?? []).map((className) => (
+                          <SelectItem key={className} value={className}>
+                            {displayClassName(selectedStudent.className)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedStudent.allowAdd ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        아이소식 인원이 더 많아 이 학생은 이동 또는 신규 추가 중 하나를 선택할 수 있습니다.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-4 grid gap-2">
@@ -647,19 +678,19 @@ export default function ManageStudentView({ meta }: ViewProps) {
           </Card>
         </div>
 
-        <div className="mt-auto flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between pt-1">
           <div className="flex flex-col gap-1 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-emerald-500" />
-              <span>아이소식에 추가되었지만 데이터 파일에 존재하지 않는 학생</span>
+              <span>동일 반을 제외한 뒤 아이소식 쪽에만 남아 신규 추가가 필요한 학생</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-amber-500" />
-              <span>아이소식 및 데이터 파일에 존재하지만 실제 수강중인 반이 아닌 다른 반에 속해 있는 학생</span>
+              <span>양쪽에 다른 반이 남아 출발 반을 선택하여 이동해야 하는 학생</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-red-500" />
-              <span>데이터 파일에 존재하지만 아이소식에 존재하지 않는 학생</span>
+              <span>동일 반과 이동 후보를 제외한 뒤 데이터 쪽에만 남아 삭제가 필요한 학생</span>
             </div>
           </div>
 
