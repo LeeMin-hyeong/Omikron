@@ -1,8 +1,9 @@
 ﻿// src/views/SaveRetestView.tsx (재시험 화면)
 import { useEffect, useMemo, useState } from "react";
 import type { ViewProps } from "@/shared/types/tdm";
-import { rpc } from "pyloid-js";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { generalRpc } from "@/api/rpc";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
+import { errorMessage } from "@/shared/utils/errors";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
@@ -48,8 +49,8 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
       setLoading(true);
       // 1) 반/학생(클래스 시트) + 2) 재시험(학생→시험) 동시 로드
       const [datafileRes, makeupRes] = await Promise.all([
-        rpc.call("get_datafile_data", {}),   // [class_student_dict, class_test_dict]
-        rpc.call("get_makeuptest_data", {}), // {학생: {시험: row}}
+        generalRpc.call("get_datafile_data", {}),   // [class_student_dict, class_test_dict]
+        generalRpc.call("get_makeuptest_data", {}), // {학생: {시험: row}}
       ]);
 
       if(datafileRes.ok && makeupRes.ok){
@@ -57,7 +58,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         let csd: ClassStudentDict = {};
         if (Array.isArray(datafileRes.data) && typeof datafileRes.data[0] === "object") {
           csd = datafileRes.data[0] as ClassStudentDict;
-        } else if (datafileRes.data?.class_student_dict) {
+        } else if ("class_student_dict" in datafileRes.data && datafileRes.data.class_student_dict) {
           csd = datafileRes.data.class_student_dict as ClassStudentDict;
         }
         setClassStudentMap(csd);
@@ -201,7 +202,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
       setRunning(true);
       onAction?.("save-retest");
       // target_row:int, makeup_test_score:str
-      const res = await rpc.call("save_retest_result", {
+      const res = await generalRpc.call("save_retest_result", {
         target_row:        Number(testId), // (재시험 시트) 시험 행 인덱스 (문자열)
         makeup_test_score: score,
       });
@@ -212,16 +213,16 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
       } else {
         await dialog.error({ title: "재시험 결과 저장 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
     }
   };
 
   return (
-    <Card className="h-full rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="flex h-full flex-col">
+    <Card className="h-full min-h-0 rounded-2xl border-border/80 shadow-sm">
+      <CardContent className="flex h-full min-h-0 flex-col">
         <div className="mb-3">
           {meta?.guide && (
             <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
@@ -230,15 +231,15 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         <Separator className="mb-4" />
 
         {/* 한 장의 카드 내부 레이아웃 */}
-        <div className="flex-1 h-full">
-          <div className="grid grid-cols-2 h-full gap-6 items-stretch">
+        <div className="min-h-0 flex-1">
+          <div className="grid h-full min-h-0 grid-cols-2 items-stretch gap-4">
             {/* 좌측: 학생 쪽 */}
-            <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
-              <div className="mb-4 flex flex-col items-center gap-2 text-center">
-                <User className="h-8 w-8 text-black" />
+            <div className="flex h-full min-h-0 w-full flex-col rounded-2xl border bg-card p-3 pt-4">
+              <div className="mb-2 flex shrink-0 flex-col items-center gap-1 text-center">
+                <User className="h-6 w-6 text-black" />
                 <div className="text-sm font-medium">학생</div>
               </div>
-              <div className="grid gap-2 w-full">
+              <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
                 <Input
                   type="search"
                   value={query}
@@ -247,8 +248,8 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
                   className="h-9 w-full rounded-lg"
                   disabled={loading || running}
                 />
-                <div className="rounded-lg border">
-                  <ScrollArea className="h-[305px] w-full p-1">
+                <div className="min-h-0 flex-1 rounded-lg border">
+                  <ScrollArea className="h-full w-full p-1">
                     <div className="space-y-1">
                       {!loading && visibleClasses.length === 0 && (
                         <div className="p-2 text-xs text-muted-foreground">반 / 학생이 없습니다</div>
@@ -298,14 +299,14 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
             </div>
 
             {/* 우측: 재시험/점수 쪽 */}
-            <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
-              <div className="mb-4 flex flex-col items-center gap-2 text-center">
-                <BookCheck className="h-8 w-8 text-black" />
+            <div className="flex h-full min-h-0 w-full flex-col rounded-2xl border bg-card p-3 pt-4">
+              <div className="mb-2 flex shrink-0 flex-col items-center gap-1 text-center">
+                <BookCheck className="h-6 w-6 text-black" />
                 <div className="text-sm font-medium">재시험</div>
               </div>
-              <div className="grid gap-2">
-                <div className="rounded-lg border">
-                  <ScrollArea className="h-[335px] w-full p-1">
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="min-h-0 flex-1 rounded-lg border">
+                  <ScrollArea className="h-full w-full p-1">
                     {filteredTests.length === 0 ? (
                       studentId ?
                         <div className="p-2 text-xs text-muted-foreground">시험이 없습니다</div> :
@@ -347,7 +348,7 @@ export default function SaveRetestView({ onAction, meta }: ViewProps) {
         </div>
 
         {/* 우하단 저장 버튼 */}
-        <div className="mt-6 flex items-center justify-end gap-2">
+        <div className="mt-3 flex shrink-0 items-center justify-end gap-2">
           <Button
             className="rounded-xl"
             variant="outline"

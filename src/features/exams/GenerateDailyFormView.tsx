@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Separator } from "@/shared/components/ui/separator"
 import { Check, FileSpreadsheet, Play, } from "lucide-react"
 import { Spinner } from "@/shared/components/ui/spinner"
-import { rpc } from "pyloid-js"
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider"
+import { generalRpc } from "@/api/rpc"
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog"
+import { errorMessage } from "@/shared/utils/errors"
 
 export default function GenerateDailyFormView({ meta }: ViewProps) {
   const dialog = useAppDialog();
@@ -20,15 +21,15 @@ export default function GenerateDailyFormView({ meta }: ViewProps) {
 
     try {
       setRunning(true);
-      const res = await rpc.call("make_data_form", {});
+      const res = await generalRpc.call("make_data_form", {});
       if(res?.ok){
         await dialog.confirm({ title: "성공", message: "데일리테스트 기록 양식을 생성하였습니다." });
         setGenerated(true);
       } else {
         await dialog.error({title: "학생 정보 파일 생성 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
       setTimeout(() => {

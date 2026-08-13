@@ -1,5 +1,5 @@
 ﻿import { Card, CardContent } from "@/shared/components/ui/card";
-import { rpc } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import tdm from "@/assets/tdm.png";
 
 export default function WelcomeView() {
@@ -20,7 +20,7 @@ export default function WelcomeView() {
           Icons by{" "}
           <button
             type="button"
-            onClick={() => rpc.call("open_url", { url: "https://icons8.com" })}
+            onClick={() => generalRpc.call("open_url", { url: "https://icons8.com" })}
             className="cursor-pointer underline underline-offset-2"
           >
             Icons8

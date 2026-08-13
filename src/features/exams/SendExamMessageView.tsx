@@ -4,14 +4,15 @@ import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Separator } from "@/shared/components/ui/separator"
 import { AlertTriangle, FileSpreadsheet, FileUp, Loader2, Play, Square, SquareCheck, X } from "lucide-react"
-import { rpc } from "pyloid-js"
-import { fileToBase64 } from "@/api/rpc"
-import { usePrereq } from "@/app/PrereqProvider"
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider"
-import { startJob, useProgressPoller, type ProgressPayload, type ProgressStatus } from "@/api/progress"
+import { fileToBase64, generalRpc } from "@/api/rpc"
+import { usePrereq } from "@/app/usePrereq"
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog"
+import type { ProgressStatus } from "@/api/progress"
+import { useManagedJob } from "@/app/useManagedJob"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
 import React from "react"
 import useHolidayDialog from "@/shared/components/dialogs/holiday/useHolidayDialog"
+import { errorMessage } from "@/shared/utils/errors"
 
 export default function SendExamMessageView({ meta, onAction }: ViewProps) {
   const dialog = useAppDialog()
@@ -22,8 +23,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
   const [dragging, setDragging] = useState(false)
   const [picking, setPicking] = useState(false)
 
-  const [jobId, setJobId] = useState<string>()
-  const prog: ProgressPayload = useProgressPoller(jobId)
+  const { jobId, prog, startJob, clearJob } = useManagedJob("start_send_exam_message")
   const running = prog.status === "running"
 
   const [doneCount, setDoneCount] = useState(0)
@@ -64,7 +64,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
     if (running || picking) return
     setPicking(true)
     try {
-      const res = await rpc.call("open_file_picker", {})
+      const res = await generalRpc.call("open_file_picker", {})
       if (!res?.ok) {
         if (res?.error) {
           await dialog.error({ title: "파일 선택 실패", message: res.error, detail: res.detail })
@@ -77,8 +77,8 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
       }
       const selected = base64ToFile(res.b64, res.name)
       setAcceptedFile(selected)
-    } catch (err: any) {
-      await dialog.error({ title: "파일 선택 실패", message: String(err?.message ?? err) })
+    } catch (error: unknown) {
+      await dialog.error({ title: "파일 선택 실패", message: errorMessage(error) })
     } finally {
       setPicking(false)
     }
@@ -99,20 +99,19 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
     try {
       onAction?.("send-exam-message")
       const b64 = await fileToBase64(file)
-      const id = await startJob("start_send_exam_message", {
+      await startJob("start_send_exam_message", {
         filename: file.name,
         b64,
         makeup_test_date: sel
       })
-      setJobId(id)
       lastStatusRef.current = "running"
       setDoneCount(0)
       setWarnings([]) // 새 작업 시작 시 경고 초기화
-    } catch (err: any) {
-      setJobId(undefined)
+    } catch (error: unknown) {
+      clearJob()
       await dialog.error({
         title: "작업 실패",
-        message: String(err?.message || err),
+        message: errorMessage(error),
       })
     }
   }
@@ -142,31 +141,15 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
       return
     }
 
-    if (prog.status === "error" && lastStatusRef.current !== "error") {
-      lastStatusRef.current = "error"
-      void dialog
-        .error({
-          title: "메시지 작성 중 오류가 발생했습니다",
-          message: prog.error || prog.message || "메시지 작성 중 오류가 발생했습니다.",
-          detail: prog.detail,
-        })
-        .then(() => {
-          setJobId(undefined)
-          setFile(null)
-        })
-    } else if (prog.status === "done" && lastStatusRef.current !== "done") {
-      lastStatusRef.current = "done"
-      void dialog
-        .confirm({
-          title: "메시지 작성 성공",
-          message: "메시지 작성이 완료되었습니다. 전송 전 내용을 확인하세요.",
-        })
-        .then(() => {
-          setJobId(undefined)
-          setFile(null)
-        })
+    if (
+      (prog.status === "error" || prog.status === "done" || prog.status === "cancelled") &&
+      lastStatusRef.current !== prog.status
+    ) {
+      lastStatusRef.current = prog.status
+      clearJob()
+      setFile(null)
     }
-  }, [jobId, prog.status, prog.message, prog.error, prog.detail, dialog])
+  }, [jobId, prog.status, clearJob])
 
   useEffect(() => {
     if (running) setDragging(false)
@@ -293,7 +276,7 @@ export default function SendExamMessageView({ meta, onAction }: ViewProps) {
                     </div>
                   ) : (
                     <div>
-                      <ScrollArea className="flex-1 h-58 pr-3">
+                      <ScrollArea className="flex-1 h-55 pr-3">
                         <ul className="space-y-1">
                           {warnings.map((m, i) => (
                             <React.Fragment key={i}>

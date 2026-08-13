@@ -1,8 +1,9 @@
 ﻿// src/views/SaveIndividualExamView.tsx
 import { useEffect, useMemo, useState } from "react";
 import type { ViewProps } from "@/shared/types/tdm";
-import { rpc } from "pyloid-js";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { generalRpc } from "@/api/rpc";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
+import { errorMessage } from "@/shared/utils/errors";
 
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
@@ -107,7 +108,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      const res = await rpc.call("get_datafile_data", { mocktest: true }); // [class_student_dict, class_test_dict]
+      const res = await generalRpc.call("get_datafile_data", { mocktest: true }); // [class_student_dict, class_test_dict]
       if(res?.ok){
         let csd: ClassStudentDict = {};
         let ctd: ClassTestDict = {};
@@ -198,10 +199,18 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
     if (!yes) return;
 
     try {
-      const cell = await rpc.call("is_cell_empty", {
+      const cell = await generalRpc.call("is_cell_empty", {
         row: Number(studentId),
         col: Number(testId),
       });
+      if (!cell.ok) {
+        await dialog.error({
+          title: "데이터 확인 실패",
+          message: cell.error,
+          detail: cell.detail,
+        });
+        return;
+      }
       if(!cell.empty){
         const yes = await dialog.warning({
           title: "시험 결과 중복 경고",
@@ -214,7 +223,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
       setRunning(true);
       onAction?.("save-individual-exam");
       //student_name:str, class_name:str, test_name:str, target_row:int, target_col:int, test_score:int|float, makeup_test_check:bool, makeup_test_date:dict
-      const res = await rpc.call("save_individual_result", {
+      const res = await generalRpc.call("save_individual_result", {
         student_name:      studentName,
         class_name:        klass,
         test_name:         testName.slice(11),
@@ -231,16 +240,16 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
       } else {
         await dialog.error({ title: "개별 시험 결과 저장 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
     }
   };
 
   return (
-    <Card className="h-full rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="flex h-full flex-col">
+    <Card className="h-full min-h-0 rounded-2xl border-border/80 shadow-sm">
+      <CardContent className="flex h-full min-h-0 flex-col">
         <div className="mb-3">
           {meta?.guide && (
             <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
@@ -249,15 +258,15 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
         <Separator className="mb-4" />
 
         {/* 한 장의 카드 내부 레이아웃 */}
-        <div className="flex-1 h-full">
-          <div className="grid grid-cols-2 h-full gap-6 items-stretch">
+        <div className="min-h-0 flex-1">
+          <div className="grid h-full min-h-0 grid-cols-2 items-stretch gap-4">
             {/* 좌측: 학생 쪽 */}
-            <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
-              <div className="mb-4 flex flex-col items-center gap-2 text-center">
-                <User className="h-8 w-8 text-black" />
+            <div className="flex h-full min-h-0 w-full flex-col rounded-2xl border bg-card p-3 pt-4">
+              <div className="mb-2 flex shrink-0 flex-col items-center gap-1 text-center">
+                <User className="h-6 w-6 text-black" />
                 <div className="text-sm font-medium">학생</div>
               </div>
-              <div className="grid gap-2 w-full">
+              <div className="flex min-h-0 w-full flex-1 flex-col gap-2">
                 <Input
                   type="search"
                   value={query}
@@ -266,8 +275,8 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
                   className="h-9 w-full rounded-lg"
                   disabled={loading || running}
                 />
-                <div className="rounded-lg border">
-                  <ScrollArea className="h-[305px] w-full p-1">
+                <div className="min-h-0 flex-1 rounded-lg border">
+                  <ScrollArea className="h-full w-full p-1">
                     <div className="space-y-1">
                       {!loading && visibleClasses.length === 0 && (
                         <div className="p-2 text-xs text-muted-foreground">반 / 학생이 없습니다</div>
@@ -317,14 +326,14 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
             </div>
 
             {/* 우측: 시험/점수 쪽 */}
-            <div className="h-full w-full rounded-2xl border bg-card p-4 pt-6">
-              <div className="mb-4 flex flex-col items-center gap-2 text-center">
-                <BookCheck className="h-8 w-8 text-black" />
+            <div className="flex h-full min-h-0 w-full flex-col rounded-2xl border bg-card p-3 pt-4">
+              <div className="mb-2 flex shrink-0 flex-col items-center gap-1 text-center">
+                <BookCheck className="h-6 w-6 text-black" />
                 <div className="text-sm font-medium">시험</div>
               </div>
-              <div className="grid gap-2">
-                <div className="rounded-lg border">
-                  <ScrollArea className="h-[335px] w-full p-1">
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="min-h-0 flex-1 rounded-lg border">
+                  <ScrollArea className="h-full w-full p-1">
                     {filteredTests.length === 0 ? (
                       studentId ?
                         <div className="p-2 text-xs text-muted-foreground">시험이 없습니다</div> :
@@ -371,7 +380,7 @@ export default function SaveIndividualExamView({ onAction, meta }: ViewProps) {
         </div>
 
         {/* 우하단 저장 버튼 */}
-        <div className="mt-6 flex items-center justify-end gap-2">
+        <div className="mt-3 flex shrink-0 items-center justify-end gap-2">
           <Button
             className="rounded-xl"
             variant="outline"

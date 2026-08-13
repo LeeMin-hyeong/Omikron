@@ -1,4 +1,4 @@
-﻿// src/views/UpdateClassView.tsx
+// src/views/UpdateClassView.tsx
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, Check, FileSpreadsheet, } from "lucide-react";
 import { ViewProps } from "@/shared/types/tdm";
 import { Separator } from "@/shared/components/ui/separator";
 import { Toggle } from "@/shared/components/ui/toggle";
-import { rpc } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { Input } from "@/shared/components/ui/input";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -15,14 +15,15 @@ import { Progress } from "@/shared/components/ui/progress";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/shared/components/ui/dialog";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/components/ui/toggle-group";
-import { ProgressStatus, startJob, useProgressPoller, type ProgressPayload } from "@/api/progress";
+import { ProgressStatus } from "@/api/progress";
+import { useManagedJob } from "@/app/useManagedJob";
 
 export type ClassItem = {
   id: string;
   name: string;
-  aisosicOnly?: boolean; // 아이소식에는 있고 데이터파일엔 없음 → 초록
+  aisosikOnly?: boolean; // 아이소식에는 있고 데이터파일엔 없음 → 초록
   dataOnly?: boolean;    // 데이터파일엔 있고 아이소식엔 없음 → 주황
 };
 
@@ -35,7 +36,8 @@ function useSelectableList(initial: ClassItem[]) {
   const toggle = useCallback((id: string) => {
     setSelected((p) => {
       const n = new Set(p);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
   }, []);
@@ -61,7 +63,7 @@ function useSelectableList(initial: ClassItem[]) {
 }
 
 function canMove(item: ClassItem, from: Col, to: Col) {
-  if (item.aisosicOnly) {
+  if (item.aisosikOnly) {
     return (from === "left" && to === "center") || (from === "center" && to === "left");
   }
   // 나머지 색상(주황/기본): center ↔ right만
@@ -120,7 +122,7 @@ const ListBox = memo(function ListBox({
   const allSelected = list.length > 0 && list.every((i) => selected.has(i.id));
 
   return (
-    <Card className="flex h-[470px] w-full flex-col py-1 gap-1">
+    <Card className="flex h-full min-h-0 w-full flex-col py-1 gap-1">
       <CardHeader className="space-y-0 pb-0 pt-2 justify-center">
         <CardTitle className="text-base font-semibold pb-0">{title}</CardTitle>
       </CardHeader>
@@ -172,7 +174,7 @@ const ListBox = memo(function ListBox({
                         <span
                           className={[
                             "flex-1 min-w-0 break-all text-xs leading-5",
-                            item.aisosicOnly ? "text-emerald-600" : "",
+                            item.aisosikOnly ? "text-emerald-600" : "",
                             item.dataOnly ? "text-amber-600" : "",
                           ].join(" ")}
                         >
@@ -205,24 +207,21 @@ export default function UpdateClassView({ meta }: ViewProps) {
   const [query, setQuery] = useState<string>("");
   const [colorFilters, setColorFilters] = useState<string[]>([]); // ["green"], ["orange"], ["green","orange"], []
   const q = query.trim().toLowerCase();
-  const matchesColor = (i: ClassItem) => {
+  const filterByQueryAndColor = useCallback((arr: ClassItem[]) => {
     const greenOn = colorFilters.includes("green");
     const orangeOn = colorFilters.includes("orange");
-    if (!greenOn && !orangeOn) return true; // 색상 필터 미사용
-    const isGreen = !!i.aisosicOnly; // 아이소식 전용 → 초록
-    const isOrange = !!i.dataOnly;   // 데이터만 존재 → 주황
-    return (greenOn && isGreen) || (orangeOn && isOrange);
-  };
-
-  const filterByQueryAndColor = (arr: ClassItem[]) => {
     const byQuery = !q ? arr : arr.filter((i) => i.name.toLowerCase().includes(q));
-    return byQuery.filter(matchesColor);
-  };
+    if (!greenOn && !orangeOn) return byQuery;
+    return byQuery.filter((item) => (
+      (greenOn && Boolean(item.aisosikOnly)) ||
+      (orangeOn && Boolean(item.dataOnly))
+    ));
+  }, [colorFilters, q]);
 
   // 기존 filteredLeft/Center/Right 교체
-  const filteredLeft = useMemo(() => filterByQueryAndColor(left.items), [left.items, q, colorFilters]);
-  const filteredCenter = useMemo(() => filterByQueryAndColor(center.items), [center.items, q, colorFilters]);
-  const filteredRight = useMemo(() => filterByQueryAndColor(right.items), [right.items, q, colorFilters]);
+  const filteredLeft = useMemo(() => filterByQueryAndColor(left.items), [left.items, filterByQueryAndColor]);
+  const filteredCenter = useMemo(() => filterByQueryAndColor(center.items), [center.items, filterByQueryAndColor]);
+  const filteredRight = useMemo(() => filterByQueryAndColor(right.items), [right.items, filterByQueryAndColor]);
 
   // 다이얼로그 상태 (3단계)
   const [step1Open, setStep1Open] = useState(false);
@@ -236,8 +235,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
   const [tempClasses, setTempClasses] = useState<string[]>([]);
 
   const [progressOpen, setProgressOpen] = useState(false);
-  const [jobId, setJobId] = useState<string>();
-  const prog: ProgressPayload = useProgressPoller(jobId);
+  const { jobId, prog, startJob, clearJob } = useManagedJob("start_update_class");
   const running = prog.status === "running";
   const lastStatusRef = useRef<ProgressStatus>("unknown");
 
@@ -250,30 +248,30 @@ export default function UpdateClassView({ meta }: ViewProps) {
     try {
       setLoading(true);
       setQuery("");
-      const [dfRes, aisosicRes] = await Promise.all([
-        rpc.call("get_datafile_data", {}),
-        rpc.call("get_aisosic_data", {}), // ★ 아이소식 전체 목록(string[])
+      const [dfRes, aisosikRes] = await Promise.all([
+        generalRpc.call("get_datafile_data", {}),
+        generalRpc.call("get_aisosik_data", {}), // ★ 아이소식 전체 목록(string[])
       ]);
       
-      if(dfRes.ok && aisosicRes.ok){
+      if(dfRes.ok && aisosikRes.ok){
         // 데이터 파일의 반 목록
         let classStudentDict: Record<string, unknown> = {};
         if (Array.isArray(dfRes.data) && typeof dfRes.data[0] === "object") {
           classStudentDict = dfRes.data[0] as Record<string, unknown>;
-        } else if (dfRes.data?.class_student_dict) {
+        } else if ("class_student_dict" in dfRes.data && dfRes.data.class_student_dict) {
           classStudentDict = dfRes.data.class_student_dict as Record<string, unknown>;
         }
         const currentNames = Object.keys(classStudentDict).sort();
   
         // 아이소식 전체 목록
-        const aisosicAll: string[] = Array.isArray(aisosicRes.data) ? aisosicRes.data : [];
-        const aisosicSet = new Set(aisosicAll);
+        const aisosikAll: string[] = Array.isArray(aisosikRes.data) ? aisosikRes.data : [];
+        const aisosikSet = new Set(aisosikAll);
   
         // 아이소식에는 있는데 데이터파일엔 없는 목록(=추가 후보 → 좌측, 초록)
-        const aisosicOnlyNames = aisosicAll.filter((n) => !classStudentDict[n]);
+        const aisosikOnlyNames = aisosikAll.filter((n) => !classStudentDict[n]);
   
         // 데이터파일에는 있지만 아이소식엔 없는 목록(=주황)
-        const dataOnlyNames = currentNames.filter((n) => !aisosicSet.has(n));
+        const dataOnlyNames = currentNames.filter((n) => !aisosikSet.has(n));
         const dataOnlySet = new Set(dataOnlyNames);
   
         // 리스트 주입 (플래그를 아이템에 넣어서 이동해도 유지)
@@ -286,10 +284,10 @@ export default function UpdateClassView({ meta }: ViewProps) {
         );
   
         left.setItems(
-          aisosicOnlyNames.map((n) => ({
+          aisosikOnlyNames.map((n) => ({
             id: n,
             name: n,
-            aisosicOnly: true,             // 초록
+            aisosikOnly: true,             // 초록
           }))
         );
   
@@ -297,8 +295,8 @@ export default function UpdateClassView({ meta }: ViewProps) {
         left.clearSelection(); center.clearSelection(); right.clearSelection();
       } else if (!dfRes.ok) {
         await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: dfRes?.error || "", detail: dfRes?.detail })
-      } else if (!aisosicRes.ok) {
-        await dialog.error({ title: "아이소식 데이터 수집 실패", message: aisosicRes?.error || "", detail: aisosicRes?.detail })
+      } else if (!aisosikRes.ok) {
+        await dialog.error({ title: "아이소식 데이터 수집 실패", message: aisosikRes?.error || "", detail: aisosikRes?.detail })
       }
     } catch (e) {
       left.setItems([]); center.setItems([]); right.setItems([]);
@@ -308,6 +306,8 @@ export default function UpdateClassView({ meta }: ViewProps) {
       setLoading(false);
     }
   };
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
 
   useEffect(() => {
     if (!jobId) {
@@ -317,43 +317,27 @@ export default function UpdateClassView({ meta }: ViewProps) {
 
     if (prog.status === "running") {
       lastStatusRef.current = "running";
+      setProgressOpen(true);
       return;
     }
 
-    if (prog.status === "error" && lastStatusRef.current !== "error") {
-      lastStatusRef.current = "error";
+    if (
+      (prog.status === "error" || prog.status === "done" || prog.status === "cancelled") &&
+      lastStatusRef.current !== prog.status
+    ) {
+      lastStatusRef.current = prog.status;
       setProgressOpen(false);
-      void dialog
-        .error({
-          title: "반 업데이트 중 오류가 발생했습니다",
-          message: prog.error || prog.message || "반 업데이트 중 오류가 발생했습니다.",
-          detail: prog.detail 
-        })
-        .then(() => {
-          setJobId(undefined);
-          loadData();
-        });
-      return;
+      clearJob();
+      void loadDataRef.current();
     }
-
-    if (prog.status === "done" && lastStatusRef.current !== "done") {
-      lastStatusRef.current = "done";
-      setProgressOpen(false);
-      void dialog
-        .confirm({ title: "완료", message: prog.message || "반 업데이트가 완료되었습니다." })
-        .then(() => {
-          setJobId(undefined);
-          loadData();
-        });
-    }
-  }, [jobId, prog.status, prog.message, prog.error, prog.detail, dialog]);
+  }, [jobId, prog.status, clearJob]);
 
   // 버튼 → 1단계 다이얼로그 오픈 & 임시파일 생성
   const openStep1File = async (path?: string) => {
     const targetPath = path ?? step1Path;
     if (!targetPath) return;
     try {
-      const openRes = await rpc.call("open_path", { path: targetPath });
+      const openRes = await generalRpc.call("open_path", { path: targetPath });
       if (!openRes?.ok) {
         const errorMessage = openRes?.error ?? "알 수 없는 에러가 발생하였습니다.";
         throw new Error(errorMessage);
@@ -371,7 +355,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
     setStep1Path(undefined);
     try {
       const classNames = center.items.map((i) => i.name);
-      const res = await rpc.call("make_temp_class_info", { new_class_list: classNames }); // {ok, path}
+      const res = await generalRpc.call("make_temp_class_info", { new_class_list: classNames }); // {ok, path}
       if (res?.ok) {
         setStep1Path(res.path);
         // 바로 열기
@@ -401,7 +385,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
     setStep2Loading(true);
     try {
       // 임시 파일에서 반 이름 리스트 가져오기
-      const res = await rpc.call("get_new_class_list", {}); // string[]
+      const res = await generalRpc.call("get_new_class_list", {}); // string[]
       if(res?.ok){
         setTempClasses(Array.isArray(res.data) ? res.data : []);
       } else {
@@ -426,8 +410,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
     setProgressOpen(true);
 
     try {
-      const id = await startJob("start_update_class", {});
-      setJobId(id);
+      await startJob("start_update_class", {});
       lastStatusRef.current = "running";
     } catch (e) {
       setProgressOpen(false);
@@ -438,7 +421,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
 
   const handleCancle = async () => {
     try {
-      await rpc.call("delete_class_info_temp", {});
+      await generalRpc.call("delete_class_info_temp", {});
     } catch (e) {
       dialog.error({title: "에러", message: `${e}`})
     } finally {
@@ -457,8 +440,8 @@ export default function UpdateClassView({ meta }: ViewProps) {
   //     : 0;
 
   return (
-    <Card className="h-full rounded-2xl border-border/80 shadow-sm">
-      <CardContent className="flex h-full flex-col">
+    <Card className="h-full min-h-0 rounded-2xl border-border/80 shadow-sm">
+      <CardContent className="flex h-full min-h-0 flex-col">
         <div className="mb-3">
           <p className="mt-1 text-sm text-muted-foreground">{meta.guide}</p>
         </div>
@@ -501,9 +484,9 @@ export default function UpdateClassView({ meta }: ViewProps) {
           </ToggleGroup>
         </div>
 
-        <div className="grid grid-cols-14 gap-1 h-full">
+        <div className="grid min-h-0 flex-1 grid-cols-14 gap-1">
           {/* Left */}
-          <div className="col-span-4 h-full">
+          <div className="col-span-4 min-h-0">
             <ListBox
               title="추가되지 않은 반"
               list={filteredLeft}
@@ -541,7 +524,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
           </div>
 
           {/* Center */}
-          <div className="col-span-4 h-full">
+          <div className="col-span-4 min-h-0">
             <ListBox
               title="현행(유지할) 반"
               list={filteredCenter}
@@ -579,7 +562,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
           </div>
 
           {/* Right */}
-          <div className="col-span-4 h-full">
+          <div className="col-span-4 min-h-0">
             <ListBox
               title="삭제할 반"
               list={filteredRight}
@@ -593,7 +576,7 @@ export default function UpdateClassView({ meta }: ViewProps) {
         </div>
 
         {/* 하단 버튼: '반 업데이트' */}
-        <div className="flex items-center justify-between">
+        <div className="mt-3 flex shrink-0 items-center justify-between">
           <div className="flex flex-col gap-1">
             <div className="text-sm text-muted-foreground flex flex-row justify-start items-center">
               <div className="bg-green-500 w-4 h-4 rounded mr-1"/> <p>: 아이소식에는 존재하지만 데이터 파일에 존재하지 않는 반 (추가할 반)</p>

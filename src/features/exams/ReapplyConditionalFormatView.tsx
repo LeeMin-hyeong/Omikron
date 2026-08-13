@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/shared/components/ui/card"
 import { Separator } from "@/shared/components/ui/separator"
 import { Check, FileSpreadsheet, Play, } from "lucide-react"
 import { Spinner } from "@/shared/components/ui/spinner"
-import { rpc } from "pyloid-js"
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider"
+import { generalRpc } from "@/api/rpc"
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog"
+import { errorMessage } from "@/shared/utils/errors"
 
 // 헤더는 루트 레이아웃에 있으므로 이 뷰에는 포함하지 않음
 export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
@@ -19,7 +20,7 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
 
     try {
       setRunning(true);
-      const res = await rpc.call("reapply_conditional_format", {});
+      const res = await generalRpc.call("reapply_conditional_format", {});
 
       if (res?.ok) {
         const warnings: string[] = Array.isArray(res?.warnings) ? res.warnings : [];
@@ -35,8 +36,8 @@ export default function ReapplyConditionalFormatView({ meta }: ViewProps) {
       } else {
         await dialog.error({ title: "조건부 서식 재지정 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
       setTimeout(() => {

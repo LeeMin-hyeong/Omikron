@@ -1,12 +1,12 @@
 ﻿import { useMemo, useState } from "react";
-import { rpc } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Button } from "@/shared/components/ui/button";
 import { FolderOpen, HelpCircle } from "lucide-react";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 
 type InitialConfig = {
   url: string;
@@ -94,7 +94,7 @@ export default function InitialConfigView({ initial, onComplete }: Props) {
   };
 
   const pickDataDir = async () => {
-    const res = await rpc.call("select_data_dir", {});
+    const res = await generalRpc.call("select_data_dir", {});
     if (res?.ok && res?.path) {
       updateField("dataDir", res.path);
     }
@@ -113,7 +113,7 @@ export default function InitialConfigView({ initial, onComplete }: Props) {
   const save = async () => {
     if (!validateCurrentStep()) return;
 
-    const validateRes = await rpc.call("validate_script_url", { url: form.url });
+    const validateRes = await generalRpc.call("validate_script_url", { url: form.url });
     if (!validateRes?.ok) {
       setError(validateRes?.error ?? "URL을 검증하지 못했습니다.");
       return;
@@ -129,7 +129,7 @@ export default function InitialConfigView({ initial, onComplete }: Props) {
     setSaving(true);
     setError("");
     try {
-      const res = await rpc.call("save_initial_config", {
+      const res = await generalRpc.call("save_initial_config", {
         url: form.url,
         data_dir: form.dataDir,
         data_file_name: form.dataFileName,
@@ -151,7 +151,7 @@ export default function InitialConfigView({ initial, onComplete }: Props) {
 
   const handleOpenHelp = async () => {
     try {
-      const res = await rpc.call("open_url", { url: HELP_URL });
+      const res = await generalRpc.call("open_url", { url: HELP_URL });
       if (!res?.ok) {
         setError(res?.error ?? "사용법 페이지를 열지 못했습니다.");
       }
@@ -161,7 +161,7 @@ export default function InitialConfigView({ initial, onComplete }: Props) {
   };
 
   return (
-    <div className="flex h-full items-center justify-center p-8">
+    <div className="flex h-full min-h-0 items-center justify-center p-4">
       <Card className="w-full max-w-3xl rounded-2xl border-border/80 shadow-sm">
         <CardHeader>
           <div className="flex items-start justify-between gap-3">

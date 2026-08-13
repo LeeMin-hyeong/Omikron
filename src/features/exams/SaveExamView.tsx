@@ -1,20 +1,23 @@
-﻿// src/views/SaveExamView.tsx
+// src/views/SaveExamView.tsx
 import { useEffect, useRef, useState } from "react";
 import type { ViewProps } from "@/shared/types/tdm";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
 import { AlertTriangle, FileSpreadsheet, FileUp, Loader2, Play, Square, SquareCheck, X } from "lucide-react";
-import { rpc } from "pyloid-js";
-import { fileToBase64 } from "@/api/rpc";
+import { fileToBase64, generalRpc } from "@/api/rpc";
 
 // 공통 진행 훅/시작 함수 (앞서 만든 표준 유틸)
-import { ProgressStatus, startJob, useProgressPoller, type ProgressPayload } from "@/api/progress";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { ProgressStatus } from "@/api/progress";
+import { useManagedJob } from "@/app/useManagedJob";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 import React from "react";
 import { ScrollArea } from "@/shared/components/ui/scroll-area";
-import { usePrereq } from "@/app/PrereqProvider";
+import { usePrereq } from "@/app/usePrereq";
 import useHolidayDialog from "@/shared/components/dialogs/holiday/useHolidayDialog";
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 export default function SaveExamView({ meta, onAction }: ViewProps) {
   const dialog = useAppDialog()
@@ -25,12 +28,12 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   const [dragging, setDragging] = useState(false)
   const [picking, setPicking] = useState(false)
 
-  const [jobId, setJobId] = useState<string>()
-  const prog: ProgressPayload = useProgressPoller(jobId)
+  const { jobId, prog, beginOperation, endOperation, startJob, clearJob } = useManagedJob("start_save_exam")
   const running = prog.status === "running"
 
   const [jobDoneCount, setJobDoneCount] = useState(0)
   const [precheckStatus, setPrecheckStatus] = useState<"idle" | "running" | "done">("idle")
+  const operationRunning = running || precheckStatus === "running"
   const lastStatusRef = useRef<ProgressStatus>("unknown")
 
   // ✅ 경고 메시지 누적 리스트
@@ -39,7 +42,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   const acceptExt = /\.xlsx$/i
 
   const setAcceptedFile = (candidate: File | null) => {
-    if (!candidate || running) return
+    if (!candidate || operationRunning) return
     if (!acceptExt.test(candidate.name)) {
       void dialog.error({ title: "파일 선택 실패", message: "지원하지 않는 확장자입니다. (.xlsx 파일만 지원)" })
       return
@@ -49,7 +52,7 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   }
 
   const handleFiles = (list: FileList | null) => {
-    if (!list || list.length === 0 || running) return
+    if (!list || list.length === 0 || operationRunning) return
     const arr = Array.from(list)
     const first = arr.find((f) => acceptExt.test(f.name))
     if (first) setAcceptedFile(first)
@@ -66,10 +69,10 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
   }
 
   const pickFromBackend = async () => {
-    if (running || picking) return
+    if (operationRunning || picking) return
     setPicking(true)
     try {
-      const res = await rpc.call("open_file_picker", {})
+      const res = await generalRpc.call("open_file_picker", {})
       if (!res?.ok) {
         if (res?.error) {
           await dialog.error({ title: "파일 선택 실패", message: res.error, detail: res.detail })
@@ -82,29 +85,31 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       }
       const selected = base64ToFile(res.b64, res.name)
       setAcceptedFile(selected)
-    } catch (err: any) {
-      await dialog.error({ title: "파일 선택 실패", message: String(err?.message ?? err) })
+    } catch (error: unknown) {
+      await dialog.error({ title: "파일 선택 실패", message: errorMessage(error) })
     } finally {
       setPicking(false)
     }
   }
 
   const start = async () => {
-    if (running || precheckStatus === "running" || !file) return
+    if (operationRunning || !file) return
 
-    const ok = await enforcePrereq()
-    if (!ok) return
-
-    let sel = lastHolidaySelection;
-    if (!sel) {
-      sel = await openHolidayDialog();
-      if(!sel) return
-    }
+    beginOperation("save-exam")
+    setPrecheckStatus("running")
+    let jobStarted = false
     try {
-      setPrecheckStatus("running")
-      const checked = await rpc.call("check_aisosic_difference", {});
+      const ok = await enforcePrereq()
+      if (!ok) return
+
+      let sel = lastHolidaySelection;
+      if (!sel) {
+        sel = await openHolidayDialog();
+        if(!sel) return
+      }
+
+      const checked = await generalRpc.call("check_aisosik_difference", {});
       if (!checked?.ok) {
-        setPrecheckStatus("idle")
         await dialog.error({ title: "오류", message: checked?.error || "비교 중 오류가 발생했습니다.", detail: checked?.detail })
         return
       }
@@ -117,7 +122,6 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
         });
         if(ok){
           setFile(null);
-          setPrecheckStatus("idle")
           return;
         }
       }
@@ -125,22 +129,25 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       onAction?.("save-exam")
       const b64 = await fileToBase64(file)
       // filename: str, b64: str, makeup_test_date: Dict[str, Any]
-      const id = await startJob("start_save_exam", {
+      await startJob("start_save_exam", {
         filename: file.name,
         b64: b64,
         makeup_test_date: sel
       })
-      setJobId(id)
+      jobStarted = true
       lastStatusRef.current = "running"
       setJobDoneCount(0)
       setWarnings([]) // 새 작업 시작 시 경고 초기화
-    } catch (err: any) {
-      setJobId(undefined)
+    } catch (error: unknown) {
+      clearJob()
       setPrecheckStatus("idle")
       await dialog.error({
         title: "작업 실패",
-        message: String(err?.message || err),
+        message: errorMessage(error),
       })
+    } finally {
+      endOperation("save-exam")
+      if (!jobStarted) setPrecheckStatus("idle")
     }
   }
 
@@ -168,33 +175,16 @@ export default function SaveExamView({ meta, onAction }: ViewProps) {
       return
     }
 
-    if (prog.status === "error" && lastStatusRef.current !== "error") {
-      lastStatusRef.current = "error"
-      void dialog
-        .error({
-          title: "데이터 저장 중 오류가 발생했습니다",
-          message: prog.error || prog.message || "데이터 저장 중 오류가 발생했습니다.",
-          detail: prog.detail,
-        })
-        .then(() => {
-          setJobId(undefined)
-          setFile(null)
-          setPrecheckStatus("idle")
-        })
-    } else if (prog.status === "done" && lastStatusRef.current !== "done") {
-      lastStatusRef.current = "done"
-      void dialog
-        .confirm({
-          title: "데이터 저장 성공",
-          message: "데이터 저장을 완료하였습니다",
-        })
-        .then(() => {
-          setJobId(undefined)
-          setFile(null)
-          setPrecheckStatus("idle")
-        })
+    if (
+      (prog.status === "error" || prog.status === "done" || prog.status === "cancelled") &&
+      lastStatusRef.current !== prog.status
+    ) {
+      lastStatusRef.current = prog.status
+      clearJob()
+      setFile(null)
+      setPrecheckStatus("idle")
     }
-  }, [jobId, prog.status, prog.message, prog.error, prog.detail, dialog])
+  }, [jobId, prog.status, clearJob])
 
 return (
     <div className="h-full min-h-0 min-w-0">
@@ -212,21 +202,21 @@ return (
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    if (running || picking) return
+                    if (operationRunning || picking) return
                     void pickFromBackend()
                   }}
                   onKeyDown={(e) => {
-                    if (running || picking) return
+                    if (operationRunning || picking) return
                     if (e.key === "Enter" || e.key === " ") void pickFromBackend()
                   }}
                   onDragOver={(e) => {
-                    if (running || picking) return
+                    if (operationRunning || picking) return
                     e.preventDefault()
                     setDragging(true)
                   }}
-                  onDragLeave={() => !running && !picking && setDragging(false)}
+                  onDragLeave={() => !operationRunning && !picking && setDragging(false)}
                   onDrop={(e) => {
-                    if (running || picking) return
+                    if (operationRunning || picking) return
                     e.preventDefault()
                     setDragging(false)
                     handleFiles(e.dataTransfer.files)
@@ -234,7 +224,7 @@ return (
                   className={`relative mt-2 flex h-full min-h-0 flex-col items-center justify-center
                               rounded-xl border transition
                               ${dragging ? "border-point bg-point/5" : "border-dashed border-border/70 hover:bg-accent/40"}
-                              ${running || picking ? "pointer-events-none opacity-90" : "cursor-pointer"}`}
+                              ${operationRunning || picking ? "pointer-events-none opacity-90" : "cursor-pointer"}`}
                 >
                   {file && (
                     <button
@@ -243,7 +233,7 @@ return (
                                 rounded-md hover:bg-accent/60"
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (!running) {
+                        if (!operationRunning) {
                           setFile(null)
                           setPrecheckStatus("idle")
                         }
@@ -329,7 +319,7 @@ return (
                     </div>
                   ) : (
                     <div>
-                      <ScrollArea className="flex-1 h-58 pr-3">
+                      <ScrollArea className="flex-1 h-55 pr-3">
                         <ul className="space-y-1">
                           {warnings.map((m, i) => (
                             <React.Fragment key={i}>
@@ -354,13 +344,13 @@ return (
               <Button
                 className="rounded-xl bg-black text-white"
                 onClick={start}
-                disabled={!file || running || precheckStatus === "running" || picking}
-                title={!file ? "파일을 먼저 선택해주세요" : running || precheckStatus === "running" ? "진행 중입니다" : "실행"}
+                disabled={!file || operationRunning || picking}
+                title={!file ? "파일을 먼저 선택해주세요" : operationRunning ? "진행 중입니다" : "실행"}
               >
-                {running || precheckStatus === "running"
+                {operationRunning
                   ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   : <Play className="mr-2 h-4 w-4" />}
-                {running || precheckStatus === "running" ? "진행 중" : "실행"}
+                {operationRunning ? "진행 중" : "실행"}
               </Button>
             </div>
           </div>

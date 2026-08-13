@@ -1,14 +1,16 @@
 ﻿// src/views/PrereqSetupView.tsx
 import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
 import { FileSpreadsheet, ChevronsRight, FolderOpen, FolderSync } from "lucide-react";
-import { rpc } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import { Spinner } from "@/shared/components/ui/spinner";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 import { Label } from "@/shared/components/ui/label";
 import { Input } from "@/shared/components/ui/input";
+import { errorMessage } from "@/shared/utils/errors";
 
 type State = {
   has_class: boolean;
@@ -38,10 +40,10 @@ export default function PrereqSetupView({
   const [savingUrl, setSavingUrl] = useState(false);
   const [loadingUrl, setLoadingUrl] = useState(true);
 
-  const loadConfigUrl = async () => {
+  const loadConfigUrl = useCallback(async () => {
     setLoadingUrl(true);
     try {
-      const res = await rpc.call("get_config_status", {});
+      const res = await generalRpc.call("get_config_status", {});
       if (!res?.ok) {
         await dialog.error({
           title: "설정 로드 실패",
@@ -50,12 +52,12 @@ export default function PrereqSetupView({
         return;
       }
       setUrl(res?.config?.url ?? "");
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       setLoadingUrl(false);
     }
-  };
+  }, [dialog]);
 
   const saveConfigUrl = async () => {
     const nextUrl = url.trim();
@@ -64,7 +66,7 @@ export default function PrereqSetupView({
       return;
     }
 
-    const validateRes = await rpc.call("validate_script_url", { url: nextUrl });
+    const validateRes = await generalRpc.call("validate_script_url", { url: nextUrl });
     if (!validateRes?.ok) {
       await dialog.error({ title: "URL 검증 실패", message: validateRes?.error || "URL을 검증하지 못했습니다." });
       return;
@@ -79,7 +81,7 @@ export default function PrereqSetupView({
 
     setSavingUrl(true);
     try {
-      const cfg = await rpc.call("get_config_status", {});
+      const cfg = await generalRpc.call("get_config_status", {});
       if (!cfg?.ok) {
         await dialog.error({
           title: "설정 로드 실패",
@@ -88,7 +90,7 @@ export default function PrereqSetupView({
         return;
       }
 
-      const res = await rpc.call("update_message_templates", {
+      const res = await generalRpc.call("update_message_templates", {
         url: nextUrl,
         daily_test_message: cfg?.config?.dailyTest ?? "",
         makeup_test_message: cfg?.config?.makeupTest ?? "",
@@ -106,8 +108,8 @@ export default function PrereqSetupView({
 
       await dialog.confirm({ title: "성공", message: "아이소식 URL을 업데이트했습니다." });
       await loadConfigUrl();
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       setSavingUrl(false);
     }
@@ -120,7 +122,7 @@ export default function PrereqSetupView({
       return;
     }
     try {
-      const res = await rpc.call("open_url", { url: target });
+      const res = await generalRpc.call("open_url", { url: target });
       if (!res?.ok) {
         await dialog.error({
           title: "URL 열기 실패",
@@ -128,27 +130,27 @@ export default function PrereqSetupView({
           detail: res?.detail,
         });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     }
   };
 
   useEffect(() => {
     void loadConfigUrl();
-  }, []);
+  }, [loadConfigUrl]);
 
   const installClass = async () => {
     if (runClass) return;
     try {
       setRunClass(true);
-      const res = await rpc.call("make_class_info", {});
+      const res = await generalRpc.call("make_class_info", {});
       if (res?.ok) {
         onRefresh();
       } else {
         await dialog.error({ title: "반 정보 파일 생성 실패", message: res?.error, detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       setRunClass(false);
     }
@@ -158,14 +160,14 @@ export default function PrereqSetupView({
     if (runData) return;
     try {
       setRunData(true);
-      const res = await rpc.call("make_data_file", {});
+      const res = await generalRpc.call("make_data_file", {});
       if (res?.ok) {
         onRefresh();
       } else {
         await dialog.error({ title: "데이터 파일 생성 실패", message: res?.error, detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       setRunData(false);
     }
@@ -175,14 +177,14 @@ export default function PrereqSetupView({
     if (runStudent) return;
     try {
       setRunStudent(true);
-      const res = await rpc.call("make_student_info", {});
+      const res = await generalRpc.call("make_student_info", {});
       if (res?.ok) {
         onRefresh();
       } else {
         await dialog.error({ title: "학생 정보 파일 생성 실패", message: res?.error, detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       setRunStudent(false);
     }
@@ -190,14 +192,14 @@ export default function PrereqSetupView({
 
   const changeDataDir = async () => {
     try {
-      const res = await rpc.call("change_data_dir", {});
+      const res = await generalRpc.call("change_data_dir", {});
       if (res?.ok) {
         await dialog.confirm({ title: "성공", message: "데이터 저장 위치를 변경하였습니다." });
       } else if (res?.error) {
         await dialog.error({ title: "데이터 저장 위치 변경 실패", message: res?.error, detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       onRefresh();
     }
@@ -205,14 +207,14 @@ export default function PrereqSetupView({
 
   const changeDataFileNameBySelect = async () => {
     try {
-      const res = await rpc.call("change_data_file_name_by_select", {});
+      const res = await generalRpc.call("change_data_file_name_by_select", {});
       if (res?.ok) {
         await dialog.confirm({ title: "성공", message: "데이터 파일 이름을 변경하였습니다." });
       } else if (!res?.ok && res.error) {
         await dialog.error({ title: "데이터 파일 이름 변경 실패", message: res?.error || "", detail: res?.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "에러", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "에러", message: errorMessage(error) });
     } finally {
       onRefresh();
     }
@@ -339,7 +341,7 @@ export default function PrereqSetupView({
             <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
               <FolderSync className="h-4 w-4" /> 데이터 저장 위치 설정
             </Button>
-            <Button variant="outline" className="rounded-xl" onClick={() => rpc.call("open_path", { path: state.data_dir })}>
+            <Button variant="outline" className="rounded-xl" onClick={() => generalRpc.call("open_path", { path: state.data_dir })}>
               <FolderOpen className="h-4 w-4" /> 데이터 저장 폴더
             </Button>
             <Button className="rounded-xl bg-black text-white" onClick={onRefresh}>

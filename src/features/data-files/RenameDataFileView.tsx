@@ -5,8 +5,9 @@ import { Card, CardContent, } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
 import { Input } from "@/shared/components/ui/input";
 import { Check, ChevronsRight, FileSpreadsheet, Play, } from "lucide-react";
-import { rpc } from "pyloid-js";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { generalRpc } from "@/api/rpc";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
+import { errorMessage } from "@/shared/utils/errors";
 import { Spinner } from "@/shared/components/ui/spinner";
 
 export default function RenameDataFileView() {
@@ -29,7 +30,7 @@ export default function RenameDataFileView() {
   const fetchState = async () => {
     try {
       setLoading(true);
-      const res = await rpc.call("check_data_files", {});
+      const res = await generalRpc.call("check_data_files", {});
       setState(res);
     } catch {
       // RPC 사용 불가(브라우저 단독 실행 등) 시엔 통과
@@ -56,15 +57,15 @@ export default function RenameDataFileView() {
 
     try {
       setRunning(true);
-      const res = await rpc.call("change_data_file_name", {new_filename: dataName});
+      const res = await generalRpc.call("change_data_file_name", {new_filename: dataName});
       if(res?.ok){
         await dialog.confirm({ title: "성공", message: `데이터 파일명을 ${dataName}(으)로 변경하였습니다.` });
         setDone(true);
       } else {
         await dialog.error({ title: "데이터 파일명 변경 실패", message: res.error || "", detail: res.detail });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: String(e?.message || e) });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       setRunning(false);
       handleRefresh();
