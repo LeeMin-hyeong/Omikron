@@ -8,7 +8,7 @@ export default function FullHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-border/80 bg-card px-5 py-3 text-card-foreground shadow-sm mb-3">
+    <div className="mb-2 flex shrink-0 items-center justify-between rounded-2xl border border-border/80 bg-card px-4 py-2 text-card-foreground shadow-sm">
       <div className="flex items-center gap-2">
         <Badge variant="secondary" className="rounded-lg">
           선택된 작업

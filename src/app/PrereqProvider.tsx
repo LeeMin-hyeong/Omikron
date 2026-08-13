@@ -1,8 +1,9 @@
 ﻿// src/contexts/prereq.tsx
-import React, { createContext, useCallback, useContext, useState } from "react";
-import { rpc } from "pyloid-js";
+import React, { useCallback, useState } from "react";
+import { generalRpc } from "@/api/rpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import PrereqSetupView from "@/features/configuration/PrereqSetupView";
+import { PrereqContext } from "@/app/usePrereq";
 
 type State = {
   ok: boolean;
@@ -16,20 +17,6 @@ type State = {
   missing: string[];
 };
 
-type Ctx = {
-  /** 실행 전 필수 파일 점검. 모달이 필요한 경우 띄우고 false 반환 */
-  enforcePrereq: () => Promise<boolean>;
-  /** 수동으로 모달 오픈(디버그/메뉴용) */
-  openPrereq: () => Promise<void>;
-};
-
-const PrereqCtx = createContext<Ctx | null>(null);
-export const usePrereq = () => {
-  const ctx = useContext(PrereqCtx);
-  if (!ctx) throw new Error("PrereqProvider로 감싸야 합니다.");
-  return ctx;
-};
-
 export function PrereqProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<State | null>(null);
@@ -38,7 +25,7 @@ export function PrereqProvider({ children }: { children: React.ReactNode }) {
   const fetchState = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await rpc.call("check_data_files", {});
+      const res = await generalRpc.call("check_data_files", {});
       setState(res);
       return res as State;
     } catch {
@@ -74,7 +61,7 @@ export function PrereqProvider({ children }: { children: React.ReactNode }) {
   }, [fetchState]);
 
   return (
-    <PrereqCtx.Provider value={{ enforcePrereq, openPrereq }}>
+    <PrereqContext.Provider value={{ enforcePrereq, openPrereq }}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-4xl">
@@ -89,6 +76,6 @@ export function PrereqProvider({ children }: { children: React.ReactNode }) {
           )}
         </DialogContent>
       </Dialog>
-    </PrereqCtx.Provider>
+    </PrereqContext.Provider>
   );
 }

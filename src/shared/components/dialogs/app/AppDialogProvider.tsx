@@ -1,86 +1,93 @@
 ﻿// src/components/app-dialog/AppDialogProvider.tsx
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { AlertTriangle, XCircle, CircleHelp } from "lucide-react";
+import {
+  AppDialogContext,
+  type AppDialogContextValue,
+  type AppDialogOptions,
+} from "@/shared/components/dialogs/app/useAppDialog";
 
 type Kind = "warning" | "error" | "confirm";
 
-type BaseOpts = {
-  title?: string;
-  message?: string;
-  detail?: string;
-  confirmText?: string;
-  cancelText?: string;
-  /** 바깥 클릭/ESC로 닫기 허용 (기본 false) */
-  allowOutsideClose?: boolean;
-};
-
 type InternalState = {
   kind: Kind;
-  opts: Required<Omit<BaseOpts, "allowOutsideClose">> & { allowOutsideClose: boolean };
-  resolve: (v: any) => void;
+  opts: Required<AppDialogOptions>;
+  resolve: (value: boolean | undefined) => void;
 };
 
-type Ctx = {
-  warning: (opts?: BaseOpts) => Promise<boolean>; // 확인:true / 취소:false
-  error:   (opts?: BaseOpts) => Promise<void>;    // 확인만
-  confirm: (opts?: BaseOpts) => Promise<void>;    // 확인만(알림)
-};
-
-const AppDialogCtx = createContext<Ctx | null>(null);
-export const useAppDialog = () => {
-  const ctx = useContext(AppDialogCtx);
-  if (!ctx) throw new Error("AppDialogProvider로 감싸야 합니다.");
-  return ctx;
+const DEFAULT_OPTIONS: Required<AppDialogOptions> = {
+  title: "",
+  message: "",
+  detail: "",
+  confirmText: "확인",
+  cancelText: "취소",
+  allowOutsideClose: false,
+  blockReplacement: false,
 };
 
 export function AppDialogProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<InternalState | null>(null);
+  const stateRef = useRef<InternalState | null>(null);
+  const pendingRef = useRef<InternalState[]>([]);
 
-  const defaults: Required<BaseOpts> = {
-    title: "",
-    message: "",
-    detail: "",
-    confirmText: "확인",
-    cancelText: "취소",
-    allowOutsideClose: false,
-  };
-
-  const show = (kind: Kind, opts?: BaseOpts) =>
-    new Promise<any>((resolve) => {
-      setState({
+  const show = useCallback((kind: Kind, opts?: AppDialogOptions) =>
+    new Promise<boolean | undefined>((resolve) => {
+      const next = {
         kind,
         resolve,
-        opts: { ...defaults, ...(opts || {}) },
-      });
+        opts: { ...DEFAULT_OPTIONS, ...(opts || {}) },
+      };
+      if (stateRef.current?.opts.blockReplacement) {
+        pendingRef.current.push(next);
+        return;
+      }
+      stateRef.current = next;
+      setState(next);
       setOpen(true);
-    });
+    }), []);
+
+  const finish = (value: boolean | undefined) => {
+    const current = stateRef.current;
+    current?.resolve(value);
+
+    if (current?.opts.blockReplacement && value === true) {
+      for (const pending of pendingRef.current.splice(0)) {
+        pending.resolve(pending.kind === "warning" ? false : undefined);
+      }
+    }
+
+    const next = pendingRef.current.shift() ?? null;
+    stateRef.current = next;
+    setState(next);
+    setOpen(next !== null);
+  };
 
   const onClose = () => {
     // warning은 닫힘을 "취소"로 처리, 나머지는 resolve()
-    if (state?.kind === "warning") state.resolve(false);
-    else state?.resolve(undefined);
-    setOpen(false);
-    // cleanup
-    setTimeout(() => setState(null), 0);
+    finish(state?.kind === "warning" ? false : undefined);
   };
 
   const confirm = () => {
-    if (state?.kind === "warning") state.resolve(true);
-    else state?.resolve(undefined);
-    setOpen(false);
-    setTimeout(() => setState(null), 0);
+    finish(state?.kind === "warning" ? true : undefined);
   };
 
-  const value = useMemo<Ctx>(
+  const value = useMemo<AppDialogContextValue>(
     () => ({
-      warning: (opts) => show("warning", opts),
+      warning: async (opts) => Boolean(await show("warning", opts)),
       error:   (opts) => show("error",   opts).then(() => {}),
       confirm: (opts) => show("confirm", opts).then(() => {}),
+      update: (opts) => {
+        const current = stateRef.current;
+        if (!current) return;
+        const next = { ...current, opts: { ...current.opts, ...opts } };
+        stateRef.current = next;
+        setState(next);
+      },
     }),
-    []
+    [show]
   );
 
   const tone =
@@ -89,7 +96,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                                 { icon: <CircleHelp className="h-5 w-5 text-sky-600" />,  headerCls: "text-sky-700" };
 
   return (
-    <AppDialogCtx.Provider value={value}>
+    <AppDialogContext.Provider value={value}>
       {children}
       <Dialog
         open={open}
@@ -103,6 +110,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
         {state && (
           <DialogContent
             className="sm:max-w-md max-h-[80vh] flex flex-col"
+            showCloseButton={false}
             onInteractOutside={(e) => !state.opts.allowOutsideClose && e.preventDefault()}
             onEscapeKeyDown={(e) => !state.opts.allowOutsideClose && e.preventDefault()}
           >
@@ -154,6 +162,6 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
           </DialogContent>
         )}
       </Dialog>
-    </AppDialogCtx.Provider>
+    </AppDialogContext.Provider>
   );
 }

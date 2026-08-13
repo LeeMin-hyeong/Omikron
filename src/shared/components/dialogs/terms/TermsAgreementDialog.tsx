@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { rpc } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -24,7 +24,7 @@ export default function TermsAgreementDialog({ open, onAccepted }: Props) {
     setError("");
     setText("");
 
-    rpc
+    generalRpc
       .call("get_terms_text", {})
       .then((res) => {
         if (!res?.ok) {
@@ -42,7 +42,7 @@ export default function TermsAgreementDialog({ open, onAccepted }: Props) {
     setLoading(true);
     setError("");
     try {
-      const res = await rpc.call("accept_terms", {});
+      const res = await generalRpc.call("accept_terms", {});
       if (!res?.ok) {
         setError(res?.error ?? "약관 동의 저장에 실패했습니다.");
         return;
@@ -56,7 +56,7 @@ export default function TermsAgreementDialog({ open, onAccepted }: Props) {
   };
 
   const handleCancel = async () => {
-    await rpc.call("quit_app", {});
+    await generalRpc.call("quit_app", {});
   };
 
   return (

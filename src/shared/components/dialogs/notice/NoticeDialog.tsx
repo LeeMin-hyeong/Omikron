@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { rpc } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -27,7 +27,7 @@ export default function NoticeDialog({ open, title, message, noticeId, onClose }
     if (dontShowAgain && noticeId) {
       setSubmitting(true);
       try {
-        await rpc.call("mark_notice_seen", { notice_id: noticeId });
+        await generalRpc.call("mark_notice_seen", { notice_id: noticeId });
       } catch {
         // Keep UX flowing even when persisting preference fails.
       } finally {

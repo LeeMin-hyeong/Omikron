@@ -64,7 +64,8 @@ export default function HolidayDialog({
     setChecked((prev) => {
       const n = new Set(prev);
       const on = v ?? !n.has(idx);
-      on ? n.add(idx) : n.delete(idx);
+      if (on) n.add(idx);
+      else n.delete(idx);
       return n;
     });
 

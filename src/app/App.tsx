@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/shared/components/ui/button";
+import { useCallback } from "react";
 import { Separator } from "@/shared/components/ui/separator";
 import {
   HelpCircle,
@@ -23,13 +24,16 @@ import { getActionView } from "@/app/viewRegistry";
 import { descriptions } from "@/shared/meta/descriptions";
 import type { tdmActionKey } from "@/shared/types/tdm";
 import FullHeader from "@/shared/components/FullHeader";
-import { rpc } from "pyloid-js";
+import { event } from "pyloid-js";
+import { generalRpc } from "@/api/rpc";
 import PrereqSetupView from "@/features/configuration/PrereqSetupView";
 import useHolidayDialog from "@/shared/components/dialogs/holiday/useHolidayDialog";
-import { useAppDialog } from "@/shared/components/dialogs/app/AppDialogProvider";
+import { useAppDialog } from "@/shared/components/dialogs/app/useAppDialog";
 import InitialConfigView from "@/features/configuration/InitialConfigView";
 import TermsAgreementDialog from "@/shared/components/dialogs/terms/TermsAgreementDialog";
 import NoticeDialog from "@/shared/components/dialogs/notice/NoticeDialog";
+import { useJobActivity } from "@/app/useJobActivity";
+import { errorMessage } from "@/shared/utils/errors";
 
 interface Props {
   onAction?: (key: tdmActionKey) => void;
@@ -54,15 +58,29 @@ type NoticePopup = {
   noticeId: string;
 };
 
+type DataFileState = {
+  ok: boolean;
+  has_class: boolean;
+  has_data: boolean;
+  has_student: boolean;
+  data_dir_valid?: boolean;
+  data_file_name?: string;
+  cwd: string;
+  data_dir: string;
+  missing: string[];
+};
+
 function NavButton({
   icon: Icon,
   label,
   active,
+  disabled,
   onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   active?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -73,6 +91,7 @@ function NavButton({
         (active ? "bg-accent/100 shadow-sm" : "hover:bg-accent/200")
       }
       onClick={onClick}
+      disabled={disabled}
     >
       <Icon className="h-4 w-4" />
       <span className="truncate">{label}</span>
@@ -131,20 +150,20 @@ const groups: {
 
 export default function TdmPanel({
   onAction,
-  width = 1400,
-  height = 830,
-  sidebarPercent = 10,
+  width = 1280,
+  height = 760,
+  sidebarPercent = 22,
 }: Props) {
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== "undefined" ? window.innerWidth : width,
     height: typeof window !== "undefined" ? window.innerHeight : height,
   }));
   const dialog = useAppDialog();
+  const { isBusy } = useJobActivity();
   const [selected, setSelected] = useState<tdmActionKey>("welcome");
-  const [mountedKeys, setMountedKeys] = useState<tdmActionKey[]>(["welcome"]);
   const [missing, setMissing] = useState(false);
   const [holidayChecked, setHolidayChecked] = useState(false);
-  const [state, setState] = useState<any>(null);
+  const [state, setState] = useState<DataFileState | null>(null);
   const [bootChecked, setBootChecked] = useState(false);
   const [needsInitialConfig, setNeedsInitialConfig] = useState(false);
   const [needsTermsAgreement, setNeedsTermsAgreement] = useState(false);
@@ -162,18 +181,20 @@ export default function TdmPanel({
     makeupTest: "",
     makeupTestDate: "",
   });
-  const pollRef = useRef<number | null>(null);
   const dataDirPromptingRef = useRef(false);
   const noticeCheckedRef = useRef(false);
+  const exitDialogOpenRef = useRef(false);
+  const isBusyRef = useRef(isBusy);
+  isBusyRef.current = isBusy;
   const { openHolidayDialog, lastHolidaySelection } = useHolidayDialog();
   const HELP_URL = "https://tdm-db.notion.site/instruction?source=copy_link";
 
-  const showStartupNotice = async () => {
+  const showStartupNotice = useCallback(async () => {
     if (noticeCheckedRef.current) return;
     noticeCheckedRef.current = true;
 
     try {
-      const res = await rpc.call("get_startup_notice", {});
+      const res = await generalRpc.call("get_startup_notice", {});
       if (!res?.ok || !res?.enabled) return;
       setNoticePopup({
         open: true,
@@ -184,7 +205,7 @@ export default function TdmPanel({
     } catch {
       // ignore in browser-only mode
     }
-  };
+  }, []);
 
   const closeNoticePopup = () => {
     setNoticePopup((prev) => ({ ...prev, open: false }));
@@ -192,7 +213,7 @@ export default function TdmPanel({
 
   const fetchState = async () => {
     try {
-      const res = await rpc.call("check_data_files", {});
+      const res = await generalRpc.call("check_data_files", {});
       setState(res);
       setMissing(!res.ok);
       if (res?.data_dir_valid === false && !dataDirPromptingRef.current) {
@@ -206,13 +227,21 @@ export default function TdmPanel({
         dataDirPromptingRef.current = false;
       }
     } catch {
-      setState({ ok: true, has_class: true, has_data: true, has_student: true, missing: [] });
+      setState({
+        ok: true,
+        has_class: true,
+        has_data: true,
+        has_student: true,
+        cwd: "",
+        data_dir: "",
+        missing: [],
+      });
     }
   };
 
   const checkBootstrap = async () => {
     try {
-      const res = await rpc.call("get_config_status", {});
+      const res = await generalRpc.call("get_config_status", {});
       if (!res?.ok) {
         setNeedsInitialConfig(true);
         setNeedsTermsAgreement(false);
@@ -233,6 +262,14 @@ export default function TdmPanel({
       });
 
       if (res.exists) {
+        const storage = await generalRpc.call("verify_storage_health", {});
+        if (!storage?.ok) {
+          await dialog.error({
+            title: "데이터 저장 위치 점검 실패",
+            message: storage?.error || "NAS 데이터 저장 위치를 확인할 수 없습니다.",
+            detail: storage?.detail,
+          });
+        }
         await fetchState();
         if (res.termsAccepted) {
           await showStartupNotice();
@@ -256,7 +293,7 @@ export default function TdmPanel({
 
   const handleOpenHelp = async () => {
     try {
-      const res = await rpc.call("open_url", { url: HELP_URL });
+      const res = await generalRpc.call("open_url", { url: HELP_URL });
       if (!res?.ok) {
         console.error(res?.error);
       }
@@ -267,7 +304,7 @@ export default function TdmPanel({
 
   const changeDataDir = async () => {
     try {
-      const res = await rpc.call("change_data_dir", {});
+      const res = await generalRpc.call("change_data_dir", {});
       if (res?.ok) {
         await dialog.confirm({ title: "성공", message: "데이터 저장 위치를 변경했습니다." });
       } else if (res?.error) {
@@ -277,15 +314,20 @@ export default function TdmPanel({
           detail: res?.detail,
         });
       }
-    } catch (e: any) {
-      await dialog.error({ title: "오류", message: `${e}` });
+    } catch (error: unknown) {
+      await dialog.error({ title: "오류", message: errorMessage(error) });
     } finally {
       await fetchState();
     }
   };
 
+  const checkBootstrapRef = useRef(checkBootstrap);
+  const fetchStateRef = useRef(fetchState);
+  checkBootstrapRef.current = checkBootstrap;
+  fetchStateRef.current = fetchState;
+
   useEffect(() => {
-    void checkBootstrap();
+    void checkBootstrapRef.current();
   }, []);
 
   useEffect(() => {
@@ -299,12 +341,11 @@ export default function TdmPanel({
 
   useEffect(() => {
     if (!bootChecked || missing || needsInitialConfig || needsTermsAgreement) return;
-    pollRef.current = window.setInterval(() => {
-      void fetchState();
-    }, 2000);
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
+    const handleFocus = () => {
+      void fetchStateRef.current();
     };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [bootChecked, missing, needsInitialConfig, needsTermsAgreement]);
 
   useEffect(() => {
@@ -312,8 +353,47 @@ export default function TdmPanel({
   }, [lastHolidaySelection]);
 
   useEffect(() => {
-    setMountedKeys((prev) => (prev.includes(selected) ? prev : [...prev, selected]));
-  }, [selected]);
+    const handleExitRequest = async () => {
+      if (exitDialogOpenRef.current) return;
+      if (!isBusyRef.current) {
+        await generalRpc.call("confirm_app_exit", {});
+        return;
+      }
+      exitDialogOpenRef.current = true;
+      let monitoring = true;
+
+      const monitorCompletion = async () => {
+        while (monitoring) {
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+          if (!monitoring) return;
+          if (!isBusyRef.current) {
+            dialog.update({
+              title: "작업 완료",
+              message: "진행 중이던 작업이 완료되었습니다. 이제 안전하게 종료할 수 있습니다.",
+              confirmText: "종료",
+              cancelText: "계속 사용",
+            });
+            return;
+          }
+        }
+      };
+
+      void monitorCompletion();
+      const shouldExit = await dialog.warning({
+        title: "작업 진행 중",
+        message: "현재 작업이 진행 중입니다. 지금 종료하면 예상치 못한 파일 손상이 발생할 수 있습니다.",
+        confirmText: "그래도 종료",
+        cancelText: "계속 작업",
+        blockReplacement: true,
+      });
+      monitoring = false;
+      exitDialogOpenRef.current = false;
+      if (shouldExit) await generalRpc.call("confirm_app_exit", {});
+    };
+
+    event.listen("app_exit_requested", () => void handleExitRequest());
+    return () => event.unlisten("app_exit_requested");
+  }, [dialog]);
 
   if (!bootChecked) {
     return <div className="h-screen w-screen bg-gradient-to-b from-point/10 to-transparent" />;
@@ -348,32 +428,38 @@ export default function TdmPanel({
               transformOrigin: "top left",
             }}
           >
-        <div className="flex h-16 items-center justify-between border-b border-border/80 px-6">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/80 px-4">
           <div className="flex items-center gap-3">
-            <h1 className="py-5 text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="py-2 text-lg font-semibold tracking-tight text-foreground">
               테스트 데이터 관리 프로그램
             </h1>
           </div>
           {!needsInitialConfig ? (
-            <div className="flex gap-2">
-              {state && !state.ok ? null : (
-                <div className="flex gap-2">
+            <div className="flex gap-1.5">
+              {state?.ok ? (
+                <div className="flex gap-1.5">
                   <Button
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => rpc.call("open_path", { path: state.data_dir })}
+                    onClick={() => generalRpc.call("open_path", { path: state.data_dir })}
                   >
                     <FolderOpen className="h-4 w-4" /> 데이터 폴더
                   </Button>
-                  <Button variant="outline" className="rounded-xl" onClick={changeDataDir}>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={changeDataDir}
+                    disabled={isBusy}
+                  >
                     <FolderSync className="h-4 w-4" /> 저장 위치 변경
                   </Button>
                 </div>
-              )}
+              ) : null}
               <Button
                 variant="outline"
                 className="justify-between rounded-xl"
                 onClick={() => openHolidayDialog()}
+                disabled={isBusy}
               >
                 {holidayChecked ? (
                   <>
@@ -399,26 +485,27 @@ export default function TdmPanel({
             <InitialConfigView initial={setupConfig} onComplete={handleInitialSetupComplete} />
           </section>
         ) : (
-          <div className="grid flex-1" style={{ gridTemplateColumns: `minmax(310px, ${sidebarPercent}%) 1fr` }}>
+          <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `minmax(280px, ${sidebarPercent}%) 1fr` }}>
             <aside className="border-r border-border/80 bg-card/30">
               <div className="flex h-full flex-col">
-                <div className="px-5 pb-2 pt-4 text-sm font-semibold text-muted-foreground">작업 메뉴</div>
+                <div className="px-4 pb-2 pt-3 text-sm font-semibold text-muted-foreground">작업 메뉴</div>
                 <Separator />
-                <div className="flex-1 px-4 py-4">
-                  <div className="space-y-4">
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                  <div className="space-y-[11px]">
                     {groups.map((g, gi) => (
                       <div key={gi}>
-                        <div className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold text-muted-foreground">
+                        <div className="mb-[7px] flex items-center gap-2 px-1 text-sm font-semibold text-muted-foreground">
                           <g.icon className="h-4 w-4 text-point" />
                           {g.title}
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-[3px]">
                           {g.items.map(({ key, label, icon }) => (
                             <NavButton
                               key={key}
                               icon={icon}
                               label={label}
                               active={selected === key}
+                              disabled={isBusy}
                               onClick={() => setSelected(key)}
                             />
                           ))}
@@ -430,22 +517,17 @@ export default function TdmPanel({
               </div>
             </aside>
 
-            <section className="flex min-h-0 flex-col p-3">
+            <section className="flex min-h-0 min-w-0 flex-col p-3">
               {state && !state.ok ? (
                 <PrereqSetupView state={state} onRefresh={fetchState} />
               ) : (
                 <>
                   {selected === "welcome" ? null : <FullHeader title={descriptions[selected].title} />}
-                  <div className="relative h-full w-full overflow-hidden">
-                    {mountedKeys.map((key) => {
-                      const ViewComp = getActionView(key);
-                      const visible = key === selected;
-                      return (
-                        <div key={key} className={visible ? "block h-full w-full" : "hidden h-0 w-0"}>
-                          <ViewComp meta={descriptions[key]} onAction={onAction} />
-                        </div>
-                      );
-                    })}
+                  <div className="relative min-h-0 w-full flex-1 overflow-hidden">
+                    {(() => {
+                      const ViewComp = getActionView(selected);
+                      return <ViewComp key={selected} meta={descriptions[selected]} onAction={onAction} />;
+                    })()}
                   </div>
                 </>
               )}
