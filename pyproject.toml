@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "tdm"
 version = "0.1.0"
 description = "Internal lib"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.13"
 
 dependencies = [
     "pyloid",
@@ -23,6 +23,7 @@ dependencies = [
 dev = [
     "pyloid-builder",
     "pyloid-watcher",
+    "pytest>=8",
     "ruff",
 ]
 
