@@ -178,9 +178,11 @@ def change_data_file_name(new_filename: str) -> None:
         DATA_FILE_NAME = config["dataFileName"] = new_filename
         _save_config(config)
     except FileExistsError:
-        raise FileExistsError("A file with the same name already exists.")
+        raise FileExistsError("같은 이름의 파일이 이미 존재합니다.")
     except PermissionError:
-        raise FileOpenException(f"Cannot rename file while open: {DATA_FILE_NAME}.xlsx")
+        raise FileOpenException(
+            f"{DATA_FILE_NAME}.xlsx 파일이 열려 있어 이름을 변경할 수 없습니다."
+        )
 
 
 def change_data_path(dir_path: str) -> None:

@@ -1,17 +1,17 @@
-﻿import os.path
-import openpyxl as xl
-import zipfile
+﻿import openpyxl as xl
 
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.datavalidation import DataValidation
 
 import tdm.aisosik.reader
-import tdm.config
 
 from tdm.domain.models import StudentInfo
-from tdm.domain.errors import NoMatchingSheetException, FileOpenException, ReopenFileException
+from tdm.domain.errors import FileOpenException, TDMError
+from tdm.excel.atomic import atomic_save_workbook
+from tdm.excel.paths import WorkbookPaths
 from tdm.excel.styles import ALIGN_CENTER, ALIGN_CENTER_WRAP, BORDER_ALL
+from tdm.excel.workbook_io import load_workbook, require_worksheet
 
 # 파일 기본 작업
 def make_file() -> bool:
@@ -37,24 +37,26 @@ def make_file() -> bool:
     return update_student(wb)
 
 def open(data_only:bool=False) -> xl.Workbook:
-    try:
-        return xl.load_workbook(f"{tdm.config.DATA_DIR}/{StudentInfo.DEFAULT_NAME}.xlsx", data_only=data_only)
-    except PermissionError:
-        raise ReopenFileException(f"{StudentInfo.DEFAULT_NAME} 파일에 접근할 수 없습니다.\n파일을 직접 연 후 닫으면 문제가 해결될 수 있습니다.")
-    except zipfile.BadZipFile:
-        raise ReopenFileException(f"{StudentInfo.DEFAULT_NAME} 파일을 직접 연 후 닫으면 문제가 해결될 수 있습니다.")
+    return load_workbook(
+        WorkbookPaths.current().student_info,
+        display_name=StudentInfo.DEFAULT_NAME,
+        data_only=data_only,
+    )
 
 def open_worksheet(wb:xl.Workbook):
-    try:
-        return wb[StudentInfo.DEFAULT_NAME]
-    except:
-        raise NoMatchingSheetException(f"'{StudentInfo.DEFAULT_NAME}.xlsx'의 시트명을 '{StudentInfo.DEFAULT_NAME}'으로 변경해 주세요.")
+    return require_worksheet(wb, StudentInfo.DEFAULT_NAME)
 
 def save(wb:xl.Workbook):
     try:
-        wb.save(f"{tdm.config.DATA_DIR}/{StudentInfo.DEFAULT_NAME}.xlsx")
-    except:
-        raise FileOpenException()
+        atomic_save_workbook(wb, WorkbookPaths.current().student_info)
+    except TDMError:
+        raise
+    except Exception as exc:
+        raise FileOpenException(
+            f"{StudentInfo.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요"
+        ) from exc
+    finally:
+        wb.close()
 
 # 파일 유틸리티
 def get_student_info(ws:Worksheet, student_name:str):
@@ -67,12 +69,12 @@ def get_student_info(ws:Worksheet, student_name:str):
         if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == student_name:
             makeup_test_weekday = ws.cell(row, StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN).value
             makeup_test_time    = ws.cell(row, StudentInfo.MAKEUPTEST_TIME_COLUMN).value
-            new_studnet         = ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
+            new_student         = ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
             break
     else:
         return False, None, None, False
     
-    return True, makeup_test_weekday, makeup_test_time, new_studnet == 'N'
+    return True, makeup_test_weekday, makeup_test_time, new_student == 'N'
 
 # 파일 작업
 def add_student(target_student_name:str):

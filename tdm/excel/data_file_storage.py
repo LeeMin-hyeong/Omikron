@@ -1,44 +1,21 @@
 ﻿"""Creation, opening, saving, and backup of the main data workbook."""
 
 import os
-import zipfile
-from datetime import datetime
 
 import openpyxl as xl
-import pythoncom
-import win32com.client
 from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.formula import ArrayFormula
 
 import tdm.aisosik.reader
-import tdm.config
 import tdm.excel.class_info
-from tdm.domain.errors import ExcelRequiredException, FileOpenException, NoMatchingSheetException, ReopenFileException
+from tdm.domain.errors import FileOpenException, TDMError
 from tdm.domain.models import DataFile
+from tdm.excel.atomic import atomic_save_workbook
+from tdm.excel.backup import create_backup
+from tdm.excel.paths import WorkbookPaths
 from tdm.excel.styles import ALIGN_CENTER, BORDER_BOTTOM_MEDIUM_000, BORDER_BOTTOM_THIN_9090, BORDER_TOP_THIN_9090_BOTTOM_MEDIUM_000, FONT_BOLD
-
-def _recalculate_with_excel(file_path: str):
-    """Use Excel COM to force formula recalculation / conditional formatting evaluation."""
-    pythoncom.CoInitialize()
-    excel = None
-    try:
-        try:
-            excel = win32com.client.Dispatch("Excel.Application")
-        except pythoncom.com_error as e:
-            raise ExcelRequiredException(
-                "이 기능을 사용하려면 Microsoft Excel 이 설치되어 있어야 합니다."
-            ) from e
-
-        wb_com = excel.Workbooks.Open(os.path.abspath(file_path))
-        wb_com.Save()
-        wb_com.Close()
-    finally:
-        try:
-            if excel is not None:
-                excel.Quit()
-        except:
-            pass
-        pythoncom.CoUninitialize()
+from tdm.excel.validation import validate_workbook_structure
+from tdm.excel.workbook_io import load_workbook
 
 # 파일 기본 작업
 
@@ -65,7 +42,8 @@ def make_file():
             continue
 
         exist, teacher_name, _, _, mock_test_check = tdm.excel.class_info.get_class_info(class_name, ws=class_ws)
-        if not exist: continue
+        if not exist:
+            continue
 
         for i in range(2):
             if i == 1 and not mock_test_check:
@@ -120,53 +98,68 @@ def make_file():
         for col in range(1, ws.max_column + 1):
             ws.cell(row, col).alignment = ALIGN_CENTER
 
+    class_wb.close()
     save(wb)
 
 def open(data_only:bool=False, read_only:bool=False) -> xl.Workbook:
-    try:
-        return xl.load_workbook(f"{tdm.config.DATA_DIR}/data/{tdm.config.DATA_FILE_NAME}.xlsx", data_only=data_only, read_only=read_only)
-    except PermissionError:
-        raise ReopenFileException(f"{tdm.config.DATA_FILE_NAME} 파일에 접근할 수 없습니다.\n파일을 직접 연 후 닫으면 문제가 해결될 수 있습니다.")
-    except zipfile.BadZipFile:
-        raise ReopenFileException(f"{tdm.config.DATA_FILE_NAME} 파일을 직접 연 후 닫으면 문제가 해결될 수 있습니다.")
+    paths = WorkbookPaths.current()
+    return load_workbook(
+        paths.data_file,
+        display_name=paths.data_file_name,
+        data_only=data_only,
+        read_only=read_only,
+    )
 
 def open_temp(data_only:bool=False, read_only:bool=False) -> xl.Workbook:
-    return xl.load_workbook(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx", data_only=data_only, read_only=read_only)
+    return load_workbook(
+        WorkbookPaths.current().data_temp,
+        display_name=DataFile.TEMP_FILE_NAME,
+        data_only=data_only,
+        read_only=read_only,
+    )
 
 def save(wb:xl.Workbook):
+    paths = WorkbookPaths.current()
     try:
-        if not os.path.isdir(f"{tdm.config.DATA_DIR}/data"):
-            os.mkdir(f"{tdm.config.DATA_DIR}/data")
-        wb.save(f"{tdm.config.DATA_DIR}/data/{tdm.config.DATA_FILE_NAME}.xlsx")
-    except:
-        raise FileOpenException(f"{tdm.config.DATA_FILE_NAME} 파일을 닫은 뒤 다시 시도해주세요")
+        paths.data_dir.mkdir(parents=True, exist_ok=True)
+        atomic_save_workbook(wb, paths.data_file)
+    except TDMError:
+        raise
+    except Exception as exc:
+        raise FileOpenException(
+            f"{paths.data_file_name} 파일을 닫은 뒤 다시 시도해주세요"
+        ) from exc
+    finally:
+        wb.close()
 
 def save_to_temp(wb:xl.Workbook):
-    if not os.path.isdir(f"{tdm.config.DATA_DIR}/data"):
-        os.mkdir(f"{tdm.config.DATA_DIR}/data")
-    wb.save(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
-    os.system(f"attrib +h {tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    paths = WorkbookPaths.current()
+    paths.data_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        atomic_save_workbook(wb, paths.data_temp, update_source=False)
+        os.system(f'attrib +h "{paths.data_temp}"')
+    finally:
+        wb.close()
 
 def delete_temp():
     try:
-        os.remove(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
-    except:
+        WorkbookPaths.current().data_temp.unlink(missing_ok=True)
+    except OSError:
         pass
 
 def file_validation():
-    wb = open(read_only=True)
-
-    if DataFile.DEFAULT_SHEET_NAME not in wb.sheetnames:
-        raise NoMatchingSheetException(f"데이터 파일: {DataFile.DEFAULT_SHEET_NAME} 시트가 존재하지 않습니다.")
-
-    wb.close()
+    validate_workbook_structure(
+        WorkbookPaths.current().data_file,
+        sheet_name=DataFile.DEFAULT_SHEET_NAME,
+        required_headers=("반", "담당", "이름", "학생 평균"),
+    )
 
 # 파일 유틸리티
 
 def make_backup_file():
-    if not os.path.isdir(f"{tdm.config.DATA_DIR}/data"):
-        os.mkdir(f"{tdm.config.DATA_DIR}/data")
-    if not os.path.isdir(f"{tdm.config.DATA_DIR}/data/backup"):
-        os.mkdir(f"{tdm.config.DATA_DIR}/data/backup")
-    wb = open()
-    wb.save(f"{tdm.config.DATA_DIR}/data/backup/{tdm.config.DATA_FILE_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
+    paths = WorkbookPaths.current()
+    return create_backup(
+        paths.data_file,
+        stem=paths.data_file_name,
+        backup_dir=paths.backup_dir,
+    )

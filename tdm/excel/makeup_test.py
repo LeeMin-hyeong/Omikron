@@ -1,6 +1,4 @@
-﻿import os
-import openpyxl as xl
-import zipfile
+﻿import openpyxl as xl
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
@@ -8,17 +6,19 @@ from openpyxl.utils.cell import get_column_letter as gcl
 import tdm.excel.class_info
 import tdm.excel.data_form
 import tdm.excel.student_info
-import tdm.config
 
 from tdm.domain.models import MakeupTestList, DataForm
-from tdm.domain.errors import NoMatchingSheetException, FileOpenException, ReopenFileException
+from tdm.domain.errors import FileOpenException, TDMError
 from tdm.excel.utils import calculate_makeup_test_schedule
 from tdm.domain.progress import Progress
+from tdm.excel.atomic import atomic_save_workbook
+from tdm.excel.paths import WorkbookPaths
 from tdm.excel.styles import ALIGN_CENTER, ALIGN_CENTER_WRAP, FILL_NEW_STUDENT, BORDER_ALL
+from tdm.excel.workbook_io import load_workbook, require_worksheet
 
 
 # 파일 기본 작업
-def make_file():
+def create_workbook() -> xl.Workbook:
     wb = xl.Workbook()
     ws = wb.worksheets[0]
     ws.title = MakeupTestList.DEFAULT_NAME
@@ -39,32 +39,47 @@ def make_file():
         ws.cell(1, col).alignment = ALIGN_CENTER_WRAP
         ws.cell(1, col).border    = BORDER_ALL
 
-    wb.save(f"{tdm.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx")
+    return wb
+
+
+def make_file():
+    wb = create_workbook()
+    try:
+        atomic_save_workbook(wb, WorkbookPaths.current().makeup_test)
+    finally:
+        wb.close()
 
 def open(data_only:bool=False) -> xl.Workbook:
+    path = WorkbookPaths.current().makeup_test
     try:
-        return xl.load_workbook(f"{tdm.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx", data_only=data_only)
-    except PermissionError:
-        raise ReopenFileException(f"{MakeupTestList.DEFAULT_NAME} 파일에 접근할 수 없습니다.\n파일을 직접 연 후 닫으면 문제가 해결될 수 있습니다.")
-    except zipfile.BadZipFile:
-        raise ReopenFileException(f"{MakeupTestList.DEFAULT_NAME} 파일을 직접 연 후 닫으면 문제가 해결될 수 있습니다.")
-    except FileNotFoundError:
-        raise FileNotFoundError(f"{MakeupTestList.DEFAULT_NAME} 파일이 존재하지 않습니다.\n데이터 저장 시 재시험자가 발생하면 자동으로 생성됩니다.")
+        return load_workbook(
+            path,
+            display_name=MakeupTestList.DEFAULT_NAME,
+            data_only=data_only,
+        )
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"{MakeupTestList.DEFAULT_NAME} 파일이 존재하지 않습니다.\n"
+            "데이터 저장 시 재시험자가 발생하면 자동으로 생성됩니다."
+        ) from exc
 
 def open_worksheet(wb:xl.Workbook):
-    try:
-        return wb[MakeupTestList.DEFAULT_NAME]
-    except:
-        raise NoMatchingSheetException(f"'{MakeupTestList.DEFAULT_NAME}.xlsx'의 시트명을 '{MakeupTestList.DEFAULT_NAME}'으로 변경해 주세요.")
+    return require_worksheet(wb, MakeupTestList.DEFAULT_NAME)
 
 def save(wb:xl.Workbook):
     try:
-        wb.save(f"{tdm.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx")
-    except:
-        raise FileOpenException(f"{MakeupTestList.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요")
+        atomic_save_workbook(wb, WorkbookPaths.current().makeup_test)
+    except TDMError:
+        raise
+    except Exception as exc:
+        raise FileOpenException(
+            f"{MakeupTestList.DEFAULT_NAME} 파일을 닫은 뒤 다시 시도해주세요"
+        ) from exc
+    finally:
+        wb.close()
 
 # 파일 유틸리티
-def get_studnet_test_index_dict():
+def get_student_test_index_dict():
     """
     1st key: 학생 이름
 
@@ -81,14 +96,12 @@ def get_studnet_test_index_dict():
             class_name       = ws.cell(row, MakeupTestList.CLASS_NAME_COLUMN).value
             student_name     = ws.cell(row, MakeupTestList.STUDENT_NAME_COLUMN).value
             makeup_test_name = ws.cell(row, MakeupTestList.TEST_NAME_COLUMN).value
-            try:
-                student_test_index_dict[student_name]
-            except:
-                student_test_index_dict[student_name] = {}
+            student_test_index_dict.setdefault(student_name, {})
 
             test_name = f"({class_name}) {makeup_test_name}"
             student_test_index_dict[student_name][test_name] = row
 
+    wb.close()
     return student_test_index_dict
 
 # 파일 작업
@@ -102,10 +115,10 @@ def save_makeup_test_list(filepath: str, makeup_test_date: dict, prog: Progress)
         form_ws = tdm.excel.data_form.open_worksheet(form_wb)
 
         # 재시험 정보 파일 없으면 생성
-        if not os.path.isfile(f"{tdm.config.DATA_DIR}/data/{MakeupTestList.DEFAULT_NAME}.xlsx"):
-            make_file()
-
-        wb = open()
+        if WorkbookPaths.current().makeup_test.is_file():
+            wb = open()
+        else:
+            wb = create_workbook()
         ws = open_worksheet(wb)
 
         # 학생 정보
@@ -134,7 +147,7 @@ def save_makeup_test_list(filepath: str, makeup_test_date: dict, prog: Progress)
         while check > 1:
             test_date = ws.cell(check, MakeupTestList.TEST_DATE_COLUMN).value
 
-            if test_date is None or type(test_date) != datetime:
+            if test_date is None or not isinstance(test_date, datetime):
                 check -= 1
                 continue
 
@@ -247,8 +260,11 @@ def save_makeup_test_result(target_row:int, makeup_test_score:str) -> bool:
 
     return True
 
-def save_individual_makeup_test(student_name:str, class_name:str, test_name:str, test_score:int|float, makeup_test_date:dict, prog:Progress):
-    wb = open()
+def prepare_individual_makeup_test(student_name:str, class_name:str, test_name:str, test_score:int|float, makeup_test_date:dict, prog:Progress) -> xl.Workbook:
+    if WorkbookPaths.current().makeup_test.is_file():
+        wb = open()
+    else:
+        wb = create_workbook()
     ws = open_worksheet(wb)
 
     student_wb = tdm.excel.student_info.open(True)
@@ -257,44 +273,60 @@ def save_individual_makeup_test(student_name:str, class_name:str, test_name:str,
     class_wb = tdm.excel.class_info.open(True)
     class_ws = tdm.excel.class_info.open_worksheet(class_wb)
 
-    for row in range(ws.max_row+1, 1, -1):
-        if ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
-            MAKEUP_TEST_WRITE_ROW = row
-            break
+    try:
+        for row in range(ws.max_row+1, 1, -1):
+            if ws.cell(row-1, MakeupTestList.TEST_DATE_COLUMN).value is not None:
+                MAKEUP_TEST_WRITE_ROW = row
+                break
 
-    exist, teacher_name, _, _, _ = tdm.excel.class_info.get_class_info(class_name, class_ws)
-    if not exist:
-        prog.warning(f"{class_name}의 반 정보가 존재하지 않습니다.")
+        exist, teacher_name, _, _, _ = tdm.excel.class_info.get_class_info(class_name, class_ws)
+        if not exist:
+            prog.warning(f"{class_name}의 반 정보가 존재하지 않습니다.")
 
-    exist, makeup_test_weekday, _, new_student = tdm.excel.student_info.get_student_info(student_ws, student_name)
-    if not exist:
-        prog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
+        exist, makeup_test_weekday, _, new_student = tdm.excel.student_info.get_student_info(student_ws, student_name)
+        if not exist:
+            prog.warning(f"{student_name}의 학생 정보가 존재하지 않습니다.")
 
-    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value    = datetime.today().date()
-    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value   = class_name
-    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_NAME_COLUMN).value = teacher_name
-    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student_name
-    ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value    = test_name
-    # ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_SCORE_COLUMN).value   = test_score
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_DATE_COLUMN).value = datetime.today().date()
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.CLASS_NAME_COLUMN).value = class_name
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEACHER_NAME_COLUMN).value = teacher_name
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).value = student_name
+        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.TEST_NAME_COLUMN).value = test_name
 
-    if new_student:
-        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = FILL_NEW_STUDENT
+        if new_student:
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.STUDENT_NAME_COLUMN).fill = FILL_NEW_STUDENT
 
-    if makeup_test_weekday is not None:
-        # ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_WEEKDAY_COLUMN).value = makeup_test_weekday
+        if makeup_test_weekday is not None:
+            complete, calculated_schedule, _ = calculate_makeup_test_schedule(makeup_test_weekday, makeup_test_date)
+            if not complete:
+                prog.warning(f"{student_name}의 재시험 일정이 올바른 양식이 아닙니다.")
 
-        complete, calculated_schedule, _ = calculate_makeup_test_schedule(makeup_test_weekday, makeup_test_date)
-        if not complete:
-            prog.warning(f"{student_name}의 재시험 일정이 올바른 양식이 아닙니다.")
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value = calculated_schedule
+            ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
 
-        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).value         = calculated_schedule
-        ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_DATE_COLUMN).number_format = "mm월 dd일(aaa)"
+        for col in range(1, MakeupTestList.MAX + 1):
+            ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = ALIGN_CENTER
+            ws.cell(MAKEUP_TEST_WRITE_ROW, col).border = BORDER_ALL
 
-        # if makeup_test_time is not None:
-            # ws.cell(MAKEUP_TEST_WRITE_ROW, MakeupTestList.MAKEUPTEST_TIME_COLUMN).value = makeup_test_time
+        return wb
+    except Exception:
+        wb.close()
+        raise
+    finally:
+        student_wb.close()
+        class_wb.close()
 
-    for col in range(1, MakeupTestList.MAX + 1):
-        ws.cell(MAKEUP_TEST_WRITE_ROW, col).alignment = ALIGN_CENTER
-        ws.cell(MAKEUP_TEST_WRITE_ROW, col).border    = BORDER_ALL
 
-    save(wb)
+def save_individual_makeup_test(student_name:str, class_name:str, test_name:str, test_score:int|float, makeup_test_date:dict, prog:Progress):
+    wb = prepare_individual_makeup_test(
+        student_name,
+        class_name,
+        test_name,
+        test_score,
+        makeup_test_date,
+        prog,
+    )
+    try:
+        save(wb)
+    finally:
+        wb.close()

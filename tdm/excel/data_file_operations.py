@@ -1,6 +1,5 @@
 ﻿"""Exam, formatting, class, and student mutations for the data workbook."""
 
-import os
 from datetime import datetime
 
 import openpyxl as xl
@@ -8,15 +7,20 @@ from openpyxl.utils.cell import get_column_letter as gcl
 from openpyxl.worksheet.formula import ArrayFormula
 
 import tdm.aisosik.reader
-import tdm.config
 import tdm.excel.class_info
 import tdm.excel.data_form
 import tdm.excel.student_info
+from tdm.domain.errors import InvalidOperationError
 from tdm.domain.models import DataFile, DataForm
 from tdm.domain.progress import Progress
 from tdm.excel.data_file_queries import find_dynamic_columns, get_class_names
+from tdm.excel.atomic import (
+    atomic_save_workbook,
+    track_workbook_source,
+    workbook_source_revision,
+)
+from tdm.excel.com_adapter import recalculate_workbook
 from tdm.excel.data_file_storage import (
-    _recalculate_with_excel,
     delete_temp,
     file_validation,
     make_backup_file,
@@ -25,6 +29,7 @@ from tdm.excel.data_file_storage import (
     save,
     save_to_temp,
 )
+from tdm.excel.paths import WorkbookPaths
 from tdm.excel.styles import (
     ALIGN_CENTER,
     ALIGN_CENTER_WRAP,
@@ -41,13 +46,14 @@ from tdm.excel.styles import (
     FONT_STRIKE,
 )
 from tdm.excel.utils import class_average_color, copy_cell, student_average_color, test_score_color
+from tdm.excel.workbook_io import close_workbooks, load_workbook
 
 def save_test_data(filepath:str, prog: Progress):
     """
     데이터 양식에 작성된 데이터를 데이터 파일에 저장
     """
     # 임시 파일 삭제
-    if os.path.isfile(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx"):
+    if WorkbookPaths.current().data_temp.is_file():
         delete_temp()
 
     form_wb = tdm.excel.data_form.open(filepath)
@@ -65,6 +71,7 @@ def save_test_data(filepath:str, prog: Progress):
 
     wb = open()
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
+    source_revision = workbook_source_revision(wb, WorkbookPaths.current().data_file)
 
     CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
@@ -82,7 +89,8 @@ def save_test_data(filepath:str, prog: Progress):
             # 반 필터링
             if (form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value is not None) and (form_ws.cell(i, TEST_NAME_COLUMN).value is not None):
                 class_name   = form_ws.cell(i, DataForm.CLASS_NAME_COLUMN).value
-                if t == 1: class_name += " (모의고사)"
+                if t == 1:
+                    class_name += " (모의고사)"
                 test_name    = form_ws.cell(i, TEST_NAME_COLUMN).value
                 test_average = form_ws.cell(i, TEST_AVERAGE_COLUMN).value
 
@@ -110,7 +118,9 @@ def save_test_data(filepath:str, prog: Progress):
                 # 데이터 작성 열 찾기
                 for col in range(AVERAGE_SCORE_COLUMN+1, ws.max_column+2):
                     test_date = ws.cell(CLASS_START, col).value
-                    if type(test_date) == datetime and test_date.strftime("%y%m%d") == datetime.today().strftime("%y%m%d"):
+                    if isinstance(test_date, datetime) and test_date.strftime(
+                        "%y%m%d"
+                    ) == datetime.today().strftime("%y%m%d"):
                         WRITE_COLUMN = col
                         break
                     elif test_date is None:
@@ -164,9 +174,10 @@ def save_test_data(filepath:str, prog: Progress):
     prog.step("데이터 저장 완료")
 
     # 조건부 서식 수식 로딩
-    _recalculate_with_excel(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    recalculate_workbook(WorkbookPaths.current().data_temp)
 
     wb           = open_temp()
+    track_workbook_source(wb, WorkbookPaths.current().data_file, source_revision)
     data_only_wb = open_temp(data_only=True)
 
     ws           = wb[DataFile.DEFAULT_SHEET_NAME]
@@ -207,12 +218,17 @@ def save_test_data(filepath:str, prog: Progress):
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
     prog.step("조건부 서식 로딩 완료")
 
+    close_workbooks(form_wb, student_wb, data_only_wb)
     return wb
 
-def save_individual_test_data(target_row:int, target_col:int, test_score:int|float):
-    """정규 시험에 미응시한 학생의 결과를 입력하고 해당 반의 평균을 반환"""
+def prepare_individual_test_data(
+    target_row: int,
+    target_col: int,
+    test_score: int | float,
+) -> tuple[xl.Workbook, int | float | None]:
+    """Prepare an individual result without committing the main workbook."""
     # 임시 파일 삭제
-    if os.path.isfile(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx"):
+    if WorkbookPaths.current().data_temp.is_file():
         delete_temp()
 
     file_validation()
@@ -222,6 +238,7 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 
     wb = open()
     ws = wb[DataFile.DEFAULT_SHEET_NAME]
+    source_revision = workbook_source_revision(wb, WorkbookPaths.current().data_file)
 
     # 시험 점수 기록
     ws.cell(target_row, target_col).value     = test_score
@@ -230,9 +247,10 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
 
     save_to_temp(wb)
 
-    _recalculate_with_excel(f"{tdm.config.DATA_DIR}/data/{DataFile.TEMP_FILE_NAME}.xlsx")
+    recalculate_workbook(WorkbookPaths.current().data_temp)
 
     wb           = open_temp()
+    track_workbook_source(wb, WorkbookPaths.current().data_file, source_revision)
     data_only_wb = open_temp(True)
 
     ws           = wb[DataFile.DEFAULT_SHEET_NAME]
@@ -259,15 +277,30 @@ def save_individual_test_data(target_row:int, target_col:int, test_score:int|flo
     if type(class_average) in (int, float):
         ws.cell(test_average_row, AVERAGE_SCORE_COLUMN).fill = class_average_color(class_average)
 
-    save(wb)
+    data_only_wb.close()
     delete_temp()
+
+    return wb, test_average
+
+
+def save_individual_test_data(target_row:int, target_col:int, test_score:int|float):
+    """정규 시험에 미응시한 학생의 결과를 입력하고 해당 반의 평균을 반환"""
+    wb, test_average = prepare_individual_test_data(
+        target_row,
+        target_col,
+        test_score,
+    )
+    try:
+        save(wb)
+    finally:
+        wb.close()
 
     return test_average
 
 def conditional_formatting():
     file_validation()
 
-    _recalculate_with_excel(f"{tdm.config.DATA_DIR}/data/{tdm.config.DATA_FILE_NAME}.xlsx")
+    recalculate_workbook(WorkbookPaths.current().data_file)
 
     warnings = []
 
@@ -280,23 +313,24 @@ def conditional_formatting():
     data_only_ws = data_only_wb[DataFile.DEFAULT_SHEET_NAME]
 
     _, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
+    date_row: int | None = None
 
     for row in range(2, ws.max_row+1):
         if ws.cell(row, STUDENT_NAME_COLUMN).value is None:
             break
         if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
-            DATE_ROW = row
+            date_row = row
         if ws.cell(row, STUDENT_NAME_COLUMN).value != "시험명":
             ws.row_dimensions[row].height = 18
 
         # 데이터 조건부 서식
         for col in range(1, data_only_ws.max_column+1):
-            try:
-                if col > AVERAGE_SCORE_COLUMN and ws.cell(DATE_ROW, col).value is None:
-                    break
-            except:
-                if col > AVERAGE_SCORE_COLUMN and ws.cell(row, col).value is None:
-                    break
+            reference_row = date_row if date_row is not None else row
+            if (
+                col > AVERAGE_SCORE_COLUMN
+                and ws.cell(reference_row, col).value is None
+            ):
+                break
 
             ws.column_dimensions[gcl(col)].width = 14
             if ws.cell(row, STUDENT_NAME_COLUMN).value == "날짜":
@@ -354,6 +388,9 @@ def conditional_formatting():
             ws.cell(row, STUDENT_NAME_COLUMN).fill = FILL_NONE
             warnings.append(f"{ws.cell(row, STUDENT_NAME_COLUMN).value} 학생 정보가 존재하지 않습니다.")
 
+    # A read-only openpyxl workbook keeps the source ZIP handle open.  On
+    # Windows that prevents the atomic replacement of the same file.
+    close_workbooks(data_only_wb, student_wb)
     save(wb)
 
     return warnings
@@ -372,10 +409,11 @@ def update_class(prog: Progress | None = None):
     new_class_names = set(tdm.excel.class_info.get_new_class_names())
 
     # 조건부 서식 수식 로딩
-    _recalculate_with_excel(f"{tdm.config.DATA_DIR}/data/{tdm.config.DATA_FILE_NAME}.xlsx")
+    paths = WorkbookPaths.current()
+    recalculate_workbook(paths.data_file)
 
     # 지난 데이터 파일이 없으면 새로 생성
-    if not os.path.isfile(f"{tdm.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx"):
+    if not paths.previous_data.is_file():
         pre_data_wb = xl.Workbook()
         pre_data_ws = pre_data_wb.worksheets[0]
         pre_data_ws.title = DataFile.DEFAULT_SHEET_NAME
@@ -391,9 +429,15 @@ def update_class(prog: Progress | None = None):
             pre_data_ws.cell(1, col).alignment = ALIGN_CENTER
             pre_data_ws.cell(1, col).border    = BORDER_BOTTOM_MEDIUM_000
 
-        pre_data_wb.save(f"{tdm.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
+        atomic_save_workbook(
+            pre_data_wb,
+            paths.previous_data,
+        )
     else:
-        pre_data_wb = xl.load_workbook(f"{tdm.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
+        pre_data_wb = load_workbook(
+            paths.previous_data,
+            display_name=DataFile.PRE_DATA_FILE_NAME,
+        )
 
     # 지난 데이터 이동
     data_only_wb = open(data_only=True) # 데이터가 더이상 수정되지 않으므로 읽기 전용으로 불러옴
@@ -430,7 +474,10 @@ def update_class(prog: Progress | None = None):
 
     data_only_wb.close()
     del data_only_wb
-    pre_data_wb.save(f"{tdm.config.DATA_DIR}/data/{DataFile.PRE_DATA_FILE_NAME}.xlsx")
+    atomic_save_workbook(
+        pre_data_wb,
+        paths.previous_data,
+    )
     del pre_data_wb
 
     # 데이터 파일 지난 데이터 삭제 및 신규 반 추가
@@ -489,7 +536,8 @@ def update_class(prog: Progress | None = None):
             if len(class_student_dict[temp_name]) == 0 :
                 continue
             exist, teacher_name, _, _, _ = tdm.excel.class_info.get_class_info(temp_name, ws=class_ws)
-            if not exist: continue
+            if not exist:
+                continue
 
             # 시험명
             ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
@@ -507,10 +555,10 @@ def update_class(prog: Progress | None = None):
             WRITE_LOCATION += 1
 
             # 학생 루프
-            for studnet_name in class_student_dict[temp_name]:
+            for student_name in class_student_dict[temp_name]:
                 ws.cell(WRITE_LOCATION, CLASS_NAME_COLUMN).value    = class_name
                 ws.cell(WRITE_LOCATION, TEACHER_NAME_COLUMN).value  = teacher_name
-                ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = studnet_name
+                ws.cell(WRITE_LOCATION, STUDENT_NAME_COLUMN).value  = student_name
                 WRITE_LOCATION += 1
             
             # 시험별 평균
@@ -537,7 +585,7 @@ def update_class(prog: Progress | None = None):
     if prog:
         prog.step("함수 서식 범위 재조정 중...")
 
-    return rescoping_formula(wb)
+    return rescope_formulas(wb)
 
 def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
     """
@@ -555,7 +603,8 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
     warnings = []
 
     for i in range(2):
-        if i == 1: target_class_name += " (모의고사)"
+        if i == 1:
+            target_class_name += " (모의고사)"
 
         CLASS_NAME_COLUMN, TEACHER_NAME_COLUMN, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
@@ -599,7 +648,7 @@ def add_student(student_name:str, target_class_name:str, wb:xl.Workbook=None):
         ws.cell(class_index, AVERAGE_SCORE_COLUMN).alignment = ALIGN_CENTER
         ws.cell(class_index, AVERAGE_SCORE_COLUMN).font      = FONT_BOLD
 
-    rescoping_formula(wb)
+    rescope_formulas(wb)
 
     return warnings
 
@@ -642,9 +691,22 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
 
     CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, _ = find_dynamic_columns(ws)
 
+    if current_class_name == target_class_name:
+        wb.close()
+        raise InvalidOperationError("현재 반과 이동할 반이 같습니다.")
+
     # 기존 반 데이터 빨간색 처리
+    source_found = False
     for row in range(2, ws.max_row+1):
         if ws.cell(row, STUDENT_NAME_COLUMN).value == student_name and ws.cell(row, CLASS_NAME_COLUMN).value in (current_class_name, current_class_name+" (모의고사)"):
+            student_cell = ws.cell(row, STUDENT_NAME_COLUMN)
+            is_red = (
+                student_cell.font.color is not None
+                and student_cell.font.color.rgb == "FFFF0000"
+            )
+            if student_cell.font.strike or is_red:
+                continue
+            source_found = True
             for col in range(1, ws.max_column+1):
                 if ws.cell(row, col).font.bold:
                     ws.cell(row, col).font = FONT_BOLD_RED
@@ -652,9 +714,15 @@ def move_student(student_name:str, target_class_name:str, current_class_name:str
                     ws.cell(row, col).font = FONT_RED
             # break
 
+    if not source_found:
+        wb.close()
+        raise InvalidOperationError(
+            f"데이터 파일의 {current_class_name} 반에서 {student_name} 학생을 찾을 수 없습니다."
+        )
+
     return add_student(student_name, target_class_name, wb)
 
-def rescoping_formula(wb:xl.Workbook=None):
+def rescope_formulas(wb:xl.Workbook=None):
     """
     데이터 파일 내 평균 산출 수식의 범위 재조정
     """
