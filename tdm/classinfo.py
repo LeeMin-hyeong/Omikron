@@ -1,6 +1,8 @@
 import os
 import openpyxl as xl
 import zipfile
+from copy import copy
+from shutil import copy2
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
@@ -92,8 +94,10 @@ def make_backup_file():
         os.mkdir(f"{tdm.config.DATA_DIR}/data")
     if not os.path.isdir(f"{tdm.config.DATA_DIR}/data/backup"):
         os.mkdir(f"{tdm.config.DATA_DIR}/data/backup")
-    wb = open(read_only=False)
-    wb.save(f"{tdm.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
+    copy2(
+        f"{tdm.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx",
+        f"{tdm.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx",
+    )
 
 def get_class_info(class_name:str, ws:Worksheet = None):
     """
@@ -123,14 +127,20 @@ def get_class_names(ws:Worksheet = None, mocktest = False) -> list[str]:
     """
     if ws is None:
         wb = open()
-        ws = open_worksheet(wb)
+        try:
+            return get_class_names(open_worksheet(wb), mocktest=mocktest)
+        finally:
+            wb.close()
 
     class_names = []
-    for row in range(2, ws.max_row + 1):
-        class_name = ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value
-        if class_name is not None:
-            class_names.append(class_name)
-        if mocktest and ws.cell(row, ClassInfo.MOCKTEST_CHECK_COLUMN).value == "Y":
+    # 읽기 전용 시트의 cell() 반복 호출은 매번 XML을 다시 읽으므로 한 번에 순회한다.
+    max_col = ClassInfo.MOCKTEST_CHECK_COLUMN if mocktest else ClassInfo.CLASS_NAME_COLUMN
+    for row in ws.iter_rows(min_row=2, max_col=max_col, values_only=True):
+        class_name = row[ClassInfo.CLASS_NAME_COLUMN - 1]
+        if class_name is None:
+            continue
+        class_names.append(class_name)
+        if mocktest and row[ClassInfo.MOCKTEST_CHECK_COLUMN - 1] == "Y":
             class_names.append(class_name + " (모의고사)")
 
     return sorted(class_names)
@@ -158,40 +168,60 @@ def make_temp_file_for_update(new_class_list:list[str]):
     """
     make_backup_file()
 
-    wb = open(read_only=False)
-    ws = open_worksheet(wb)
+    wb = open(data_only=False, read_only=True)
+    temp_wb = xl.Workbook()
+    try:
+        ws = open_worksheet(wb)
+        temp_ws = temp_wb.active
+        temp_ws.title = ClassInfo.DEFAULT_NAME
+        selected_names = set(new_class_list)
+        existing_names = set()
+        write_row = 2
 
-    class_names = set(get_class_names(ws))
+        # 원본의 빈 행, 사용 범위, 필터와 서식만 있는 셀은 새 파일에 복사하지 않는다.
+        for source_row, cells in enumerate(ws.iter_rows(max_col=ClassInfo.MAX), start=1):
+            name = cells[ClassInfo.CLASS_NAME_COLUMN - 1].value
+            if source_row != 1 and (name is None or name not in selected_names):
+                continue
+            target_row = 1 if source_row == 1 else write_row
+            for col, source_cell in enumerate(cells, start=1):
+                target = temp_ws.cell(target_row, col, source_cell.value)
+                if getattr(source_cell, "has_style", False):
+                    target.font = copy(source_cell.font)
+                    target.fill = copy(source_cell.fill)
+                    target.border = copy(source_cell.border)
+                    target.alignment = copy(source_cell.alignment)
+                    target.number_format = source_cell.number_format
+                    target.protection = copy(source_cell.protection)
+            if source_row != 1:
+                existing_names.add(name)
+                write_row += 1
 
-    unregistered_class_names = sorted(list(set(new_class_list).difference(class_names)))
+        for class_name in sorted(selected_names.difference(existing_names)):
+            temp_ws.cell(write_row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
+            for col in range(1, ClassInfo.MAX + 1):
+                temp_ws.cell(write_row, col).alignment = ALIGN_CENTER
+                temp_ws.cell(write_row, col).border = BORDER_ALL
+            write_row += 1
 
-    for row in range(2, ws.max_row+1):
-        while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is not None and ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value not in new_class_list:
-            ws.delete_rows(row)
+        temp_ws["Z1"] = "Y"
+        temp_ws.column_dimensions.group("Z", hidden=True)
+        temp_ws.freeze_panes = "A2"
+        temp_ws.auto_filter.ref = f"A1:{gcl(ClassInfo.MAX)}{write_row - 1}"
+        for col, width in zip("ABCDE", (30, 18, 18, 14, 22)):
+            temp_ws.column_dimensions[col].width = width
+        if write_row > 2:
+            dv = DataValidation(type="list", formula1="=$Z$1", allow_blank=True,
+                                errorStyle="stop", showErrorMessage=True)
+            dv.error = "이 셀의 값은 'Y'이어야 합니다."
+            temp_ws.add_data_validation(dv)
+            dv.add(f"{gcl(ClassInfo.MOCKTEST_CHECK_COLUMN)}2:{gcl(ClassInfo.MOCKTEST_CHECK_COLUMN)}{write_row - 1}")
 
-    temp_path = os.path.abspath(f'{tdm.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
-
-    if len(unregistered_class_names) == 0:
-        save_to_temp(wb)
-        return temp_path
-
-    for row in range(ws.max_row+1, 1, -1):
-        if ws.cell(row-1, ClassInfo.CLASS_NAME_COLUMN).value is not None:
-            WRITE_RANGE = WRITE_ROW = row
-            break
-
-    for row, class_name in enumerate(unregistered_class_names, start=WRITE_ROW):
-        ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
-
-    for row in range(WRITE_RANGE, ws.max_row + 1):
-        if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is None: break
-        for col in range(1, ClassInfo.MAX + 1):
-            ws.cell(row, col).alignment = ALIGN_CENTER
-            ws.cell(row, col).border    = BORDER_ALL
-
-    save_to_temp(wb)
-
-    return temp_path
+        save_to_temp(temp_wb)
+        return os.path.abspath(f'{tdm.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
+    finally:
+        wb.close()
+        temp_wb.close()
 
 def change_class_info(target_class_name:str, target_teacher_name:str):
     """

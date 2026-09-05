@@ -247,13 +247,46 @@ export default function UpdateClassView({ meta }: ViewProps) {
   }, []);
 
   const loadData = async () => {
+    let timeoutId: number | undefined;
+    const pending = new Set<string>();
+    const fetchData = async (method: string, label: string) => {
+      pending.add(label);
+      try {
+        const res = await rpc.call(method, {}).catch((e: unknown) => {
+          throw Object.assign(new Error(`통신 오류: ${e instanceof Error ? e.message : String(e)}`), {
+            detail: e instanceof Error ? e.stack || e.message : String(e),
+          });
+        });
+        if (!res?.ok) {
+          throw Object.assign(new Error(res?.error || "서버에서 오류 원인을 제공하지 않았습니다."), {
+            detail: res?.detail || res?.error || "응답에 성공 여부 또는 오류 정보가 없습니다.",
+          });
+        }
+        return res;
+      } catch (e) {
+        throw Object.assign(new Error(`${label} 조회 실패: ${e instanceof Error ? e.message : String(e)}`), {
+          detail: `조회 대상: ${label}\nRPC: ${method}\n${e instanceof Error && "detail" in e ? String(e.detail) : e instanceof Error ? e.stack || e.message : String(e)}`,
+        });
+      } finally {
+        pending.delete(label);
+      }
+    };
     try {
       setLoading(true);
       setQuery("");
-      const [dfRes, aisosicRes] = await Promise.all([
-        rpc.call("get_datafile_data", {}),
-        rpc.call("get_aisosic_data", {}), // ★ 아이소식 전체 목록(string[])
-      ]);
+      const [dfRes, aisosicRes] = await Promise.race([
+        Promise.all([
+          fetchData("get_datafile_data", "데이터 파일"),
+          fetchData("get_aisosic_data", "아이소식"),
+        ]),
+        new Promise<never>((_, reject) => {
+          timeoutId = window.setTimeout(() => {
+            reject(Object.assign(new Error(`반 목록 조회 시간이 30초를 초과했습니다.\n응답 대기 중: ${[...pending].join(", ")}`), {
+              detail: "조회 시작 후 30초 안에 응답을 받지 못했습니다.\n응답이 없어 서버 내부의 정확한 실패 원인은 확인할 수 없습니다.\n시간 제한은 화면의 대기에만 적용되며, 백엔드 요청은 계속 실행될 수 있습니다.",
+            }));
+          }, 30_000);
+        }),
+      ]).finally(() => window.clearTimeout(timeoutId));
       
       if(dfRes.ok && aisosicRes.ok){
         // 데이터 파일의 반 목록
@@ -295,15 +328,16 @@ export default function UpdateClassView({ meta }: ViewProps) {
   
         right.setItems([]); // 초기엔 비움
         left.clearSelection(); center.clearSelection(); right.clearSelection();
-      } else if (!dfRes.ok) {
-        await dialog.error({ title: "데이터 파일 데이터 수집 실패", message: dfRes?.error || "", detail: dfRes?.detail })
-      } else if (!aisosicRes.ok) {
-        await dialog.error({ title: "아이소식 데이터 수집 실패", message: aisosicRes?.error || "", detail: aisosicRes?.detail })
       }
     } catch (e) {
       left.setItems([]); center.setItems([]); right.setItems([]);
       left.clearSelection(); center.clearSelection(); right.clearSelection();
       console.error(e);
+      await dialog.error({
+        title: "반 목록 조회 실패",
+        message: `${e instanceof Error ? e.message : String(e)}\n새로고침을 눌러 다시 시도해 주세요.`,
+        detail: e instanceof Error && "detail" in e ? String(e.detail) : e instanceof Error ? e.stack || e.message : String(e),
+      });
     } finally {
       setLoading(false);
     }
