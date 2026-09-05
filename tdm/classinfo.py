@@ -1,6 +1,8 @@
 import os
 import openpyxl as xl
 import zipfile
+from copy import copy
+from shutil import copy2
 
 from datetime import datetime
 from openpyxl.utils.cell import get_column_letter as gcl
@@ -14,7 +16,6 @@ from tdm.defs import ClassInfo
 from tdm.exception import NoMatchingSheetException, FileOpenException, ReopenFileException
 from tdm.progress import Progress
 from tdm.style import BORDER_ALL, ALIGN_CENTER, ALIGN_CENTER_WRAP
-from tdm.sparse_worksheet import named_rows, delete_rows_sparse
 
 # 파일 기본 작업
 def make_file():
@@ -93,8 +94,10 @@ def make_backup_file():
         os.mkdir(f"{tdm.config.DATA_DIR}/data")
     if not os.path.isdir(f"{tdm.config.DATA_DIR}/data/backup"):
         os.mkdir(f"{tdm.config.DATA_DIR}/data/backup")
-    wb = open(read_only=False)
-    wb.save(f"{tdm.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx")
+    copy2(
+        f"{tdm.config.DATA_DIR}/{ClassInfo.DEFAULT_NAME}.xlsx",
+        f"{tdm.config.DATA_DIR}/data/backup/{ClassInfo.DEFAULT_NAME}({datetime.today().strftime('%Y%m%d%H%M%S')}).xlsx",
+    )
 
 def get_class_info(class_name:str, ws:Worksheet = None):
     """
@@ -165,27 +168,60 @@ def make_temp_file_for_update(new_class_list:list[str]):
     """
     make_backup_file()
 
-    wb = open(read_only=False)
+    wb = open(data_only=False, read_only=True)
+    temp_wb = xl.Workbook()
     try:
         ws = open_worksheet(wb)
-        classes = named_rows(ws, ClassInfo.CLASS_NAME_COLUMN)
+        temp_ws = temp_wb.active
+        temp_ws.title = ClassInfo.DEFAULT_NAME
         selected_names = set(new_class_list)
-        new_names = sorted(selected_names.difference(name for _, name in classes))
+        existing_names = set()
+        write_row = 2
 
-        delete_rows_sparse(ws, [row for row, name in classes if name not in selected_names])
-        remaining = named_rows(ws, ClassInfo.CLASS_NAME_COLUMN)
-        write_row = remaining[-1][0] + 1 if remaining else 2
+        # 원본의 빈 행, 사용 범위, 필터와 서식만 있는 셀은 새 파일에 복사하지 않는다.
+        for source_row, cells in enumerate(ws.iter_rows(max_col=ClassInfo.MAX), start=1):
+            name = cells[ClassInfo.CLASS_NAME_COLUMN - 1].value
+            if source_row != 1 and (name is None or name not in selected_names):
+                continue
+            target_row = 1 if source_row == 1 else write_row
+            for col, source_cell in enumerate(cells, start=1):
+                target = temp_ws.cell(target_row, col, source_cell.value)
+                if getattr(source_cell, "has_style", False):
+                    target.font = copy(source_cell.font)
+                    target.fill = copy(source_cell.fill)
+                    target.border = copy(source_cell.border)
+                    target.alignment = copy(source_cell.alignment)
+                    target.number_format = source_cell.number_format
+                    target.protection = copy(source_cell.protection)
+            if source_row != 1:
+                existing_names.add(name)
+                write_row += 1
 
-        for row, class_name in enumerate(new_names, start=write_row):
-            ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
+        for class_name in sorted(selected_names.difference(existing_names)):
+            temp_ws.cell(write_row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
             for col in range(1, ClassInfo.MAX + 1):
-                ws.cell(row, col).alignment = ALIGN_CENTER
-                ws.cell(row, col).border = BORDER_ALL
+                temp_ws.cell(write_row, col).alignment = ALIGN_CENTER
+                temp_ws.cell(write_row, col).border = BORDER_ALL
+            write_row += 1
 
-        save_to_temp(wb)
+        temp_ws["Z1"] = "Y"
+        temp_ws.column_dimensions.group("Z", hidden=True)
+        temp_ws.freeze_panes = "A2"
+        temp_ws.auto_filter.ref = f"A1:{gcl(ClassInfo.MAX)}{write_row - 1}"
+        for col, width in zip("ABCDE", (30, 18, 18, 14, 22)):
+            temp_ws.column_dimensions[col].width = width
+        if write_row > 2:
+            dv = DataValidation(type="list", formula1="=$Z$1", allow_blank=True,
+                                errorStyle="stop", showErrorMessage=True)
+            dv.error = "이 셀의 값은 'Y'이어야 합니다."
+            temp_ws.add_data_validation(dv)
+            dv.add(f"{gcl(ClassInfo.MOCKTEST_CHECK_COLUMN)}2:{gcl(ClassInfo.MOCKTEST_CHECK_COLUMN)}{write_row - 1}")
+
+        save_to_temp(temp_wb)
         return os.path.abspath(f'{tdm.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
     finally:
         wb.close()
+        temp_wb.close()
 
 def change_class_info(target_class_name:str, target_teacher_name:str):
     """
