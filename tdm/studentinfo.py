@@ -12,6 +12,7 @@ import tdm.config
 from tdm.defs import StudentInfo
 from tdm.exception import NoMatchingSheetException, FileOpenException, ReopenFileException
 from tdm.style import ALIGN_CENTER, ALIGN_CENTER_WRAP, BORDER_ALL
+from tdm.sparse_worksheet import named_rows, delete_rows_sparse as _delete_student_rows
 
 # 파일 기본 작업
 def make_file() -> bool:
@@ -60,14 +61,19 @@ def isopen() -> bool:
     return os.path.isfile(f"{tdm.config.DATA_DIR}/~${StudentInfo.DEFAULT_NAME}.xlsx")
 
 # 파일 유틸리티
+def _student_rows(ws: Worksheet) -> list[tuple[int, str]]:
+    """빈 셀을 만들지 않고 이름이 저장된 행만 순서대로 찾는다."""
+    return named_rows(ws, StudentInfo.STUDENT_NAME_COLUMN)
+
+
 def get_student_info(ws:Worksheet, student_name:str):
     """
     학생 정보 파일로부터 학생 정보 추출
 
     return 파일 내 학생 존재 여부, 재시험 요일, 재시험 시간, 신규생 여부
     """
-    for row in range(2, ws.max_row+1):
-        if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == student_name:
+    for row, name in _student_rows(ws):
+        if name == student_name:
             makeup_test_weekday = ws.cell(row, StudentInfo.MAKEUPTEST_WEEKDAY_COLUMN).value
             makeup_test_time    = ws.cell(row, StudentInfo.MAKEUPTEST_TIME_COLUMN).value
             new_studnet         = ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value
@@ -85,15 +91,13 @@ def add_student(target_student_name:str):
     wb = open()
     ws = open_worksheet(wb)
 
-    for row in range(ws.max_row+1, 1, -1):
-        if ws.cell(row-1, StudentInfo.STUDENT_NAME_COLUMN).value is not None:
-            ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value      = target_student_name
-            # ws.cell(row, StudentInfo.CLASS_NAME_COLUMN).value      = target_class_name
-            ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value = "N"
-            for col in range(1, StudentInfo.MAX+1):
-                ws.cell(row, col).alignment = ALIGN_CENTER
-                ws.cell(row, col).border    = BORDER_ALL
-            break
+    students = _student_rows(ws)
+    row = students[-1][0] + 1 if students else 2
+    ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value = target_student_name
+    ws.cell(row, StudentInfo.NEW_STUDENT_CHECK_COLUMN).value = "N"
+    for col in range(1, StudentInfo.MAX+1):
+        ws.cell(row, col).alignment = ALIGN_CENTER
+        ws.cell(row, col).border = BORDER_ALL
 
     save(wb)
 
@@ -104,9 +108,7 @@ def delete_student(target_student_name:str):
     wb = open()
     ws = open_worksheet(wb)
 
-    for row in range(2, ws.max_row+1):
-        if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value == target_student_name:
-            ws.delete_rows(row)
+    _delete_student_rows(ws, [row for row, name in _student_rows(ws) if name == target_student_name])
 
     save(wb)
 
@@ -118,15 +120,13 @@ def update_student(wb:xl.Workbook=None):
 
     ws = open_worksheet(wb)
 
-    student_names = [ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value for row in range(2, ws.max_row+1)]
+    students = _student_rows(ws)
+    student_names = {name for _, name in students}
     
     deleted_student_names      = set(student_names).difference(latest_student_names)
     unregistered_student_names = list(set(latest_student_names).difference(student_names))
     
-    for row in range(ws.max_row+1, 1, -1):
-        if ws.cell(row-1, StudentInfo.STUDENT_NAME_COLUMN).value is not None:
-            WRITE_ROW = row
-            break
+    WRITE_ROW = students[-1][0] + 1 if students else 2
     
     for student_name in sorted(unregistered_student_names):
         ws.cell(WRITE_ROW, StudentInfo.STUDENT_NAME_COLUMN).value = student_name
@@ -142,8 +142,6 @@ def update_student(wb:xl.Workbook=None):
 
         WRITE_ROW += 1
 
-    for row in range(ws.max_row, 1, -1):
-        if ws.cell(row, StudentInfo.STUDENT_NAME_COLUMN).value in deleted_student_names:
-            ws.delete_rows(row)
+    _delete_student_rows(ws, [row for row, name in students if name in deleted_student_names])
 
     save(wb)

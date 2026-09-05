@@ -14,6 +14,7 @@ from tdm.defs import ClassInfo
 from tdm.exception import NoMatchingSheetException, FileOpenException, ReopenFileException
 from tdm.progress import Progress
 from tdm.style import BORDER_ALL, ALIGN_CENTER, ALIGN_CENTER_WRAP
+from tdm.sparse_worksheet import named_rows, delete_rows_sparse
 
 # 파일 기본 작업
 def make_file():
@@ -123,14 +124,20 @@ def get_class_names(ws:Worksheet = None, mocktest = False) -> list[str]:
     """
     if ws is None:
         wb = open()
-        ws = open_worksheet(wb)
+        try:
+            return get_class_names(open_worksheet(wb), mocktest=mocktest)
+        finally:
+            wb.close()
 
     class_names = []
-    for row in range(2, ws.max_row + 1):
-        class_name = ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value
-        if class_name is not None:
-            class_names.append(class_name)
-        if mocktest and ws.cell(row, ClassInfo.MOCKTEST_CHECK_COLUMN).value == "Y":
+    # 읽기 전용 시트의 cell() 반복 호출은 매번 XML을 다시 읽으므로 한 번에 순회한다.
+    max_col = ClassInfo.MOCKTEST_CHECK_COLUMN if mocktest else ClassInfo.CLASS_NAME_COLUMN
+    for row in ws.iter_rows(min_row=2, max_col=max_col, values_only=True):
+        class_name = row[ClassInfo.CLASS_NAME_COLUMN - 1]
+        if class_name is None:
+            continue
+        class_names.append(class_name)
+        if mocktest and row[ClassInfo.MOCKTEST_CHECK_COLUMN - 1] == "Y":
             class_names.append(class_name + " (모의고사)")
 
     return sorted(class_names)
@@ -159,39 +166,26 @@ def make_temp_file_for_update(new_class_list:list[str]):
     make_backup_file()
 
     wb = open(read_only=False)
-    ws = open_worksheet(wb)
+    try:
+        ws = open_worksheet(wb)
+        classes = named_rows(ws, ClassInfo.CLASS_NAME_COLUMN)
+        selected_names = set(new_class_list)
+        new_names = sorted(selected_names.difference(name for _, name in classes))
 
-    class_names = set(get_class_names(ws))
+        delete_rows_sparse(ws, [row for row, name in classes if name not in selected_names])
+        remaining = named_rows(ws, ClassInfo.CLASS_NAME_COLUMN)
+        write_row = remaining[-1][0] + 1 if remaining else 2
 
-    unregistered_class_names = sorted(list(set(new_class_list).difference(class_names)))
+        for row, class_name in enumerate(new_names, start=write_row):
+            ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
+            for col in range(1, ClassInfo.MAX + 1):
+                ws.cell(row, col).alignment = ALIGN_CENTER
+                ws.cell(row, col).border = BORDER_ALL
 
-    for row in range(2, ws.max_row+1):
-        while ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is not None and ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value not in new_class_list:
-            ws.delete_rows(row)
-
-    temp_path = os.path.abspath(f'{tdm.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
-
-    if len(unregistered_class_names) == 0:
         save_to_temp(wb)
-        return temp_path
-
-    for row in range(ws.max_row+1, 1, -1):
-        if ws.cell(row-1, ClassInfo.CLASS_NAME_COLUMN).value is not None:
-            WRITE_RANGE = WRITE_ROW = row
-            break
-
-    for row, class_name in enumerate(unregistered_class_names, start=WRITE_ROW):
-        ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value = class_name
-
-    for row in range(WRITE_RANGE, ws.max_row + 1):
-        if ws.cell(row, ClassInfo.CLASS_NAME_COLUMN).value is None: break
-        for col in range(1, ClassInfo.MAX + 1):
-            ws.cell(row, col).alignment = ALIGN_CENTER
-            ws.cell(row, col).border    = BORDER_ALL
-
-    save_to_temp(wb)
-
-    return temp_path
+        return os.path.abspath(f'{tdm.config.DATA_DIR}/{ClassInfo.TEMP_FILE_NAME}.xlsx')
+    finally:
+        wb.close()
 
 def change_class_info(target_class_name:str, target_teacher_name:str):
     """

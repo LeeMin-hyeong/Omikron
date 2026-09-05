@@ -199,12 +199,16 @@ def get_data_sorted_dict(mocktest = False):
     CLASS_NAME_COLUMN, _, STUDENT_NAME_COLUMN, AVERAGE_SCORE_COLUMN = find_dynamic_columns(ws)
 
     class_wb = tdm.classinfo.open()
-    class_ws = tdm.classinfo.open_worksheet(class_wb)
+    try:
+        class_ws = tdm.classinfo.open_worksheet(class_wb)
+        class_names = tdm.classinfo.get_class_names(class_ws, mocktest=mocktest)
+    finally:
+        class_wb.close()
 
     class_student_dict = {}
     class_test_dict    = {}
 
-    for class_name in tdm.classinfo.get_class_names(class_ws, mocktest=mocktest):
+    for class_name in class_names:
         student_index_dict = {}
         test_index_dict    = {}
         for row in range(2, ws.max_row+1):
