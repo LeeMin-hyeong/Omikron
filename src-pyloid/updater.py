@@ -1,245 +1,65 @@
-import json
+"""Windows updater: background file work, main-thread dialogs, recoverable installs."""
+
+import ctypes
 import os
-import shutil
-import sys
-import time
-import zipfile
-import threading
-import hashlib
-import subprocess
 from pathlib import Path
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
+from queue import Empty, Queue
+import sys
+import tempfile
+import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
-# ===================== 사용자 설정 =====================
-GITHUB_OWNER = "LeeMin-hyeong"
-GITHUB_REPO  = "TestDataManagement"
-ASSET_NAME_CONTAINS = "tdm-win.zip"   # 릴리스 ZIP 자산 이름 일부
-SHA256_SUFFIX       = ".sha256"          # (선택) 체크섬 파일 suffix
-MAIN_EXE_NAME       = "main.exe"
-LOCAL_VERSION_FILE  = "version.txt"      # 루트 버전 파일
-ZIP_VERSION_FILE    = "version.txt"      # zip 내부 버전 파일 (tdm/version.txt)
-LAUNCH_ARGS         = []                 # main.exe 실행 시 전달할 인자
-GITHUB_TOKEN        = None               # 필요시 GitHub PAT
-HTTP_TIMEOUT        = 30
+import updater_core as core
 
-# ===================== 경로 처리 =====================
-if getattr(sys, 'frozen', False):
-    ROOT = Path(sys.executable).parent
-else:
-    ROOT = Path(__file__).parent
+ROOT = (Path(sys.executable).parent if getattr(sys, "frozen", False)
+        else Path(__file__).parent).resolve()
 
-def resource_path(relative: str) -> Path:
-    """PyInstaller 환경에서도 자원 경로를 올바르게 찾기 위한 헬퍼."""
-    if hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS) / relative
-    return Path(f"{relative}")
 
-MAIN_EXE_PATH  = ROOT / MAIN_EXE_NAME
-LOCAL_VER_PATH = ROOT / LOCAL_VERSION_FILE
+def resource_path(relative):
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent)) / relative
 
-TMP_DIR       = ROOT / ".update_tmp"
-DOWNLOAD_DIR  = TMP_DIR / "downloads"
-STAGING_DIR   = TMP_DIR / "staging"
-BACKUP_ROOT   = TMP_DIR / "backup"
 
-for d in (TMP_DIR, DOWNLOAD_DIR, STAGING_DIR, BACKUP_ROOT):
-    d.mkdir(parents=True, exist_ok=True)
+def log(message):
+    core.LOGGER.info(message)
 
-# 루트에 배치될 대상들
-PAYLOAD_FILES = [MAIN_EXE_NAME]   # main.exe
-PAYLOAD_DIRS  = ["_internal"]     # _internal/
 
-# ===================== 로깅 =====================
-def log(msg: str):
-    print(f"[updater] {msg}", flush=True)
-
-# ===================== GitHub 통신 =====================
-def gh_get(url: str) -> bytes:
-    headers = {"User-Agent": "tdm-updater"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
-    req = Request(url, headers=headers)
-    return urlopen(req, timeout=HTTP_TIMEOUT).read()
-
-def fetch_latest_zip_asset():
-    """latest 릴리스 정보에서 ZIP 자산과 SHA256 자산 찾기."""
-    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
-    data = gh_get(url)
-    j = json.loads(data.decode("utf-8"))
-
-    tag = (j.get("tag_name") or j.get("name") or "").lstrip("vV")
-    asset = None
-    sha_asset = None
-
-    for a in j.get("assets", []):
-        name = a.get("name", "")
-        if ASSET_NAME_CONTAINS in name and name.endswith(".zip"):
-            asset = a
-        if name.endswith(SHA256_SUFFIX) and ASSET_NAME_CONTAINS in name.replace(SHA256_SUFFIX, ""):
-            sha_asset = a
-
-    return tag, asset, sha_asset
-
-def download_asset(asset, dst: Path) -> Path:
-    headers = {"User-Agent": "tdm-updater"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
-    req = Request(asset["browser_download_url"], headers=headers)
-    with urlopen(req, timeout=HTTP_TIMEOUT) as r, open(dst, "wb") as f:
-        shutil.copyfileobj(r, f)
-    return dst
-
-# ===================== 버전 / 체크섬 =====================
-def read_local_version() -> str:
-    if LOCAL_VER_PATH.exists():
-        return LOCAL_VER_PATH.read_text(encoding="utf-8").strip().lstrip("vV")
-    return "0.0.0"
-
-def parse_semver(v: str):
-    return [int(x) for x in v.strip().split(".") if x.isdigit()]
-
-def cmp_semver(a: str, b: str) -> int:
-    pa, pb = parse_semver(a), parse_semver(b)
-    la, lb = len(pa), len(pb)
-    if la < lb:
-        pa += [0] * (lb - la)
-    elif lb < la:
-        pb += [0] * (la - lb)
-    return (pa > pb) - (pa < pb)
-
-def sha256_file(p: Path) -> str:
-    h = hashlib.sha256()
-    with open(p, "rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-def verify_sha256(file_path: Path, sha_text: str):
-    want = sha_text.strip().split()[0].lower()
-    got = sha256_file(file_path).lower()
-    if want != got:
-        raise RuntimeError(f"SHA256 mismatch: expected {want}, got {got}")
-
-# ===================== ZIP / 설치 =====================
-def is_main_running() -> bool:
-    """Windows에서 main.exe가 이미 떠 있는지 확인."""
-    if os.name != "nt":
-        return False
+def show_dialog(parent, kind, title, message):
+    """Keep errors visible even when Tk itself cannot create a dialog."""
     try:
-        out = subprocess.check_output(
-            ["tasklist", "/FI", f"IMAGENAME eq {MAIN_EXE_NAME}"]
-        ).decode("cp949", errors="ignore")
-        return MAIN_EXE_NAME.lower() in out.lower()
-    except Exception as e:
-        log(f"실행 여부 확인 실패(무시): {e}")
-        return False
+        getattr(messagebox, kind)(title, message, parent=parent)
+    except Exception:
+        core.LOGGER.exception("Tk dialog failed")
+        if os.name != "nt":
+            raise
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.MessageBoxW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint]
+        user32.MessageBoxW.restype = ctypes.c_int
+        icon = 0x10 if kind == "showerror" else 0x30 if kind == "showwarning" else 0x40
+        if not user32.MessageBoxW(None, message, title, icon | 0x10000 | 0x40000):
+            raise ctypes.WinError(ctypes.get_last_error())
 
-def safe_extract_zip(zip_path: Path, dest_dir: Path):
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        for m in zf.infolist():
-            member = Path(m.filename)
-            if member.is_absolute() or ".." in member.parts:
-                raise RuntimeError(f"Unsafe path in zip: {m.filename}")
-        zf.extractall(dest_dir)
 
-def find_new_root(staging_root: Path) -> Path:
-    """staging_root/tdm 을 새 버전 루트로 사용."""
-    tdm_dir = staging_root / "tdm-win"
-    if tdm_dir.exists() and tdm_dir.is_dir():
-        return tdm_dir
-    raise RuntimeError("스테이징에서 tdm 폴더를 찾지 못했습니다.")
+def error_details(exc):
+    message = core.describe_error(exc)
+    if isinstance(exc, core.InstallError) and not exc.rollback_ok:
+        message += ("\n\n프로그램을 실행하지 않았습니다. 백업 폴더를 삭제하지 말고 관리자에게 문의해 주세요."
+                    f"\n백업 위치: {exc.backup_dir}")
+    message += f"\n\n로그 파일: {core.LOG_PATH}" if core.LOG_PATH else "\n\n로그 파일을 저장하지 못했습니다. 이 오류 내용을 보관해 주세요."
+    return message
 
-def install_new_version(new_root: Path):
-    """
-    new_root: STAGING_DIR/tdm
-    - main.exe   → ROOT/main.exe
-    - _internal/ → ROOT/_internal
-    - version.txt → ROOT/version.txt
-    """
-    ts = time.strftime("%Y%m%d-%H%M%S")
-    backup_dir = BACKUP_ROOT / f"backup-{ts}"
-    backup_dir.mkdir(parents=True, exist_ok=True)
-
-    try:
-        # 기존 payload 백업
-        for fname in PAYLOAD_FILES:
-            target = ROOT / fname
-            if target.exists():
-                target.replace(backup_dir / fname)
-
-        for dname in PAYLOAD_DIRS:
-            target = ROOT / dname
-            if target.exists():
-                target.replace(backup_dir / dname)
-
-        # 새 파일/폴더 이동
-        for fname in PAYLOAD_FILES:
-            src = new_root / fname
-            if not src.exists():
-                raise RuntimeError(f"새 버전에서 {fname} 를 찾을 수 없습니다.")
-            dst = ROOT / fname
-            src.replace(dst)
-
-        for dname in PAYLOAD_DIRS:
-            src_dir = new_root / dname
-            if not src_dir.exists():
-                raise RuntimeError(f"새 버전에서 {dname}/ 디렉터리를 찾을 수 없습니다.")
-            dst_dir = ROOT / dname
-            src_dir.replace(dst_dir)
-
-        # version.txt
-        zip_ver_path = new_root / ZIP_VERSION_FILE
-        if zip_ver_path.exists():
-            new_ver = zip_ver_path.read_text(encoding="utf-8").strip()
-            LOCAL_VER_PATH.write_text(new_ver, encoding="utf-8")
-
-        # 성공 → 백업 삭제
-        shutil.rmtree(backup_dir, ignore_errors=True)
-
-    except Exception as e:
-        log(f"설치 중 오류: {e}")
-        # 롤백
-        try:
-            for fname in PAYLOAD_FILES:
-                t = ROOT / fname
-                if t.exists() and t.is_file():
-                    t.unlink()
-
-            for dname in PAYLOAD_DIRS:
-                tdir = ROOT / dname
-                if tdir.exists():
-                    shutil.rmtree(tdir, ignore_errors=True)
-
-            for fname in PAYLOAD_FILES:
-                b = backup_dir / fname
-                if b.exists():
-                    b.replace(ROOT / fname)
-            for dname in PAYLOAD_DIRS:
-                bdir = backup_dir / dname
-                if bdir.exists():
-                    bdir.replace(ROOT / dname)
-        except Exception as e2:
-            log(f"롤백 실패: {e2}")
-        raise
-
-def launch_main():
-    try:
-        subprocess.Popen(
-            [str(MAIN_EXE_PATH), *LAUNCH_ARGS],
-            cwd=str(ROOT),
-            close_fds=True
-        )
-    except Exception as e:
-        log(f"메인 실행 실패: {e}")
-    sys.exit(0)
 
 # ===================== 스플래시 UI =====================
 class Updater:
     def __init__(self):
         self.root = tk.Tk()
+        self.events = Queue()
+        self.closed = False
+        self.exit_code = 0
+        self.worker = None
+        self.fatal_ui_error = False
+        self.root.report_callback_exception = self._callback_error
+        self.root.protocol("WM_DELETE_WINDOW", self._request_close)
 
         # === 윈도우 프레임 제거 & 항상 위 ===
         self.root.overrideredirect(True)
@@ -366,6 +186,7 @@ class Updater:
         )
 
         # 100ms 후 업데이트 쓰레드 시작
+        self.root.after(100, self._drain_events)
         self.root.after(100, self.start_update_thread)
 
     # ------------------ UI 보조 메서드 ------------------
@@ -423,102 +244,215 @@ class Updater:
         self.root.bind("<B1-Motion>", on_move)
 
     def set_status(self, text: str, progress: float | None = None):
-        """메인 스레드에서 안전하게 UI 업데이트."""
-        def _update():
-            self.status_var.set(text)
-            if progress is not None:
-                self.progress_var.set(progress)
-        self.root.after(0, _update)
+        # Only Queue operations occur on a worker thread; even root.after is Tk.
+        self.events.put(("status", text, progress))
 
-    # ------------------ 업데이트 플로우 ------------------
+    def _drain_events(self):
+        try:
+            if self.fatal_ui_error:
+                if not self.worker or not self.worker.is_alive():
+                    self._close(1)
+                return
+            while not self.closed:
+                try:
+                    event = self.events.get_nowait()
+                except Empty:
+                    break
+                kind, *args = event
+                if kind == "status":
+                    self.status_var.set(args[0])
+                    if args[1] is not None:
+                        self.progress_var.set(args[1])
+                elif kind == "update_failed":
+                    exc, can_launch = args
+                    message = error_details(exc)
+                    if can_launch:
+                        message += "\n\n확인을 누르면 업데이트 이전 프로그램의 실행을 시도합니다."
+                    show_dialog(self.root, "showwarning" if can_launch else "showerror",
+                                "tdm 업데이트 실패", message)
+                    if can_launch:
+                        self._start_worker(self._launch_existing)
+                    else:
+                        self._close(1)
+                elif kind == "launch_failed":
+                    show_dialog(self.root, "showerror", "tdm 실행 실패", error_details(args[0]))
+                    self._close(1)
+                elif kind == "info_close":
+                    show_dialog(self.root, "showinfo", "tdm", args[0])
+                    self._close(0)
+                elif kind == "cleanup_warning":
+                    show_dialog(self.root, "showwarning", "tdm 임시 파일 정리 안내", args[0])
+                elif kind == "finished":
+                    warnings = args[0]
+                    if warnings:
+                        show_dialog(self.root, "showwarning", "tdm 업데이트 안내", "\n\n".join(warnings))
+                    self._close(0)
+        except Exception as exc:
+            self._callback_error(type(exc), exc, exc.__traceback__)
+        finally:
+            if not self.closed:
+                self.root.after(100, self._drain_events)
+
+    def _callback_error(self, exc_type, exc, traceback):
+        core.LOGGER.error("Updater UI callback failed", exc_info=(exc_type, exc, traceback))
+        self.fatal_ui_error = True
+        show_dialog(self.root, "showerror", "tdm 업데이트 창 오류", error_details(exc))
+        # A UI callback failure must not kill a worker in the middle of a rename.
+        if not self.worker or not self.worker.is_alive():
+            self._close(1)
+
+    def _request_close(self):
+        if (not self.worker or not self.worker.is_alive()) and self.events.empty():
+            self._close(0)
+            return
+        show_dialog(self.root, "showinfo", "tdm", "프로그램 파일을 보호하기 위해 업데이트와 실행 확인이 끝날 때까지 기다려 주세요.")
+
+    def _close(self, code):
+        self.exit_code = code
+        self.closed = True
+        self.root.destroy()
+
+    def _start_worker(self, target):
+        # Non-daemon: closing the UI must not interrupt a pending file transaction.
+        try:
+            self.worker = threading.Thread(target=target, daemon=False)
+            self.worker.start()
+        except Exception as exc:
+            core.LOGGER.exception("Could not start updater worker")
+            self.events.put(("launch_failed", core.UpdateError(f"업데이트 작업을 시작하지 못했습니다.\n{core.describe_error(exc)}")))
+
     def start_update_thread(self):
-        t = threading.Thread(target=self.run_update_flow, daemon=True)
-        t.start()
+        self._start_worker(self.run_update_flow)
 
     def run_update_flow(self):
-        if is_main_running():
-            log("메인 프로그램이 이미 실행 중입니다. 업데이트를 건너뜁니다.")
-            self.set_status("이미 tdm이 실행 중입니다.", 100)
-            time.sleep(1.5)
-
-            def _close():
-                self.root.destroy()
-            self.root.after(0, _close)
-            return
-
-        # 1. 현재 버전 읽기
-        self.set_status("현재 버전 확인 중…", 10)
-        current = read_local_version()
-        log(f"현재 버전: {current}")
-
+        transaction = None
+        process = None
+        temporary = None
+        can_launch = False
+        launching = False
+        warnings = []
+        terminal_event = None
         try:
-            # 2. GitHub latest 확인
-            self.set_status("서버에서 최신 버전 확인 중…", 25)
-            latest, asset, sha_asset = fetch_latest_zip_asset()
-            if not asset:
-                log("릴리스 ZIP 자산을 찾지 못했습니다.")
-                self.set_status("업데이트 정보를 찾지 못했습니다.\n앱을 실행합니다.", 100)
-                time.sleep(0.5)
-                self.finish_and_launch()
+            self.set_status("프로그램 실행 상태 확인 중…", 5)
+            if core.is_main_running(ROOT):
+                terminal_event = ("info_close", "이 폴더의 tdm이 이미 실행 중입니다. 기존 프로그램 창이나 작업 표시줄의 tdm 아이콘을 확인해 주세요.")
                 return
 
-            if cmp_semver(current, latest) >= 0:
-                log(f"최신입니다. (latest={latest})")
-                self.set_status("이미 최신 버전입니다.\n앱을 실행합니다.", 100)
-                time.sleep(0.5)
-                self.finish_and_launch()
+            # Interrupted installs must be recovered before even reading version.txt.
+            self.set_status("이전 업데이트 상태 확인 중…", 10)
+            warnings.extend(core.recover_pending(ROOT))
+            can_launch = True
+            current = core.read_local_version(ROOT)
+            self.set_status("서버에서 최신 버전 확인 중…", 20)
+            latest, asset, checksum = core.fetch_latest_zip_asset()
+            if core.cmp_semver(current, latest) < 0:
+                working_root = core.safe_child(ROOT, ".update_tmp")
+                working_root.mkdir(parents=True, exist_ok=True)
+                temporary = tempfile.TemporaryDirectory(prefix="run-", dir=working_root)
+                working = Path(temporary.name)
+                self.set_status("업데이트 파일 다운로드 중…", 40)
+                archive = core.download_asset(asset, working / "update.zip")
+                if checksum:
+                    self.set_status("파일 무결성 확인 중…", 55)
+                    core.verify_sha256(archive, core.gh_get(checksum["browser_download_url"]).decode("utf-8-sig"))
+                else:
+                    core.LOGGER.info("Release has no optional SHA256 asset")
+                self.set_status("업데이트 파일 압축 해제 중…", 65)
+                staging = working / "staging"
+                core.safe_extract_zip(archive, staging)
+                new_root = core.safe_child(staging, "tdm-win")
+                core.validate_payload(new_root)
+                if core.is_main_running(ROOT):
+                    can_launch = False
+                    raise core.UpdateError("업데이트 준비 중 tdm이 실행되었습니다. 프로그램을 종료한 후 다시 실행해 주세요.")
+                self.set_status("업데이트 적용 중…", 80)
+                transaction = core.Transaction(ROOT, new_root, latest)
+                transaction.install()
+
+            self.set_status("프로그램 시작 확인 중…", 95)
+            launching = True
+            process = core.launch_main(ROOT)
+            if transaction:
+                # Only commit after process creation and the early-exit observation.
+                try:
+                    warning = transaction.commit()
+                    if warning:
+                        warnings.append(warning)
+                except Exception as exc:
+                    # Main is live: never roll back files it may have loaded.
+                    core.LOGGER.exception("Could not finalize update while main is running")
+                    warnings.append("프로그램을 실행했으나 업데이트 완료 기록을 저장하지 못했습니다. "
+                                    "프로그램을 종료한 뒤 업데이터를 다시 실행하면 이전 상태로 복구합니다.\n"
+                                    + error_details(exc) + f"\n백업 위치: {transaction.directory}")
+            terminal_event = ("finished", warnings)
+        except Exception as exc:
+            core.LOGGER.exception("Update or launch failed")
+            if transaction and transaction.record and transaction.record["phase"] == "pending" and process is None:
+                try:
+                    # Do not overwrite a concurrent main process or a live child.
+                    if core.is_main_running(ROOT):
+                        raise core.UpdateError("main.exe가 실행 중이어서 지금 파일을 복구할 수 없습니다.")
+                    transaction.rollback()
+                    exc = core.InstallError(f"{core.describe_error(exc)}\n업데이트 이전 상태로 복구했습니다.",
+                                            rollback_ok=True, backup_dir=transaction.directory)
+                except Exception as recovery:
+                    core.LOGGER.exception("Rollback failed")
+                    exc = core.InstallError(f"{core.describe_error(exc)}\n복구 실패: {core.describe_error(recovery)}",
+                                            rollback_ok=False, backup_dir=transaction.directory)
+            if isinstance(exc, core.InstallError) and not exc.rollback_ok:
+                can_launch = False
+            # No installed update means this can also be a normal launch failure.
+            if process is None and transaction is None and launching:
+                terminal_event = ("launch_failed", exc)
+            else:
+                terminal_event = ("update_failed", exc, can_launch)
+        finally:
+            if temporary:
+                try:
+                    # TemporaryDirectory owns this specific run directory only.
+                    temporary.cleanup()
+                except OSError as cleanup_error:
+                    core.LOGGER.warning("Staging cleanup failed: %s", temporary.name, exc_info=True)
+                    cleanup_message = ("업데이트 임시 파일 정리를 완료하지 못했습니다.\n"
+                                       f"{temporary.name}\n{error_details(cleanup_error)}")
+                    if terminal_event and terminal_event[0] == "finished":
+                        warnings.append(cleanup_message)
+                    else:
+                        self.events.put(("cleanup_warning", cleanup_message))
+            if terminal_event:
+                self.events.put(terminal_event)
+
+    def _launch_existing(self):
+        try:
+            self.set_status("기존 프로그램 시작 확인 중…", 95)
+            if core.is_main_running(ROOT):
+                self.events.put(("info_close", "tdm이 이미 실행 중입니다. 기존 프로그램 창을 확인해 주세요."))
                 return
-
-            log(f"업데이트 필요: {current} → {latest}")
-
-            # 3. ZIP 다운로드
-            self.set_status("업데이트 파일 다운로드 중…", 50)
-            zip_path = DOWNLOAD_DIR / asset["name"]
-            download_asset(asset, zip_path)
-
-            # 4. 체크섬 검증(선택)
-            if sha_asset:
-                self.set_status("파일 무결성 확인 중…", 65)
-                sha_text = gh_get(sha_asset["browser_download_url"]).decode("utf-8")
-                verify_sha256(zip_path, sha_text)
-
-            # 5. 스테이징 초기화 및 해제
-            self.set_status("업데이트 파일 압축 해제 중…", 80)
-            if STAGING_DIR.exists():
-                shutil.rmtree(STAGING_DIR, ignore_errors=True)
-            STAGING_DIR.mkdir(parents=True, exist_ok=True)
-            safe_extract_zip(zip_path, STAGING_DIR)
-
-            new_root = find_new_root(STAGING_DIR)
-
-            # 6. 설치
-            self.set_status("업데이트 적용 중…", 90)
-            install_new_version(new_root)
-
-            self.set_status("업데이트 완료!\n앱을 실행합니다.", 100)
-            time.sleep(0.5)
-
-        except (HTTPError, URLError) as e:
-            log(f"네트워크 오류: {e}")
-            self.set_status("네트워크 오류가 발생하였습니다.\n앱을 실행합니다.", 100)
-            time.sleep(0.5)
-        except Exception as e:
-            log(f"업데이트 실패: {e}")
-            self.set_status("업데이트 실패.\n이전 버전으로 실행합니다.", 100)
-            time.sleep(0.5)
-
-        self.finish_and_launch()
-
-    def finish_and_launch(self):
-        def _finish():
-            self.root.destroy()
-            launch_main()
-        self.root.after(0, _finish)
+            core.launch_main(ROOT)
+            self.events.put(("finished", []))
+        except Exception as exc:
+            core.LOGGER.exception("Existing main launch failed")
+            self.events.put(("launch_failed", exc))
 
     def run(self):
         self.root.mainloop()
+        return self.exit_code
 
-# ===================== 엔트리 =====================
+
+def main():
+    lock = core.UpdaterLock(ROOT)
+    try:
+        core.configure_logging()
+        log(f"Updater started: {ROOT}")
+        lock.acquire()
+        return Updater().run()
+    except Exception as exc:
+        core.LOGGER.exception("Updater startup failed")
+        show_dialog(None, "showerror", "tdm 업데이터 실행 실패", error_details(exc))
+        return 1
+    finally:
+        lock.close()
+
+
 if __name__ == "__main__":
-    app = Updater()
-    app.run()
+    sys.exit(main())
